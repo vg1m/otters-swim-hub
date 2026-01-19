@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Swimmer {
+  id            String   @id @default(cuid())
+  firstName     String
+  lastName      String
+  dob           DateTime
+  gender        String
+  parentPhone   String
+  category      String   // COMPETITIVE, LEARN_TO_SWIM, FITNESS
+  squad         String?  // ELITE, DEV1, DEV2, DEV3
+  status        String   @default("PENDING")
+  licenseNo     String?
+  medicalExpiry DateTime?
+}
+
+model Meet {
+  id                   String   @id @default(cuid())
+  name                 String
+  date                 DateTime
+  venue                String
+  course               String
+  entryOpen            DateTime
+  entryClose           DateTime
+  transportFlag        Boolean  @default(false)
+  accommodationFlag    Boolean  @default(false)
+  transportCost        Int?
+  accommodationCost    Int?
+  extractedQts         String?  // Stores parsed QT table as JSON string
+}
