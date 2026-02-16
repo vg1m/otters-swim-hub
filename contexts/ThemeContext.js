@@ -46,11 +46,8 @@ export function ThemeProvider({ children }) {
 export function useTheme() {
   const context = useContext(ThemeContext)
   if (context === undefined) {
-    // Return default values if not in ThemeProvider (SSR)
-    if (typeof window === 'undefined') {
-      return { isDark: false, toggleTheme: () => {} }
-    }
-    throw new Error('useTheme must be used within a ThemeProvider')
+    // Return default values if not in ThemeProvider (SSR or before mount)
+    return { isDark: false, toggleTheme: () => {} }
   }
   return context
 }
