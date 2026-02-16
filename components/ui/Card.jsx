@@ -16,16 +16,16 @@ export default function Card({
 
   return (
     <div 
-      className={`bg-white rounded-lg shadow-custom border border-gray-200 ${className}`}
+      className={`bg-white dark:bg-gray-800 rounded-lg shadow-custom border border-gray-200 dark:border-gray-700 transition-colors duration-200 ${className}`}
       {...props}
     >
       {(title || subtitle) && (
-        <div className={`border-b border-gray-200 ${paddingClasses[padding]}`}>
+        <div className={`border-b border-gray-200 dark:border-gray-700 ${paddingClasses[padding]}`}>
           {title && (
-            <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
           )}
           {subtitle && (
-            <p className="mt-1 text-sm text-gray-600">{subtitle}</p>
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{subtitle}</p>
           )}
         </div>
       )}
@@ -35,7 +35,7 @@ export default function Card({
       </div>
 
       {footer && (
-        <div className={`border-t border-gray-200 bg-gray-50 rounded-b-lg ${paddingClasses[padding]}`}>
+        <div className={`border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 rounded-b-lg ${paddingClasses[padding]}`}>
           {footer}
         </div>
       )}

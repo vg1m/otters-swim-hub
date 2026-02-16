@@ -12,19 +12,19 @@ export default function Home() {
       <Navigation />
       
       {/* Hero Section */}
-      <section className="relative bg-stone-50 py-20 lg:py-32 overflow-hidden">
+      <section className="relative bg-stone-50 dark:bg-gray-900 py-20 lg:py-32 overflow-hidden transition-colors duration-200">
         {/* Floating background blobs */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-20 left-10 w-96 h-96 bg-primary-100 rounded-full blur-3xl opacity-40 animate-float"></div>
-          <div className="absolute bottom-20 right-10 w-96 h-96 bg-accent-lavender rounded-full blur-3xl opacity-40 animate-float-slow"></div>
+          <div className="absolute top-20 left-10 w-96 h-96 bg-primary-100 dark:bg-primary-900/30 rounded-full blur-3xl opacity-40 dark:opacity-20 animate-float"></div>
+          <div className="absolute bottom-20 right-10 w-96 h-96 bg-accent-lavender dark:bg-accent-lavender/20 rounded-full blur-3xl opacity-40 dark:opacity-20 animate-float-slow"></div>
         </div>
         
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="max-w-3xl mx-auto text-center">
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-stone-900 mb-6 tracking-tightest leading-tight">
-              Welcome to <span className="text-primary">Otters Kenya</span> Swim Club
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-stone-900 dark:text-gray-100 mb-6 tracking-tightest leading-tight">
+              Welcome to <span className="text-primary dark:text-primary-light">Otters Kenya</span> Swim Club
             </h1>
-            <p className="text-lg sm:text-xl text-stone-600 mb-10 leading-relaxed max-w-2xl mx-auto font-medium">
+            <p className="text-lg sm:text-xl text-stone-600 dark:text-gray-300 mb-10 leading-relaxed max-w-2xl mx-auto font-medium">
               Your home for competitive swimming excellence in Kenya. 
               Register your swimmers, track attendance, and stay connected with our swimming community.
             </p>
@@ -40,21 +40,21 @@ export default function Home() {
                 </Button>
               </Link>
             </div>
-            <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-8 text-sm text-stone-600">
+            <div className="mt-12 flex flex-col sm:flex-row items-center justify-center gap-8 text-sm text-stone-600 dark:text-gray-400">
               <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-primary" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-5 h-5 text-primary dark:text-primary-light" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
                 </svg>
                 <span>Competitive squads</span>
               </div>
               <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-primary" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-5 h-5 text-primary dark:text-primary-light" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
                 </svg>
                 <span>Learn to swim programs</span>
               </div>
               <div className="flex items-center gap-2">
-                <svg className="w-5 h-5 text-primary" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-5 h-5 text-primary dark:text-primary-light" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
                 </svg>
                 <span>Fitness swimming</span>
@@ -65,18 +65,18 @@ export default function Home() {
       </section>
 
       {/* Feature Section 1: Registration */}
-      <section id="features" className="py-20 bg-white relative">
+      <section id="features" className="py-20 bg-white dark:bg-gray-800 relative transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div className="order-2 lg:order-1">
-              <div className="bg-stone-900 rounded-3xl p-8 shadow-soft">
-                <div className="bg-white rounded-2xl p-6 space-y-4">
-                  <h3 className="text-lg font-bold text-stone-900">Join Otters Kenya</h3>
+              <div className="bg-stone-900 dark:bg-gray-950 rounded-3xl p-8 shadow-soft">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 space-y-4">
+                  <h3 className="text-lg font-bold text-stone-900 dark:text-gray-100">Join Otters Kenya</h3>
                   <div className="space-y-3">
-                    <div className="h-10 bg-stone-100 rounded-xl border border-stone-200"></div>
-                    <div className="h-10 bg-stone-100 rounded-xl border border-stone-200"></div>
-                    <div className="h-10 bg-stone-100 rounded-xl border border-stone-200"></div>
-                    <div className="h-10 bg-stone-100 rounded-xl border border-stone-200"></div>
+                    <div className="h-10 bg-stone-100 dark:bg-gray-700 rounded-xl border border-stone-200 dark:border-gray-600"></div>
+                    <div className="h-10 bg-stone-100 dark:bg-gray-700 rounded-xl border border-stone-200 dark:border-gray-600"></div>
+                    <div className="h-10 bg-stone-100 dark:bg-gray-700 rounded-xl border border-stone-200 dark:border-gray-600"></div>
+                    <div className="h-10 bg-stone-100 dark:bg-gray-700 rounded-xl border border-stone-200 dark:border-gray-600"></div>
                     <button className="w-full h-12 bg-primary text-white rounded-xl font-semibold hover:bg-primary-dark transition-all shadow-md hover:shadow-lg">
                       Complete Registration
                     </button>
@@ -85,10 +85,10 @@ export default function Home() {
               </div>
             </div>
             <div className="order-1 lg:order-2 animate-reveal">
-              <h2 className="text-4xl lg:text-5xl font-bold text-stone-900 mb-6 tracking-tightest">
-                Simple <span className="text-primary">Registration</span>
+              <h2 className="text-4xl lg:text-5xl font-bold text-stone-900 dark:text-gray-100 mb-6 tracking-tightest">
+                Simple <span className="text-primary dark:text-primary-light">Registration</span>
               </h2>
-              <p className="text-lg text-stone-600 mb-8 leading-relaxed">
+              <p className="text-lg text-stone-600 dark:text-gray-300 mb-8 leading-relaxed">
                 Register your swimmers online and pay securely. Our streamlined process makes joining Otters Kenya quick and easy.
               </p>
               <ul className="space-y-4">
@@ -99,7 +99,7 @@ export default function Home() {
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
                       </svg>
                     </div>
-                    <span className="text-stone-700 font-medium">{item}</span>
+                    <span className="text-stone-700 dark:text-gray-300 font-medium">{item}</span>
                   </li>
                 ))}
               </ul>
@@ -109,7 +109,7 @@ export default function Home() {
       </section>
 
       {/* Feature Section 2: Attendance */}
-      <section className="py-20 bg-stone-50 relative">
+      <section className="py-20 bg-stone-50 dark:bg-gray-850 relative transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div className="animate-reveal">
@@ -127,14 +127,14 @@ export default function Home() {
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
                       </svg>
                     </div>
-                    <span className="text-stone-700 font-medium">{item}</span>
+                    <span className="text-stone-700 dark:text-gray-300 font-medium">{item}</span>
                   </li>
                 ))}
               </ul>
             </div>
             <div>
-              <div className="bg-stone-900 rounded-3xl p-8 shadow-soft">
-                <div className="bg-white rounded-2xl p-6 space-y-4">
+              <div className="bg-stone-900 dark:bg-gray-950 rounded-3xl p-8 shadow-soft">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 space-y-4">
                   <h3 className="text-lg font-bold text-stone-900 text-center">Training Session</h3>
                   <p className="text-sm text-stone-600 text-center">Competitive Squad</p>
                   <div className="flex justify-center py-6">
@@ -156,12 +156,12 @@ export default function Home() {
       </section>
 
       {/* Feature Section 3: Payments & Dashboard */}
-      <section className="py-20 bg-white relative">
+      <section className="py-20 bg-white dark:bg-gray-800 relative transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div className="order-2 lg:order-1">
               <div className="bg-stone-900 rounded-3xl p-4 shadow-soft">
-                <div className="bg-white rounded-2xl p-6 space-y-4">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 space-y-4">
                   <h3 className="text-lg font-bold text-stone-900">Your Dashboard</h3>
                   <div className="grid grid-cols-3 gap-3">
                     <div className="bg-primary-50 rounded-2xl p-3">
@@ -205,7 +205,7 @@ export default function Home() {
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
                       </svg>
                     </div>
-                    <span className="text-stone-700 font-medium">{item}</span>
+                    <span className="text-stone-700 dark:text-gray-300 font-medium">{item}</span>
                   </li>
                 ))}
               </ul>

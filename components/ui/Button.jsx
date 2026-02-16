@@ -14,11 +14,11 @@ export default function Button({
   
   const variants = {
     primary: 'bg-primary text-white hover:bg-primary-dark focus:ring-primary shadow-md hover:shadow-lg',
-    secondary: 'border-2 border-primary text-primary bg-accent hover:bg-primary hover:text-white focus:ring-primary transition-colors',
+    secondary: 'border-2 border-primary dark:border-primary-light text-primary dark:text-primary-light bg-accent dark:bg-gray-800 hover:bg-primary hover:text-white dark:hover:bg-primary-light dark:hover:text-gray-900 focus:ring-primary transition-colors',
     success: 'bg-secondary text-white hover:bg-secondary-dark focus:ring-secondary shadow-md hover:shadow-lg',
     danger: 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500 shadow-md hover:shadow-lg',
-    ghost: 'text-gray-700 hover:bg-gray-100 focus:ring-gray-400',
-    outline: 'border-2 border-gray-300 text-gray-700 bg-white hover:bg-gray-50 focus:ring-gray-400',
+    ghost: 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 focus:ring-gray-400',
+    outline: 'border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:ring-gray-400',
   }
   
   const sizes = {
