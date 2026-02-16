@@ -1,0 +1,18 @@
+{
+  "name": "Otters Kenya Swim Club",
+  "short_name": "Otters Kenya",
+  "description": "Swim club management platform for registration, payments, and attendance",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0066CC",
+  "theme_color": "#0066CC",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

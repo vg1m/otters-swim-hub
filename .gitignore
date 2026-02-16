@@ -1,19 +1,19 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
 # dependencies
-node_modules/
-.pnp
+/node_modules
+/.pnp
 .pnp.js
 
 # testing
-coverage/
+/coverage
 
 # next.js
-.next/
-out/
-build/
-dist/
+/.next/
+/out/
 
 # production
-*.log
+/build
 
 # misc
 .DS_Store
@@ -25,25 +25,24 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
+.env*.local
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
 
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
+next-env.d.ts
 
-# prisma
-*.db
-*.db-journal
-prisma/migrations/
+# PWA files
+/public/sw.js
+/public/workbox-*.js
+/public/worker-*.js
+/public/sw.js.map
+/public/workbox-*.js.map
+/public/worker-*.js.map
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
+# database
+/prisma/dev.db
+/prisma/dev.db-journal
