@@ -148,15 +148,15 @@ export default function ParentInvoicesPage() {
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">My Invoices</h1>
-            <p className="text-gray-600 mt-2">View and manage your payment invoices</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">My Invoices</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-2">View and manage your payment invoices</p>
           </div>
 
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <Card padding="normal">
               <div className="text-center">
-                <p className="text-sm text-gray-600 mb-1">Total Outstanding</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Outstanding</p>
                 <p className="text-2xl font-bold text-primary">{formatKES(outstandingTotal)}</p>
               </div>
             </Card>

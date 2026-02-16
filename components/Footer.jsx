@@ -36,7 +36,7 @@ export default function Footer() {
           <div className="w-full max-w-md h-px bg-stone-800"></div>
 
           {/* Copyright */}
-          <p className="text-sm text-stone-600">
+            <p className="text-sm text-stone-600 dark:text-gray-400">
             © {new Date().getFullYear()} Otters Kenya Swim Club
           </p>
         </div>

@@ -113,10 +113,10 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div className="animate-reveal">
-              <h2 className="text-4xl lg:text-5xl font-bold text-stone-900 mb-6 tracking-tightest">
+              <h2 className="text-4xl lg:text-5xl font-bold text-stone-900 dark:text-gray-100 mb-6 tracking-tightest">
                 Track Your <span className="text-primary">Progress</span>
               </h2>
-              <p className="text-lg text-stone-600 mb-8 leading-relaxed">
+              <p className="text-lg text-stone-600 dark:text-gray-400 mb-8 leading-relaxed">
                 Stay connected with your swimmer's journey. View attendance, check training schedules, and monitor their development at Otters Kenya.
               </p>
               <ul className="space-y-4">
@@ -165,25 +165,25 @@ export default function Home() {
                   <h3 className="text-lg font-bold text-stone-900 dark:text-gray-100">Your Dashboard</h3>
                   <div className="grid grid-cols-3 gap-3">
                     <div className="bg-primary-50 rounded-2xl p-3">
-                      <p className="text-xs text-stone-600 mb-1">Swimmers</p>
+                      <p className="text-xs text-stone-600 dark:text-gray-400 mb-1">Swimmers</p>
                       <p className="text-2xl font-bold text-primary">3</p>
                     </div>
                     <div className="bg-accent-sage rounded-2xl p-3">
-                      <p className="text-xs text-stone-600 mb-1">Sessions</p>
+                      <p className="text-xs text-stone-600 dark:text-gray-400 mb-1">Sessions</p>
                       <p className="text-2xl font-bold text-secondary">12</p>
                     </div>
                     <div className="bg-accent-lavender rounded-2xl p-3">
-                      <p className="text-xs text-stone-600 mb-1">Invoices</p>
-                      <p className="text-2xl font-bold text-stone-800">2</p>
+                      <p className="text-xs text-stone-600 dark:text-gray-400 mb-1">Invoices</p>
+                      <p className="text-2xl font-bold text-stone-800 dark:text-gray-200">2</p>
                     </div>
                   </div>
                   <div className="space-y-2 mt-4">
                     <div className="flex justify-between items-center p-3 bg-stone-50 rounded-xl">
-                      <span className="text-sm text-stone-700">Next Session</span>
-                      <span className="text-sm font-bold text-stone-900">Mon 4PM</span>
+                      <span className="text-sm text-stone-700 dark:text-gray-300">Next Session</span>
+                      <span className="text-sm font-bold text-stone-900 dark:text-gray-100">Mon 4PM</span>
                     </div>
                     <div className="flex justify-between items-center p-3 bg-stone-50 rounded-xl">
-                      <span className="text-sm text-stone-700">Attendance Rate</span>
+                      <span className="text-sm text-stone-700 dark:text-gray-300">Attendance Rate</span>
                       <span className="text-sm font-bold text-secondary">92%</span>
                     </div>
                   </div>
@@ -191,10 +191,10 @@ export default function Home() {
               </div>
             </div>
             <div className="order-1 lg:order-2 animate-reveal">
-              <h2 className="text-4xl lg:text-5xl font-bold text-stone-900 mb-6 tracking-tightest">
+              <h2 className="text-4xl lg:text-5xl font-bold text-stone-900 dark:text-gray-100 mb-6 tracking-tightest">
                 Your <span className="text-primary">Swimming Hub</span>
               </h2>
-              <p className="text-lg text-stone-600 mb-8 leading-relaxed">
+              <p className="text-lg text-stone-600 dark:text-gray-400 mb-8 leading-relaxed">
                 Everything you need in one place. Check schedules, view attendance, manage payments, and stay connected with Otters Kenya's training programs.
               </p>
               <ul className="space-y-4">

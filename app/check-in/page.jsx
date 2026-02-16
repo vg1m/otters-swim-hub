@@ -198,15 +198,15 @@ export default function CheckInPage() {
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">Session Check-In</h1>
-            <p className="text-gray-600 mt-2">Scan QR code or enter session code manually</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Session Check-In</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-2">Scan QR code or enter session code manually</p>
           </div>
 
           {swimmers.length === 0 ? (
             <Card>
               <div className="text-center py-12">
-                <p className="text-gray-600 mb-4">You don't have any approved swimmers yet.</p>
-                <p className="text-sm text-gray-500">Please wait for admin approval or contact the club.</p>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">You don't have any approved swimmers yet.</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Please wait for admin approval or contact the club.</p>
               </div>
             </Card>
           ) : (

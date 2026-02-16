@@ -46,10 +46,10 @@ function ConfirmationContent() {
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
                     Processing Payment...
                   </h2>
-                  <p className="text-gray-600 mb-6">
+                  <p className="text-gray-600 dark:text-gray-400 mb-6">
                     Please complete the M-Pesa payment on your phone. 
                     Do not close this page.
                   </p>
@@ -68,16 +68,16 @@ function ConfirmationContent() {
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
                     </svg>
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
                     Registration Successful!
                   </h2>
-                  <p className="text-gray-600 mb-6">
+                  <p className="text-gray-600 dark:text-gray-400 mb-6">
                     Your payment has been received and your swimmers have been registered.
                     You will receive a confirmation email shortly.
                   </p>
                   <div className="bg-accent rounded-lg p-4 mb-6 text-left">
-                    <h3 className="font-semibold text-gray-900 mb-2">What happens next?</h3>
-                    <ul className="text-sm text-gray-700 space-y-2">
+                    <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">What happens next?</h3>
+                    <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-2">
                       <li>✓ Admin will review and approve your registration</li>
                       <li>✓ You will receive login credentials via email</li>
                       <li>✓ Access your dashboard to view swimmers and training sessions</li>
@@ -106,10 +106,10 @@ function ConfirmationContent() {
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"/>
                     </svg>
                   </div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-4">
+                  <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-4">
                     Payment Failed
                   </h2>
-                  <p className="text-gray-600 mb-6">
+                  <p className="text-gray-600 dark:text-gray-400 mb-6">
                     We could not process your payment. Please try again.
                   </p>
                   <Link href="/register">

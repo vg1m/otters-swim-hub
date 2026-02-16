@@ -166,7 +166,7 @@ export default function SessionAttendancePage() {
   if (!session) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-gray-600">Session not found</p>
+        <p className="text-gray-600 dark:text-gray-400">Session not found</p>
       </div>
     )
   }
@@ -180,11 +180,11 @@ export default function SessionAttendancePage() {
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">Session Attendance</h1>
-            <p className="text-gray-600 mt-2">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Session Attendance</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-2">
               {formatDate(session.session_date)} - {session.start_time} to {session.end_time}
             </p>
-            <p className="text-gray-600">
+            <p className="text-gray-600 dark:text-gray-400">
               {session.squad.replace('_', ' ').toUpperCase()} - {session.pool_location}
             </p>
           </div>
@@ -192,7 +192,7 @@ export default function SessionAttendancePage() {
           <Card className="mb-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600">Attendance</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Attendance</p>
                 <p className="text-3xl font-bold text-primary">
                   {checkedInCount} / {swimmers.length}
                 </p>
@@ -226,11 +226,11 @@ export default function SessionAttendancePage() {
                         className="w-5 h-5 text-primary rounded focus:ring-2 focus:ring-primary"
                       />
                       <div>
-                        <p className="font-medium text-gray-900">
+                        <p className="font-medium text-gray-900 dark:text-gray-100">
                           {swimmer.first_name} {swimmer.last_name}
                         </p>
                         {isCheckedIn && checkedInBy && (
-                          <p className="text-xs text-gray-600">
+                          <p className="text-xs text-gray-600 dark:text-gray-400">
                             Checked in by: {checkedInBy === 'self' ? 'Self' : 'Coach'}
                           </p>
                         )}

@@ -159,10 +159,10 @@ export default function RegisterPage() {
       <div className="min-h-screen bg-stone-50 dark:bg-gray-900 py-12 transition-colors duration-200">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
-            <h1 className="text-4xl sm:text-5xl font-bold text-stone-900 mb-4 tracking-tightest">
+            <h1 className="text-4xl sm:text-5xl font-bold text-stone-900 dark:text-gray-100 mb-4 tracking-tightest">
               Join <span className="text-primary">Otters Kenya</span>
             </h1>
-            <p className="text-lg text-stone-600 leading-relaxed">
+            <p className="text-lg text-stone-600 dark:text-gray-400 leading-relaxed">
               Register your swimmers and become part of our swimming family
             </p>
           </div>

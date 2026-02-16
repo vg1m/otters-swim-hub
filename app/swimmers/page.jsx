@@ -64,14 +64,14 @@ export default function SwimmersPage() {
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">My Swimmers</h1>
-            <p className="text-gray-600 mt-2">View swimmer profiles and details</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">My Swimmers</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-2">View swimmer profiles and details</p>
           </div>
 
           {swimmers.length === 0 ? (
             <Card>
               <div className="text-center py-12">
-                <p className="text-gray-600 mb-4">You don't have any registered swimmers yet.</p>
+                <p className="text-gray-600 dark:text-gray-400 mb-4">You don't have any registered swimmers yet.</p>
                 <Link href="/register">
                   <button className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors">
                     Register a Swimmer
@@ -86,10 +86,10 @@ export default function SwimmersPage() {
                   <div className="space-y-4">
                     <div className="flex items-start justify-between">
                       <div>
-                        <h3 className="text-xl font-bold text-gray-900">
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
                           {swimmer.first_name} {swimmer.last_name}
                         </h3>
-                        <p className="text-sm text-gray-600 mt-1">
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
                           {calculateAge(swimmer.date_of_birth)} years old
                         </p>
                       </div>
@@ -103,7 +103,7 @@ export default function SwimmersPage() {
 
                     <div className="space-y-2 text-sm">
                       <div className="flex items-center gap-2">
-                        <span className="text-gray-600 font-medium">Gender:</span>
+                        <span className="text-gray-600 dark:text-gray-400 font-medium">Gender:</span>
                         <span className="capitalize">{swimmer.gender}</span>
                       </div>
                       <div className="flex items-center gap-2">
