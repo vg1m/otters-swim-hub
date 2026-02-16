@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, memo, useRef } from 'react'
+import { useEffect, useState, memo, useRef, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -62,7 +62,7 @@ export default function ParentDashboard() {
     }
   }, [user, profile, authLoading])
 
-  async function loadDashboardData() {
+  const loadDashboardData = useCallback(async () => {
     const supabase = createClient()
     setLoading(true)
 
@@ -137,20 +137,20 @@ export default function ParentDashboard() {
         setOutstandingInvoices(invoicesResult.data || [])
       }
 
-      // Group attendance by swimmer
+      // Group attendance by swimmer (limit to 5 most recent per swimmer)
       if (attendanceResult.error) {
         console.error('Error loading attendance:', attendanceResult.error)
         setAttendanceBySwimmer({})
       } else {
-        const grouped = {}
-        ;(attendanceResult.data || []).forEach(att => {
-          if (!grouped[att.swimmer_id]) {
-            grouped[att.swimmer_id] = []
+        const grouped = (attendanceResult.data || []).reduce((acc, att) => {
+          if (!acc[att.swimmer_id]) {
+            acc[att.swimmer_id] = []
           }
-          if (grouped[att.swimmer_id].length < 5) {
-            grouped[att.swimmer_id].push(att)
+          if (acc[att.swimmer_id].length < 5) {
+            acc[att.swimmer_id].push(att)
           }
-        })
+          return acc
+        }, {})
         setAttendanceBySwimmer(grouped)
       }
 
@@ -163,8 +163,13 @@ export default function ParentDashboard() {
       }
       setLoading(false)
     }
-  }
+  }, [user])
 
+  // Memoize filtered upcoming sessions to avoid re-computation
+  const displaySessions = useMemo(() => 
+    upcomingSessions.slice(0, 4),
+    [upcomingSessions]
+  )
 
   if (authLoading || loading) {
     return (
@@ -241,7 +246,7 @@ export default function ParentDashboard() {
               </Card>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {upcomingSessions.slice(0, 4).map((session) => (
+                {displaySessions.map((session) => (
                   <Card key={session.id} padding="normal">
                     <div className="flex justify-between items-start">
                       <div>

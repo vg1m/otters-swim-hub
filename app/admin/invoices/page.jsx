@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
@@ -40,10 +40,10 @@ export default function InvoicesPage() {
         router.push('/login')
         return
       }
-      loadInvoices()
-      loadSwimmers()
+      // Load invoices and swimmers in parallel
+      Promise.all([loadInvoices(), loadSwimmers()])
     }
-  }, [user, profile, authLoading, router])
+  }, [user, profile, authLoading])
 
   async function loadInvoices() {
     const supabase = createClient()

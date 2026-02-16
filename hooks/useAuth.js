@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 
@@ -9,7 +9,33 @@ export function useAuth() {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const router = useRouter()
-  const supabase = createClient()
+  
+  // Memoize the Supabase client to avoid creating a new instance on every render
+  const supabase = useMemo(() => createClient(), [])
+
+  // Define getProfile before useEffect to avoid "cannot access before initialization" error
+  const getProfile = useCallback(async (userId) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single()
+
+      if (error) {
+        console.error('Profile fetch error:', error)
+        return null
+      }
+
+      if (data) {
+        setProfile(data)
+        return data
+      }
+    } catch (err) {
+      console.error('getProfile error:', err)
+      return null
+    }
+  }, [supabase])
 
   useEffect(() => {
     let mounted = true
@@ -63,32 +89,9 @@ export function useAuth() {
       mounted = false
       authListener?.subscription.unsubscribe()
     }
-  }, [])
+  }, [supabase, getProfile])
 
-  async function getProfile(userId) {
-    try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single()
-
-      if (error) {
-        console.error('Profile fetch error:', error)
-        return null
-      }
-
-      if (data) {
-        setProfile(data)
-        return data
-      }
-    } catch (err) {
-      console.error('getProfile error:', err)
-      return null
-    }
-  }
-
-  async function signIn(email, password) {
+  const signIn = useCallback(async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -96,9 +99,9 @@ export function useAuth() {
 
     if (error) throw error
     return data
-  }
+  }, [supabase])
 
-  async function signUp(email, password, fullName, phoneNumber) {
+  const signUp = useCallback(async (email, password, fullName, phoneNumber) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
@@ -127,13 +130,13 @@ export function useAuth() {
     }
 
     return data
-  }
+  }, [supabase])
 
-  async function signOut() {
+  const signOut = useCallback(async () => {
     const { error } = await supabase.auth.signOut()
     if (error) throw error
     router.push('/')
-  }
+  }, [supabase, router])
 
   return {
     user,

@@ -30,40 +30,44 @@ export default function AdminDashboard() {
       }
       loadStats()
     }
-  }, [user, profile, authLoading, router])
+  }, [user, profile, authLoading])
 
   async function loadStats() {
     const supabase = createClient()
 
     try {
-      // Get pending registrations count
-      const { count: pendingCount } = await supabase
-        .from('swimmers')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending')
-
-      // Get active swimmers count
-      const { count: activeCount } = await supabase
-        .from('swimmers')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'approved')
-
-      // Get outstanding invoices total
-      const { data: outstandingInvoices } = await supabase
-        .from('invoices')
-        .select('total_amount')
-        .in('status', ['issued', 'due'])
-
-      const outstandingTotal = outstandingInvoices?.reduce((sum, inv) => sum + parseFloat(inv.total_amount), 0) || 0
-
-      // Get this week's attendance rate (simplified)
       const weekAgo = new Date()
       weekAgo.setDate(weekAgo.getDate() - 7)
-      
-      const { count: attendanceCount } = await supabase
-        .from('attendance')
-        .select('*', { count: 'exact', head: true })
-        .gte('created_at', weekAgo.toISOString())
+
+      // Execute all queries in parallel for faster loading
+      const [
+        { count: pendingCount },
+        { count: activeCount },
+        { data: outstandingInvoices },
+        { count: attendanceCount }
+      ] = await Promise.all([
+        supabase
+          .from('swimmers')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'pending'),
+        
+        supabase
+          .from('swimmers')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'approved'),
+        
+        supabase
+          .from('invoices')
+          .select('total_amount')
+          .in('status', ['issued', 'due']),
+        
+        supabase
+          .from('attendance')
+          .select('*', { count: 'exact', head: true })
+          .gte('created_at', weekAgo.toISOString())
+      ])
+
+      const outstandingTotal = outstandingInvoices?.reduce((sum, inv) => sum + parseFloat(inv.total_amount), 0) || 0
 
       setStats({
         pendingRegistrations: pendingCount || 0,

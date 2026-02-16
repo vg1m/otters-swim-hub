@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
@@ -20,7 +20,6 @@ export default function SwimmersManagementPage() {
   const router = useRouter()
   const { user, profile, loading: authLoading } = useAuth()
   const [swimmers, setSwimmers] = useState([])
-  const [filteredSwimmers, setFilteredSwimmers] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -38,11 +37,7 @@ export default function SwimmersManagementPage() {
       }
       loadSwimmers()
     }
-  }, [user, profile, authLoading, router])
-
-  useEffect(() => {
-    filterSwimmers()
-  }, [swimmers, searchTerm, statusFilter, squadFilter])
+  }, [user, profile, authLoading])
 
   async function loadSwimmers() {
     const supabase = createClient()
@@ -64,14 +59,16 @@ export default function SwimmersManagementPage() {
     }
   }
 
-  function filterSwimmers() {
-    let filtered = [...swimmers]
+  // Memoize filtered swimmers to avoid re-computation on every render
+  const filteredSwimmers = useMemo(() => {
+    let filtered = swimmers
 
     // Search filter
     if (searchTerm) {
+      const term = searchTerm.toLowerCase()
       filtered = filtered.filter(s =>
-        `${s.first_name} ${s.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        s.license_number?.toLowerCase().includes(searchTerm.toLowerCase())
+        `${s.first_name} ${s.last_name}`.toLowerCase().includes(term) ||
+        s.license_number?.toLowerCase().includes(term)
       )
     }
 
@@ -85,10 +82,10 @@ export default function SwimmersManagementPage() {
       filtered = filtered.filter(s => s.squad === squadFilter)
     }
 
-    setFilteredSwimmers(filtered)
-  }
+    return filtered
+  }, [swimmers, searchTerm, statusFilter, squadFilter])
 
-  function openEditModal(swimmer) {
+  const openEditModal = useCallback((swimmer) => {
     setSelectedSwimmer(swimmer)
     setEditForm({
       first_name: swimmer.first_name,
@@ -102,7 +99,7 @@ export default function SwimmersManagementPage() {
       status: swimmer.status,
     })
     setShowEditModal(true)
-  }
+  }, [])
 
   async function handleSaveEdit() {
     if (!selectedSwimmer) return

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
@@ -13,7 +13,9 @@ import Select from '@/components/ui/Select'
 import Modal from '@/components/ui/Modal'
 import { formatDate, formatDateTime } from '@/lib/utils/date-helpers'
 import toast from 'react-hot-toast'
-import QRCode from 'qrcode'
+
+// Dynamically import QRCode to reduce initial bundle size
+const loadQRCode = () => import('qrcode')
 
 export default function SessionsPage() {
   const router = useRouter()
@@ -110,7 +112,7 @@ export default function SessionsPage() {
     }
   }
 
-  async function showQRCode(session) {
+  const showQRCode = useCallback(async (session) => {
     setSelectedSession(session)
     
     // Generate QR code URL
@@ -122,6 +124,8 @@ export default function SessionsPage() {
     })
 
     try {
+      // Dynamically load QRCode library only when needed
+      const QRCode = (await loadQRCode()).default
       const url = await QRCode.toDataURL(qrData, {
         width: 300,
         margin: 2,
@@ -136,7 +140,7 @@ export default function SessionsPage() {
       console.error('Error generating QR code:', error)
       toast.error('Failed to generate QR code')
     }
-  }
+  }, [])
 
   async function handleDeleteSession(session) {
     if (!confirm(`Delete session on ${formatDate(session.session_date)}?`)) {
