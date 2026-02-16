@@ -8,8 +8,9 @@ const withPWA = require('@ducanh2912/next-pwa').default({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Add empty turbopack config to acknowledge we're aware of the change
-  turbopack: {},
+  turbopack: {
+    root: process.cwd(),
+  },
   images: {
     remotePatterns: [
       {
