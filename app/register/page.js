@@ -156,7 +156,7 @@ export default function RegisterPage() {
     <>
       <Navigation />
       
-      <div className="min-h-screen bg-stone-50 py-12">
+      <div className="min-h-screen bg-stone-50 dark:bg-gray-900 py-12 transition-colors duration-200">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-10">
             <h1 className="text-4xl sm:text-5xl font-bold text-stone-900 mb-4 tracking-tightest">

@@ -178,11 +178,11 @@ export default function ParentDashboard() {
     <>
       <Navigation />
       
-      <div className="min-h-screen bg-gray-50 py-8">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">My Dashboard</h1>
-            <p className="text-gray-600 mt-2">Welcome back, {profile?.full_name}</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">My Dashboard</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-2">Welcome back, {profile?.full_name}</p>
           </div>
 
           {/* Outstanding Invoices Alert */}
@@ -208,11 +208,11 @@ export default function ParentDashboard() {
 
           {/* Swimmers Section */}
           <div className="mb-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">My Swimmers</h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">My Swimmers</h2>
             {swimmers.length === 0 ? (
               <Card>
                 <div className="text-center py-8">
-                  <p className="text-gray-600">You don't have any registered swimmers yet.</p>
+                  <p className="text-gray-600 dark:text-gray-400">You don't have any registered swimmers yet.</p>
                   <Link href="/register">
                     <Button className="mt-4">Register a Swimmer</Button>
                   </Link>
@@ -234,7 +234,7 @@ export default function ParentDashboard() {
 
           {/* Upcoming Sessions Section */}
           <div className="mb-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Upcoming Training Sessions</h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Upcoming Training Sessions</h2>
             {upcomingSessions.length === 0 ? (
               <Card>
                 <p className="text-gray-600 text-center py-4">No upcoming sessions scheduled</p>
@@ -245,9 +245,9 @@ export default function ParentDashboard() {
                   <Card key={session.id} padding="normal">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="font-semibold text-gray-900">{formatDate(session.session_date)}</p>
-                        <p className="text-sm text-gray-600">{session.start_time} - {session.end_time}</p>
-                        <p className="text-sm text-gray-600">📍 {session.pool_location}</p>
+                        <p className="font-semibold text-gray-900 dark:text-gray-100">{formatDate(session.session_date)}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">{session.start_time} - {session.end_time}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">📍 {session.pool_location}</p>
                       </div>
                       <Badge variant="info">{session.squad.replace('_', ' ').toUpperCase()}</Badge>
                     </div>
@@ -259,7 +259,7 @@ export default function ParentDashboard() {
 
           {/* Quick Actions */}
           <div>
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Quick Actions</h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Quick Actions</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <Link href="/check-in">
                 <Card padding="normal" className="hover:shadow-lg transition-shadow cursor-pointer">
@@ -267,7 +267,7 @@ export default function ParentDashboard() {
                     <svg className="mx-auto h-12 w-12 text-primary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                     </svg>
-                    <p className="font-semibold text-gray-900">Check In</p>
+                    <p className="font-semibold text-gray-900 dark:text-gray-100">Check In</p>
                     <p className="text-sm text-gray-600 mt-1">Scan QR code at training</p>
                   </div>
                 </Card>
@@ -279,7 +279,7 @@ export default function ParentDashboard() {
                     <svg className="mx-auto h-12 w-12 text-primary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    <p className="font-semibold text-gray-900">View Invoices</p>
+                    <p className="font-semibold text-gray-900 dark:text-gray-100">View Invoices</p>
                     <p className="text-sm text-gray-600 mt-1">Check payment status</p>
                   </div>
                 </Card>
@@ -291,7 +291,7 @@ export default function ParentDashboard() {
                     <svg className="mx-auto h-12 w-12 text-primary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
-                    <p className="font-semibold text-gray-900">Swimmer Profiles</p>
+                    <p className="font-semibold text-gray-900 dark:text-gray-100">Swimmer Profiles</p>
                     <p className="text-sm text-gray-600 mt-1">View details & attendance</p>
                   </div>
                 </Card>
@@ -314,10 +314,10 @@ const SwimmerCard = memo(function SwimmerCard({ swimmer, sessions, attendance })
     <Card padding="normal">
       <div className="flex items-start justify-between mb-3">
         <div>
-          <h3 className="font-bold text-lg text-gray-900">
+          <h3 className="font-bold text-lg text-gray-900 dark:text-gray-100">
             {swimmer.first_name} {swimmer.last_name}
           </h3>
-          <p className="text-sm text-gray-600">{calculateAge(swimmer.date_of_birth)} years old</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">{calculateAge(swimmer.date_of_birth)} years old</p>
         </div>
         <Badge variant={
           swimmer.status === 'approved' ? 'success' :
@@ -329,13 +329,13 @@ const SwimmerCard = memo(function SwimmerCard({ swimmer, sessions, attendance })
 
       <div className="space-y-2 text-sm">
         <div className="flex items-center gap-2">
-          <span className="text-gray-600">Squad:</span>
+          <span className="text-gray-600 dark:text-gray-400">Squad:</span>
           <Badge variant="info">{swimmer.squad.replace('_', ' ').toUpperCase()}</Badge>
         </div>
 
         {nextSession && (
           <div className="mt-3 p-2 bg-accent rounded">
-            <p className="text-xs text-gray-600 font-medium">Next Session:</p>
+            <p className="text-xs text-gray-600 dark:text-gray-400 font-medium">Next Session:</p>
             <p className="text-sm font-semibold">{formatDate(nextSession.session_date)}</p>
             <p className="text-xs text-gray-600">{nextSession.start_time} - {nextSession.pool_location}</p>
           </div>

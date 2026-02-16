@@ -71,7 +71,7 @@ export default function Home() {
             <div className="order-2 lg:order-1">
               <div className="bg-stone-900 dark:bg-gray-950 rounded-3xl p-8 shadow-soft">
                 <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 space-y-4">
-                  <h3 className="text-lg font-bold text-stone-900 dark:text-gray-100">Join Otters Kenya</h3>
+                  <h3 className="text-lg font-bold text-stone-900 dark:text-gray-100 dark:text-gray-100">Join Otters Kenya</h3>
                   <div className="space-y-3">
                     <div className="h-10 bg-stone-100 dark:bg-gray-700 rounded-xl border border-stone-200 dark:border-gray-600"></div>
                     <div className="h-10 bg-stone-100 dark:bg-gray-700 rounded-xl border border-stone-200 dark:border-gray-600"></div>
@@ -135,8 +135,8 @@ export default function Home() {
             <div>
               <div className="bg-stone-900 dark:bg-gray-950 rounded-3xl p-8 shadow-soft">
                 <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 space-y-4">
-                  <h3 className="text-lg font-bold text-stone-900 text-center">Training Session</h3>
-                  <p className="text-sm text-stone-600 text-center">Competitive Squad</p>
+                  <h3 className="text-lg font-bold text-stone-900 dark:text-gray-100 text-center">Training Session</h3>
+                  <p className="text-sm text-stone-600 dark:text-gray-400 text-center">Competitive Squad</p>
                   <div className="flex justify-center py-6">
                     <div className="w-32 h-32 bg-primary rounded-2xl grid grid-cols-3 gap-1 p-2 shadow-md">
                       {[...Array(9)].map((_, i) => (
@@ -145,7 +145,7 @@ export default function Home() {
                     </div>
                   </div>
                   <div className="bg-primary-50 rounded-2xl p-4 text-center">
-                    <p className="text-sm text-stone-600 mb-1">Swimmers Present:</p>
+                    <p className="text-sm text-stone-600 dark:text-gray-400 mb-1">Swimmers Present:</p>
                     <p className="text-3xl font-bold text-primary">18 / 25</p>
                   </div>
                 </div>
@@ -162,7 +162,7 @@ export default function Home() {
             <div className="order-2 lg:order-1">
               <div className="bg-stone-900 rounded-3xl p-4 shadow-soft">
                 <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 space-y-4">
-                  <h3 className="text-lg font-bold text-stone-900">Your Dashboard</h3>
+                  <h3 className="text-lg font-bold text-stone-900 dark:text-gray-100">Your Dashboard</h3>
                   <div className="grid grid-cols-3 gap-3">
                     <div className="bg-primary-50 rounded-2xl p-3">
                       <p className="text-xs text-stone-600 mb-1">Swimmers</p>

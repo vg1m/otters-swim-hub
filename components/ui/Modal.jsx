@@ -53,17 +53,17 @@ export default function Modal({
           &#8203;
         </span>
 
-        <div className={`inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle ${sizes[size]} w-full`}>
+        <div className={`inline-block align-bottom bg-white dark:bg-gray-800 rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle ${sizes[size]} w-full`}>
           {/* Header */}
           {title && (
-            <div className="bg-white px-6 py-4 border-b border-gray-200">
+            <div className="bg-white dark:bg-gray-800 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900" id="modal-title">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100" id="modal-title">
                   {title}
                 </h3>
                 <button
                   onClick={onClose}
-                  className="text-gray-400 hover:text-gray-500 focus:outline-none"
+                  className="text-gray-400 dark:text-gray-500 hover:text-gray-500 dark:hover:text-gray-400 focus:outline-none"
                 >
                   <span className="sr-only">Close</span>
                   <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -75,13 +75,13 @@ export default function Modal({
           )}
 
           {/* Body */}
-          <div className="bg-white px-6 py-4">
+          <div className="bg-white dark:bg-gray-800 px-6 py-4">
             {children}
           </div>
 
           {/* Footer */}
           {footer && (
-            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
+            <div className="bg-gray-50 dark:bg-gray-900 px-6 py-4 border-t border-gray-200 dark:border-gray-700">
               {footer}
             </div>
           )}
