@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Navigation from '@/components/Navigation'
@@ -8,7 +8,7 @@ import Footer from '@/components/Footer'
 import Button from '@/components/ui/Button'
 import Card from '@/components/ui/Card'
 
-export default function ConfirmationPage() {
+function ConfirmationContent() {
   const searchParams = useSearchParams()
   const invoiceId = searchParams.get('invoiceId')
   const [status, setStatus] = useState('processing') // processing, success, failed
@@ -34,14 +34,11 @@ export default function ConfirmationPage() {
   }, [invoiceId])
 
   return (
-    <>
-      <Navigation />
-      
-      <div className="min-h-screen bg-gradient-to-br from-accent to-white py-12 flex items-center justify-center">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
-          <Card padding="lg">
-            <div className="text-center">
-              {status === 'processing' && (
+    <div className="min-h-screen bg-gradient-to-br from-accent to-white py-12 flex items-center justify-center">
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
+        <Card padding="lg">
+          <div className="text-center">
+            {status === 'processing' && (
                 <>
                   <div className="mb-6">
                     <svg className="animate-spin h-16 w-16 mx-auto text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
@@ -122,11 +119,24 @@ export default function ConfirmationPage() {
                   </Link>
                 </>
               )}
-            </div>
-          </Card>
-        </div>
+          </div>
+        </Card>
       </div>
+    </div>
+  )
+}
 
+export default function ConfirmationPage() {
+  return (
+    <>
+      <Navigation />
+      <Suspense fallback={
+        <div className="min-h-screen bg-gradient-to-br from-accent to-white py-12 flex items-center justify-center">
+          <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full"></div>
+        </div>
+      }>
+        <ConfirmationContent />
+      </Suspense>
       <Footer />
     </>
   )
