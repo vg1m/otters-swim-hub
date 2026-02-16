@@ -10,13 +10,21 @@ export function ThemeProvider({ children }) {
 
   useEffect(() => {
     setMounted(true)
-    // Check localStorage and system preference
+    // Check localStorage for saved theme preference
     const savedTheme = localStorage.getItem('theme')
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
     
-    if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+    // Only enable dark mode if explicitly saved as 'dark'
+    // Default to light mode instead of following system preference
+    if (savedTheme === 'dark') {
       setIsDark(true)
       document.documentElement.classList.add('dark')
+    } else {
+      // Ensure light mode is set by default
+      setIsDark(false)
+      document.documentElement.classList.remove('dark')
+      if (!savedTheme) {
+        localStorage.setItem('theme', 'light')
+      }
     }
   }, [])
 

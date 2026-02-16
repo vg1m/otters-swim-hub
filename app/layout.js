@@ -23,10 +23,15 @@ export default function RootLayout({ children }) {
           dangerouslySetInnerHTML={{
             __html: `
               try {
-                if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                // Only apply dark mode if explicitly saved in localStorage
+                // Default to light mode instead of following system preference
+                if (localStorage.theme === 'dark') {
                   document.documentElement.classList.add('dark')
                 } else {
                   document.documentElement.classList.remove('dark')
+                  if (!('theme' in localStorage)) {
+                    localStorage.setItem('theme', 'light')
+                  }
                 }
               } catch (_) {}
             `,
