@@ -54,12 +54,14 @@ export default function SignupPage() {
 
       // Profile is now created automatically by the Supabase trigger!
       toast.success('Account created successfully! Please check your email to verify your account.')
+      
+      // Redirect immediately - don't wait
       router.push('/login')
     } catch (error) {
       toast.error(error.message || 'Signup failed')
-    } finally {
       setLoading(false)
     }
+    // Note: Don't set loading to false on success - let redirect happen
   }
 
   return (

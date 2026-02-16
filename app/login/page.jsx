@@ -25,26 +25,25 @@ export default function LoginPage() {
 
       if (error) throw error
 
-      // Get user profile to determine redirect
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', data.user.id)
-        .single()
-
       toast.success('Login successful!')
       
-      // Redirect based on role
-      if (profile?.role === 'admin') {
+      // Redirect immediately - let useAuth and target page handle profile fetching
+      // This provides instant feedback and eliminates waiting for profile query
+      
+      // Try to get cached profile for smart redirect, but don't wait for DB
+      const cachedProfile = JSON.parse(localStorage.getItem(`otters_profile_cache_${data.user.id}`) || 'null')
+      
+      if (cachedProfile?.data?.role === 'admin') {
         router.push('/admin')
       } else {
+        // Default to dashboard, will auto-redirect if admin after profile loads
         router.push('/dashboard')
       }
     } catch (error) {
       toast.error(error.message || 'Login failed')
-    } finally {
       setLoading(false)
     }
+    // Note: Don't set loading to false on success - let redirect happen
   }
 
   return (
