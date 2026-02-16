@@ -54,8 +54,15 @@ export default function ResetPasswordPage() {
 
       if (error) throw error
 
-      toast.success('Password reset successfully!')
-      router.push('/login')
+      // Sign out user after password reset (security best practice)
+      await supabase.auth.signOut()
+
+      toast.success('Password reset successfully! Please login with your new password.')
+      
+      // Redirect after a short delay for toast visibility
+      setTimeout(() => {
+        router.push('/login')
+      }, 1500)
     } catch (error) {
       toast.error(error.message || 'Failed to reset password')
     } finally {
