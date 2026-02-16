@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
+import { profileCache } from '@/lib/cache/profile-cache'
 import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer'
 import Card from '@/components/ui/Card'
@@ -37,14 +38,21 @@ export default function SessionsPage() {
   })
 
   useEffect(() => {
+    // Optimistic auth check - use cached profile if available
+    const cachedProfile = user ? profileCache.get(user.id) : null
+    
     if (!authLoading) {
-      if (!user || profile?.role !== 'admin') {
+      if (!user || (profile?.role !== 'admin' && cachedProfile?.role !== 'admin')) {
         router.push('/login')
         return
       }
+    }
+    
+    // Load data immediately if we have user (even if profile still loading)
+    if (user && !sessions.length) {
       loadSessions()
     }
-  }, [user, profile, authLoading, router])
+  }, [user, profile, authLoading])
 
   async function loadSessions() {
     const supabase = createClient()

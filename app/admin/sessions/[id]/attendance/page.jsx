@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
+import { profileCache } from '@/lib/cache/profile-cache'
 import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer'
 import Card from '@/components/ui/Card'
@@ -23,14 +24,22 @@ export default function SessionAttendancePage() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
+    // Optimistic auth check - use cached profile if available
+    const cachedProfile = user ? profileCache.get(user.id) : null
+    const userRole = profile?.role || cachedProfile?.role
+    
     if (!authLoading) {
-      if (!user || (profile?.role !== 'admin' && profile?.role !== 'coach')) {
+      if (!user || (userRole !== 'admin' && userRole !== 'coach')) {
         router.push('/login')
         return
       }
+    }
+    
+    // Load data immediately if we have user and sessionId
+    if (user && sessionId && !session) {
       loadSessionData()
     }
-  }, [user, profile, authLoading, router, sessionId])
+  }, [user, profile, authLoading, sessionId])
 
   async function loadSessionData() {
     const supabase = createClient()
