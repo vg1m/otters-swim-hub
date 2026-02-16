@@ -1,26 +1,36 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { validatePassword, getPasswordStrength } from '@/lib/utils/password-validation'
 import toast from 'react-hot-toast'
 
-export default function SignupPage() {
-  const [fullName, setFullName] = useState('')
-  const [email, setEmail] = useState('')
-  const [phone, setPhone] = useState('')
+export default function ResetPasswordPage() {
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  const [isValidToken, setIsValidToken] = useState(false)
+  const [checkingToken, setCheckingToken] = useState(true)
   const router = useRouter()
   const supabase = createClient()
 
   const passwordStrength = password ? getPasswordStrength(password) : null
 
-  const handleSignup = async (e) => {
+  useEffect(() => {
+    // Check if user came from a valid password reset link
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setIsValidToken(!!session)
+      setCheckingToken(false)
+    }
+
+    checkSession()
+  }, [supabase])
+
+  const handleResetPassword = async (e) => {
     e.preventDefault()
 
     if (password !== confirmPassword) {
@@ -38,28 +48,52 @@ export default function SignupPage() {
     setLoading(true)
 
     try {
-      // Sign up user (profile will be created automatically by database trigger)
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-            phone_number: phone,
-          },
-        },
+      const { error } = await supabase.auth.updateUser({
+        password: password
       })
 
-      if (authError) throw authError
+      if (error) throw error
 
-      // Profile is now created automatically by the Supabase trigger!
-      toast.success('Account created successfully! Please check your email to verify your account.')
+      toast.success('Password reset successfully!')
       router.push('/login')
     } catch (error) {
-      toast.error(error.message || 'Signup failed')
+      toast.error(error.message || 'Failed to reset password')
     } finally {
       setLoading(false)
     }
+  }
+
+  if (checkingToken) {
+    return (
+      <div className="min-h-screen bg-stone-50 flex items-center justify-center">
+        <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full"></div>
+      </div>
+    )
+  }
+
+  if (!isValidToken) {
+    return (
+      <div className="min-h-screen bg-stone-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-3xl shadow-soft">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold text-stone-900 mb-4">Invalid or Expired Link</h2>
+            <p className="text-gray-600 mb-6">
+              This password reset link is invalid or has expired. Please request a new one.
+            </p>
+            <Link href="/forgot-password">
+              <button className="w-full py-3 px-4 bg-primary text-white font-semibold rounded-lg hover:bg-primary-dark transition-colors">
+                Request New Link
+              </button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -67,78 +101,29 @@ export default function SignupPage() {
       <div className="max-w-md w-full space-y-8 bg-white p-10 rounded-3xl shadow-soft">
         <div>
           <div className="w-16 h-16 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-6">
-            <svg width="36" height="36" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M15 18 Q20 12 25 18" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
-              <path d="M12 25 Q20 20 28 25" stroke="white" strokeWidth="3" fill="none" strokeLinecap="round"/>
-              <circle cx="15" cy="16" r="2" fill="white"/>
-              <circle cx="25" cy="16" r="2" fill="white"/>
+            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
           </div>
           <h2 className="text-center text-3xl font-bold text-stone-900 tracking-tightest mb-2">
-            Create Account
+            Create New Password
           </h2>
           <p className="text-center text-stone-600">
-            Join Otters Kenya as a parent or guardian
+            Enter your new password below
           </p>
         </div>
-        <form className="mt-8 space-y-6" onSubmit={handleSignup}>
+
+        <form className="mt-8 space-y-6" onSubmit={handleResetPassword}>
           <div className="space-y-4">
             <div>
-              <label htmlFor="fullName" className="block text-sm font-medium text-gray-700 mb-1">
-                Full Name
-              </label>
-              <input
-                id="fullName"
-                name="fullName"
-                type="text"
-                required
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 rounded-lg placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                placeholder="John Doe"
-              />
-            </div>
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                Email address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 rounded-lg placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                placeholder="you@example.com"
-              />
-            </div>
-            <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
-                Phone Number
-              </label>
-              <input
-                id="phone"
-                name="phone"
-                type="tel"
-                required
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 rounded-lg placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                placeholder="+254700000000"
-              />
-            </div>
-            <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
-                Password
+                New Password
               </label>
               <div className="relative">
                 <input
                   id="password"
                   name="password"
                   type={showPassword ? 'text' : 'password'}
-                  autoComplete="new-password"
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
@@ -189,20 +174,20 @@ export default function SignupPage() {
                 </div>
               )}
             </div>
+
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-1">
-                Confirm Password
+                Confirm New Password
               </label>
               <input
                 id="confirmPassword"
                 name="confirmPassword"
                 type="password"
-                autoComplete="new-password"
                 required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="appearance-none relative block w-full px-3 py-2 border border-gray-300 rounded-lg placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                placeholder="••••••••"
+                placeholder="••••••••••"
               />
             </div>
           </div>
@@ -213,20 +198,13 @@ export default function SignupPage() {
               disabled={loading}
               className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-semibold rounded-lg text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Creating account...' : 'Sign up'}
+              {loading ? 'Resetting...' : 'Reset Password'}
             </button>
           </div>
 
           <div className="text-sm text-center">
-            <span className="text-gray-600">Already have an account? </span>
-            <Link href="/login" className="font-medium text-primary hover:text-primary-dark">
-              Sign in here
-            </Link>
-          </div>
-
-          <div className="text-sm text-center">
-            <Link href="/" className="font-medium text-gray-600 hover:text-primary">
-              ← Back to home
+            <Link href="/login" className="font-medium text-gray-600 hover:text-primary">
+              ← Back to login
             </Link>
           </div>
         </form>

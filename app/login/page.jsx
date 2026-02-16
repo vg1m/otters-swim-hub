@@ -115,6 +115,12 @@ export default function LoginPage() {
             </button>
           </div>
 
+          <div className="flex items-center justify-between text-sm">
+            <Link href="/forgot-password" className="font-medium text-primary hover:text-primary-dark">
+              Forgot password?
+            </Link>
+          </div>
+
           <div className="text-sm text-center">
             <span className="text-gray-600">Don't have an account? </span>
             <Link href="/signup" className="font-medium text-primary hover:text-primary-dark">
