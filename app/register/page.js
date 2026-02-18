@@ -474,7 +474,7 @@ export default function RegisterPage() {
               </Button>
               <p className="text-sm text-stone-600 dark:text-gray-400 text-center max-w-md">
                 {paymentOption === 'pay_now' 
-                  ? 'Payments secured by PayStack™. You\'ll be notified once your registration is approved.'
+                  ? 'Payments secured by Paystack™. You\'ll be notified once your registration is approved.'
                   : 'Invoice will be sent to your email. Payment required to complete registration.'
                 }
               </p>
