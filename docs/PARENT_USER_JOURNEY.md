@@ -25,10 +25,8 @@ A simple guide to using the Otters Kenya Swim Club platform as a parent or guard
 3. Fill in swimmer information:
    - First and last name
    - Date of birth
-   - Gender
+   - Gender (Male/Female)
    - Squad (Competitive/Learn to Swim/Fitness)
-   - Medical conditions (if any)
-   - Swimming experience level
 
 ### 3. Add Emergency Contact
 - Emergency contact name
@@ -37,29 +35,28 @@ A simple guide to using the Otters Kenya Swim Club platform as a parent or guard
 
 ### 4. Review & Accept Policies
 Read and accept:
-- ✅ **Media Consent**: Permission to use photos/videos in club materials
-- ✅ **Code of Conduct**: Agreement to abide by club rules
-- ✅ **Safety Rules**: Acknowledgment of pool safety guidelines
-- ✅ **Data Accuracy**: Confirmation that all details are correct
+- ✅ **Data Accuracy Confirmation**: Confirm that all information provided is accurate and complete *(Required)*
+- ✅ **Code of Conduct & Safety Rules**: Agreement to abide by club rules, code of conduct, and safety instructions from coaches *(Required)*
+- ✅ **Media Consent**: Permission to use photos/videos in club materials *(Optional - default yes, can opt out)*
 
-📝 *Your consent is recorded with timestamp and can be viewed in Settings*
+📝 *Your consent is recorded with timestamp and metadata. You can view and update media consent in Settings*
 
 ### 5. Choose Payment Option
 
 **Option A: Pay Now** (Recommended)
-- Click "Pay Now" (KES 3,000 registration fee)
+- Click "Pay Now" (KES 3,500 per swimmer registration fee)
 - Redirected to Paystack secure payment
 - Pay via:
   - 💳 Card (Visa/Mastercard)
-  - 📱 Mobile Money (M-Pesa, etc.)
+  - 📱 Mobile Money (M-Pesa, Airtel Money, etc.)
   - 🏦 Bank Transfer
 - Automatic approval upon successful payment
-- Receipt emailed immediately
+- Receipt available immediately for download
 
 **Option B: Pay Later**
 - Click "Pay Later"
 - Registration details saved
-- Invoice sent to your email
+- Invoice created and visible on your dashboard with "Pay Now" button
 - Swimmer status: **Pending** (not yet approved)
 - Payment required within 7 days
 
@@ -73,11 +70,12 @@ Read and accept:
    - **Pending**: Orange, "Pay Now" button visible
 
 ### 7. Pay Pending Invoice
-1. Open pending invoice
-2. Click "Pay Now"
-3. Complete payment via Paystack
-4. Swimmer automatically approved
-5. Receipt emailed
+1. Go to "Invoices" page
+2. Find the pending invoice
+3. Click "Pay Now"
+4. Complete payment via Paystack
+5. Swimmer automatically approved
+6. Receipt available for download from Invoices page
 
 ### 8. Download Receipts
 1. Go to "Invoices"
@@ -86,7 +84,7 @@ Read and accept:
    - Otters Kenya branding
    - Payment details
    - Transaction reference
-   - Secured by Paystack badge
+   - "Payments secured by Paystack" badge
 
 ## 🏊 Daily Use
 
@@ -103,13 +101,13 @@ Read and accept:
 **Tips:**
 - Code is case-insensitive (k4m8n2 = K4M8N2)
 - Only 6 characters - quick to type!
-- Ask coach if you can't see the code
+- Ask coach if you can't see the code displayed
 
 ### 10. View Dashboard
 **Your dashboard shows:**
 - All registered swimmers
 - Payment status for each
-- Recent activity
+- Recent check-in activity
 - Quick actions: Register new swimmer, Check-in, View invoices
 
 ### 11. Update Profile & Settings
@@ -117,15 +115,16 @@ Read and accept:
 2. **Update your info:**
    - Full name
    - Phone number
-   - Email
+   - Email address (read-only, contact admin to change)
    - Relationship to swimmer
 3. **Update emergency contact:**
    - Name
    - Relationship
    - Phone number
 4. **View consent history:**
-   - See all consents you've given
+   - See all consents you've given for each swimmer
    - Date and time recorded
+   - Update media consent if needed
 5. **Enable Dark Mode:**
    - Toggle in top-right of navigation
 
@@ -137,52 +136,57 @@ Read and accept:
 3. Check email for reset link
 4. Click link
 5. Enter new password (min 10 characters, special chars)
-6. Automatically logged in
+6. Automatically redirected to login
 
 ### 13. Register Additional Swimmers
 1. Login to dashboard
 2. Click "Register Swimmers"
-3. All your existing details pre-filled
+3. Your parent/guardian details are pre-filled
 4. Just add new swimmer information
 5. Choose payment option
-6. Done! (No need to re-enter parent/guardian info)
+6. Done! (No need to re-enter parent/guardian or emergency contact info)
 
 ## 📱 Mobile Experience
 
 The platform is **mobile-first**:
-- ✅ Works on any phone/tablet
+- ✅ Works on any phone/tablet browser
 - ✅ No app download needed (Progressive Web App)
 - ✅ Works offline for basic features
 - ✅ Fast check-in on the go
-- ✅ Responsive design
+- ✅ Responsive design adapts to screen size
 
 ## 🆘 Need Help?
 
 ### Common Issues
 
 **"Invalid session code"**
-- Double-check the code at poolside
+- Double-check the code displayed at poolside
 - Ensure you're entering exactly 6 characters
-- Ask coach for today's code
+- Code may have expired - ask coach for current code
 
 **"Payment pending"**
-- Check your invoices
+- Check your "Invoices" page
 - Click "Pay Now" to complete payment
 - Contact admin if payment was made but still showing pending
 
 **"Swimmer already checked in"**
-- Swimmer can only check-in once per session
-- View recent check-ins to verify
+- Each swimmer can only check-in once per session
+- View recent check-ins to verify attendance
 
 **Can't find invoice**
-- Ensure payment was completed
+- Ensure payment was completed on Paystack
 - Check spam folder for receipt email
 - Contact admin for manual verification
 
+**Email not received**
+- Check spam/junk folder
+- Ensure email address is correct in Settings
+- Contact admin if still not received
+
 ### Contact Support
-- **In-app**: Use the contact form in Settings
-- **Email**: Provided by club admin
 - **At Pool**: Speak to coach or admin
+- **Via App**: Use contact form in Settings
+- **Emergency**: Phone number provided by club admin
 
 ## 🎯 Quick Actions Summary
 
@@ -190,10 +194,11 @@ The platform is **mobile-first**:
 |------|-------------|
 | Register new swimmer | Dashboard → "Register Swimmers" |
 | Pay invoice | Invoices → "Pay Now" |
-| Check-in swimmer | Check-In page → Enter code |
-| Update details | Settings |
+| Check-in swimmer | Check-In page → Enter 6-char code |
+| Update details | Settings → Edit Profile |
 | View receipts | Invoices → "Download Receipt" |
 | Reset password | Login → "Forgot Password" |
+| View consent history | Settings → "Consent History" |
 
 ## 📊 What You'll See
 
@@ -215,14 +220,29 @@ The platform is **mobile-first**:
 - 🟠 **Pending** - Awaiting payment, "Pay Now" button visible
 - 🔴 **Overdue** - Payment required urgently
 
+### Consent Status (in Settings)
+- ✅ **Data Accuracy Confirmed** - Green checkmark
+- ✅ **Code of Conduct Agreement** - Green checkmark
+- ✅/❌ **Media Consent** - Granted/Not Granted (can be updated)
+
 ## ✨ Pro Tips
 
 1. **Save login credentials** in your browser for quick access
-2. **Enable dark mode** for poolside use (less glare)
-3. **Screenshot the session code** if you need to leave and come back
-4. **Pay immediately** during registration for instant approval
+2. **Enable dark mode** for poolside use (less glare on bright days)
+3. **Screenshot the session code** if you need to leave and return
+4. **Pay immediately** during registration for instant swimmer approval
 5. **Update emergency contact** if phone numbers change
-6. **Download receipts** for tax/record purposes
+6. **Download receipts** for tax/record-keeping purposes
+7. **Check invoices page** regularly for pending payments
+
+## 🔒 Privacy & Data Protection
+
+Your data is protected under Kenya's Data Protection Act:
+- All consents are timestamped and recorded
+- You can view your consent history in Settings
+- Media consent can be updated anytime
+- Data is encrypted and securely stored
+- You control what information you share
 
 ---
 
@@ -234,3 +254,7 @@ The platform is **mobile-first**:
 ✅ **Checked in?** → View dashboard for swimmer progress
 
 Welcome to Otters Kenya Swim Club! 🏊‍♂️💙
+
+---
+
+**Need more help?** Ask your coach or contact club administration.
