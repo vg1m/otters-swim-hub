@@ -8,10 +8,16 @@ A simple guide to using the Otters Kenya Swim Club platform as a parent or guard
 **Best for**: Parents who want to register swimmers immediately without creating an account first
 
 1. Go directly to the registration page
-2. Fill in swimmer details and parent information
+2. Fill in ALL details: swimmer info, parent info, emergency contact
 3. Choose payment option (Pay Now or Pay Later)
-4. **Later**: Create an account using the SAME email address
-5. Your swimmers will automatically link to your account when you sign up
+4. **Later**: Create an account using the **EXACT SAME email address**
+5. When you sign up, everything automatically links:
+   - ✅ Your swimmers
+   - ✅ Your invoices
+   - ✅ Emergency contact information
+   - ✅ Consent records
+
+⚠️ **Important**: Use the EXACT same email when signing up, or data won't link!
 
 ### Option 2: Create Account First (Recommended)
 **Best for**: Parents who want to manage swimmers and view dashboard features
@@ -105,11 +111,15 @@ Read and accept:
 - ✅ Visible on your dashboard right away
 - ✅ Can pay now or pay later
 
-**If you DON'T have an account yet**:
+**If you DON'T have an account yet** (Option 1):
 - ✅ Registration saved with your email
-- ⏳ Swimmers are in "pending" status (orphaned)
-- 📧 When you create an account with the SAME email, swimmers automatically link to your account
-- 📊 Then visible on your dashboard
+- ⏳ Swimmers are in "pending" status (orphaned - not yet linked)
+- 🔗 When you create an account with the **EXACT SAME email**, everything automatically links:
+  - Swimmers appear on dashboard
+  - Invoices appear with "Pay Now" button
+  - Emergency contact info populates in Settings
+  - Consent records appear in Settings
+- 📊 Everything then visible and manageable
 
 ---
 

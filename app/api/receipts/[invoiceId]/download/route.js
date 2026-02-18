@@ -29,8 +29,8 @@ export async function GET(request, { params }) {
       )
     }
 
-    // Get receipt and related data
-    const { data: receipt, error: receiptError } = await supabase
+    // Get receipt and related data (get most recent if duplicates exist)
+    const { data: receipts, error: receiptError } = await supabase
       .from('receipts')
       .select(`
         *,
@@ -46,7 +46,10 @@ export async function GET(request, { params }) {
         )
       `)
       .eq('invoice_id', invoiceId)
-      .single()
+      .order('created_at', { ascending: false })
+      .limit(1)
+    
+    const receipt = receipts?.[0]
 
     if (receiptError || !receipt) {
       console.error('Receipt not found:', receiptError)

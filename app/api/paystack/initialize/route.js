@@ -225,19 +225,8 @@ export async function POST(request) {
     
     console.log('✅ Verification: All', verifyConsents.length, 'consents confirmed in database')
 
-    // Handle pay-later flow (skip payment initialization)
-    if (!isPaying) {
-      console.log('Pay later option selected - skipping payment')
-      return NextResponse.json({
-        success: true,
-        message: 'Registration submitted successfully! Invoice sent to your email.',
-        invoiceId: invoice.id,
-        payLater: true,
-      })
-    }
-
-    // Pay now flow - create payment record and initialize Paystack
-    console.log('Initializing Paystack payment...')
+    // Create payment record (both pay now AND pay later need this for linking!)
+    console.log(isPaying ? 'Initializing Paystack payment...' : 'Creating payment record for pay-later...')
     const paymentReference = generatePaymentReference('REG', invoice.id)
     
     const { data: payment, error: paymentError } = await supabase
@@ -248,6 +237,19 @@ export async function POST(request) {
         amount: totalAmount,
         status: 'pending',
         paystack_reference: paymentReference,
+        callback_data: {
+          parentEmail: parentInfo.email,
+          parentData: {
+            full_name: parentInfo.fullName,
+            phone_number: parentInfo.phone,
+            email: parentInfo.email,
+            relationship: parentInfo.relationship,
+            emergency_contact_name: parentInfo.emergencyContactName,
+            emergency_contact_relationship: parentInfo.emergencyContactRelationship,
+            emergency_contact_phone: parentInfo.emergencyContactPhone,
+          },
+          swimmers: createdSwimmers.map(s => s.id),
+        },
       })
       .select()
       .single()
@@ -258,6 +260,17 @@ export async function POST(request) {
         { error: 'Failed to create payment record' },
         { status: 500 }
       )
+    }
+
+    // Handle pay-later flow (return early, skip Paystack initialization)
+    if (!isPaying) {
+      console.log('Pay later option selected - payment record created for linking')
+      return NextResponse.json({
+        success: true,
+        message: 'Registration submitted successfully! You can pay later from your dashboard.',
+        invoiceId: invoice.id,
+        payLater: true,
+      })
     }
 
     // Initialize Paystack transaction
@@ -281,23 +294,13 @@ export async function POST(request) {
       callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/register/confirmation?invoiceId=${invoice.id}&reference=${paymentReference}`,
     })
 
-    // Update payment record with Paystack details
+    // Update payment record with Paystack-specific details
     await supabase
       .from('payments')
       .update({
         callback_data: {
+          ...payment.callback_data, // Keep existing parent data
           access_code: paystackResult.access_code,
-          parentEmail: parentInfo.email,
-          parentData: {
-            full_name: parentInfo.fullName,
-            phone_number: parentInfo.phone,
-            email: parentInfo.email,
-            relationship: parentInfo.relationship,
-            emergency_contact_name: parentInfo.emergencyContactName,
-            emergency_contact_relationship: parentInfo.emergencyContactRelationship,
-            emergency_contact_phone: parentInfo.emergencyContactPhone,
-          },
-          swimmers: createdSwimmers.map(s => s.id),
         },
       })
       .eq('id', payment.id)
