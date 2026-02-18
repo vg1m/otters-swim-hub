@@ -142,6 +142,12 @@ export default function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault()
 
+    // Prevent duplicate submissions
+    if (loading) {
+      console.log('Submission already in progress, ignoring duplicate')
+      return
+    }
+
     if (!validateForm()) {
       return
     }
@@ -150,7 +156,8 @@ export default function RegisterPage() {
     const totalAmount = calculateRegistrationFee(swimmers.length)
 
     try {
-      const response = await fetch('/api/mpesa/stk-push', {
+      console.log('Submitting registration with Paystack...')
+      const response = await fetch('/api/paystack/initialize', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -167,21 +174,27 @@ export default function RegisterPage() {
       const data = await response.json()
 
       if (!response.ok) {
+        console.error('Registration failed:', data)
         throw new Error(data.error || 'Registration failed')
       }
 
       if (paymentOption === 'pay_later') {
         // Pay later flow - show success message with invoice details
+        console.log('Pay later successful, redirecting to success page')
         toast.success('Registration submitted successfully! Invoice sent to your email.')
         router.push(`/register/success?invoiceId=${data.invoiceId}&payLater=true`)
       } else {
-        // Pay now flow - proceed to M-Pesa payment
-        toast.success(data.message || 'Payment request sent! Check your phone to complete payment.')
+        // Pay now flow - redirect to Paystack checkout page
+        console.log('Redirecting to Paystack checkout:', data.authorization_url)
+        toast.success('Redirecting to secure payment page...')
+        
+        // Redirect to Paystack hosted checkout
         setTimeout(() => {
-          router.push(`/register/confirmation?invoiceId=${data.invoiceId}`)
-        }, 3000)
+          window.location.href = data.authorization_url
+        }, 1000)
       }
     } catch (error) {
+      console.error('Registration error:', error)
       toast.error(error.message || 'Registration failed. Please try again.')
       setLoading(false)
     }
@@ -461,10 +474,18 @@ export default function RegisterPage() {
               </Button>
               <p className="text-sm text-stone-600 dark:text-gray-400 text-center max-w-md">
                 {paymentOption === 'pay_now' 
-                  ? 'Secure M-Pesa payment. You\'ll receive a confirmation email once your registration is approved.'
+                  ? 'Payments secured by PayStack™. You\'ll be notified once your registration is approved.'
                   : 'Invoice will be sent to your email. Payment required to complete registration.'
                 }
               </p>
+              
+              {loading && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 max-w-md">
+                  <p className="text-sm text-amber-800 dark:text-amber-200 text-center font-medium">
+                    ⚠️ Processing your registration... Please do not refresh or go back!
+                  </p>
+                </div>
+              )}
             </div>
           </form>
         </div>

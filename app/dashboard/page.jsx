@@ -190,24 +190,41 @@ export default function ParentDashboard() {
             <p className="text-gray-600 dark:text-gray-400 mt-2">Welcome back, {profile?.full_name}</p>
           </div>
 
-          {/* Outstanding Invoices Alert */}
+          {/* Outstanding Invoices Alert - More Prominent */}
           {outstandingInvoices.length > 0 && (
-            <div className="mb-6 bg-yellow-50 border-l-4 border-yellow-400 p-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
+            <div className="mb-6">
+              <Card padding="normal" className="bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border-2 border-amber-400 dark:border-amber-600">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-start">
+                    <div className="flex-shrink-0">
+                      <svg className="h-8 w-8 text-amber-500" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-4">
+                      <h3 className="text-lg font-bold text-amber-900 dark:text-amber-100">Payment Required</h3>
+                      <p className="text-sm text-amber-800 dark:text-amber-200 mt-1">
+                        You have {outstandingInvoices.length} outstanding invoice{outstandingInvoices.length > 1 ? 's' : ''} totaling{' '}
+                        <span className="font-bold text-xl">
+                          {formatKES(outstandingInvoices.reduce((sum, inv) => sum + parseFloat(inv.total_amount), 0))}
+                        </span>
+                      </p>
+                      <p className="text-xs text-amber-700 dark:text-amber-300 mt-2">
+                        Complete payment to activate swimmer registrations
+                      </p>
+                    </div>
+                  </div>
+                  <Link href="/invoices">
+                    <Button 
+                      variant="primary" 
+                      size="lg"
+                      className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-8 py-3 rounded-xl shadow-lg hover:shadow-xl transition-all"
+                    >
+                      Pay Now →
+                    </Button>
+                  </Link>
                 </div>
-                <div className="ml-3">
-                  <p className="text-sm text-yellow-700">
-                    You have {outstandingInvoices.length} outstanding invoice{outstandingInvoices.length > 1 ? 's' : ''}.{' '}
-                    <Link href="/invoices" className="font-medium underline">
-                      View invoices
-                    </Link>
-                  </p>
-                </div>
-              </div>
+              </Card>
             </div>
           )}
 
@@ -279,13 +296,18 @@ export default function ParentDashboard() {
               </Link>
 
               <Link href="/invoices">
-                <Card padding="normal" className="hover:shadow-lg transition-shadow cursor-pointer">
+                <Card padding="normal" className="hover:shadow-lg transition-shadow cursor-pointer border-2 border-primary/20 hover:border-primary/50">
                   <div className="text-center py-4">
                     <svg className="mx-auto h-12 w-12 text-primary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    <p className="font-semibold text-gray-900 dark:text-gray-100">View Invoices</p>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Check payment status</p>
+                    <p className="font-semibold text-gray-900 dark:text-gray-100">Invoices & Payments</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                      {outstandingInvoices.length > 0 
+                        ? `${outstandingInvoices.length} pending payment${outstandingInvoices.length > 1 ? 's' : ''}`
+                        : 'View payment history'
+                      }
+                    </p>
                   </div>
                 </Card>
               </Link>

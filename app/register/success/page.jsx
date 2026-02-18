@@ -14,44 +14,9 @@ function SuccessPageContent() {
   const searchParams = useSearchParams()
   const invoiceId = searchParams.get('invoiceId')
   const payLater = searchParams.get('payLater') === 'true'
-  const [invoice, setInvoice] = useState(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    if (invoiceId) {
-      loadInvoiceDetails()
-    }
-  }, [invoiceId])
-
-  const loadInvoiceDetails = async () => {
-    try {
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('invoices')
-        .select('*')
-        .eq('id', invoiceId)
-        .single()
-
-      if (error) throw error
-      setInvoice(data)
-    } catch (error) {
-      console.error('Error loading invoice:', error)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-stone-50 via-white to-stone-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
-        <Navigation />
-        <div className="container mx-auto px-4 py-16 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-        </div>
-        <Footer />
-      </div>
-    )
-  }
+  
+  // For unauthenticated users (pay later), don't query database (RLS will block)
+  // Just display success message with invoice ID
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-stone-50 via-white to-stone-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
@@ -92,31 +57,33 @@ function SuccessPageContent() {
               </p>
             </div>
 
-            {/* Invoice Details */}
-            {invoice && (
+            {/* Registration Details (No database query - uses URL params only) */}
+            {invoiceId && (
               <div className="bg-stone-50 dark:bg-gray-800 rounded-lg p-6 mb-6">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                  Invoice Details
+                  Registration Details
                 </h2>
                 <div className="space-y-3">
                   <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Invoice Number:</span>
-                    <span className="font-medium text-gray-900 dark:text-gray-100">
-                      INV-{invoice.id.substring(0, 8).toUpperCase()}
+                    <span className="text-gray-600 dark:text-gray-400">Reference ID:</span>
+                    <span className="font-medium text-gray-900 dark:text-gray-100 font-mono text-sm">
+                      {invoiceId.substring(0, 8).toUpperCase()}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Amount:</span>
+                    <span className="text-gray-600 dark:text-gray-400">Registration Fee:</span>
                     <span className="font-bold text-gray-900 dark:text-gray-100">
-                      {formatKES(invoice.total_amount)}
+                      {formatKES(3500)}
                     </span>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">Status:</span>
-                    <span className="px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
-                      {invoice.status === 'issued' ? 'Pending Payment' : invoice.status}
-                    </span>
-                  </div>
+                  {payLater && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">Status:</span>
+                      <span className="px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400">
+                        Pending Payment
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -133,13 +100,13 @@ function SuccessPageContent() {
                       <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
                       </svg>
-                      Check your email for the invoice with payment instructions
+                      Create your account using the email address you provided during registration
                     </li>
                     <li className="flex items-start gap-2">
                       <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
                       </svg>
-                      Complete payment via M-Pesa or through your parent dashboard
+                      Login to your dashboard and click "Pay Now" to complete payment via Card, Mobile Money, or Bank Transfer
                     </li>
                     <li className="flex items-start gap-2">
                       <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -175,30 +142,49 @@ function SuccessPageContent() {
 
             {/* Action Buttons */}
             <div className="flex flex-col sm:flex-row gap-4">
-              {payLater && (
+              {payLater ? (
+                <>
+                  <Button
+                    variant="primary"
+                    onClick={() => router.push('/signup')}
+                    fullWidth
+                  >
+                    Create Account
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => router.push('/login')}
+                    fullWidth
+                  >
+                    Already Have Account? Login
+                  </Button>
+                </>
+              ) : (
                 <Button
                   variant="primary"
                   onClick={() => router.push('/login')}
                   fullWidth
                 >
-                  Login to View Invoice
+                  Login to Dashboard
                 </Button>
               )}
-              <Button
-                variant={payLater ? 'secondary' : 'primary'}
-                onClick={() => router.push('/')}
-                fullWidth
-              >
-                Return to Home
-              </Button>
             </div>
+
+            {/* Email Notification Note */}
+            {payLater && (
+              <div className="mt-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                <p className="text-sm text-amber-800 dark:text-amber-200 text-center">
+                  <strong>Note:</strong> Email notifications will be enabled soon. For now, create your account and access your invoice from the dashboard.
+                </p>
+              </div>
+            )}
 
             {/* Support Section */}
             <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
               <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
                 Questions about your registration?{' '}
                 <a 
-                  href="mailto:admin@otterskenya.com" 
+                  href="mailto:victor@mwago.me" 
                   className="text-primary hover:text-primary-dark font-medium"
                 >
                   Contact us

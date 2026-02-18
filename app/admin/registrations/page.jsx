@@ -46,17 +46,53 @@ export default function PendingRegistrationsPage() {
     setLoading(true)
 
     try {
-      const { data, error } = await supabase
+      // Get pending swimmers
+      const { data: swimmersData, error: swimmersError } = await supabase
         .from('swimmers')
-        .select(`
-          *,
-          invoices(id, status, total_amount, paid_at)
-        `)
+        .select('*')
         .eq('status', 'pending')
         .order('created_at', { ascending: false })
 
-      if (error) throw error
-      setSwimmers(data || [])
+      if (swimmersError) throw swimmersError
+
+      // For each swimmer, find their invoice through parent_id or payment callback_data
+      const swimmersWithInvoices = await Promise.all(
+        (swimmersData || []).map(async (swimmer) => {
+          // Try to find invoice by parent_id
+          let invoice = null
+          
+          if (swimmer.parent_id) {
+            // For linked swimmers, find by parent_id
+            const { data: invoiceData } = await supabase
+              .from('invoices')
+              .select('id, status, total_amount, paid_at')
+              .eq('parent_id', swimmer.parent_id)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .single()
+            
+            invoice = invoiceData
+          } else {
+            // For orphaned swimmers, find through payments callback_data
+            const { data: paymentData } = await supabase
+              .from('payments')
+              .select('invoice_id, invoices(id, status, total_amount, paid_at)')
+              .contains('callback_data->swimmers', [swimmer.id])
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .single()
+            
+            invoice = paymentData?.invoices
+          }
+
+          return {
+            ...swimmer,
+            invoices: invoice ? [invoice] : []
+          }
+        })
+      )
+
+      setSwimmers(swimmersWithInvoices)
     } catch (error) {
       console.error('Error loading swimmers:', error)
       toast.error('Failed to load pending registrations')
@@ -134,7 +170,7 @@ export default function PendingRegistrationsPage() {
       accessor: 'name',
       render: (row) => (
         <div>
-          <p className="font-medium text-gray-900">
+          <p className="font-medium text-gray-900 dark:text-gray-100">
             {row.first_name} {row.last_name}
           </p>
         </div>
@@ -219,11 +255,11 @@ export default function PendingRegistrationsPage() {
     <>
       <Navigation />
       
-      <div className="min-h-screen bg-gray-50 py-8">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">Pending Registrations</h1>
-            <p className="text-gray-600 mt-2">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Pending Registrations</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-2">
               Review and approve new swimmer registrations
             </p>
           </div>
@@ -231,11 +267,11 @@ export default function PendingRegistrationsPage() {
           <Card padding="none">
             {swimmers.length === 0 ? (
               <div className="p-12 text-center">
-                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                <h3 className="mt-2 text-sm font-medium text-gray-900">No pending registrations</h3>
-                <p className="mt-1 text-sm text-gray-500">
+                <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No pending registrations</h3>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
                   All registrations have been processed.
                 </p>
               </div>
@@ -282,39 +318,39 @@ export default function PendingRegistrationsPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">First Name</label>
-                <p className="mt-1 text-sm text-gray-900">{selectedSwimmer.first_name}</p>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">First Name</label>
+                <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">{selectedSwimmer.first_name}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Last Name</label>
-                <p className="mt-1 text-sm text-gray-900">{selectedSwimmer.last_name}</p>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Last Name</label>
+                <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">{selectedSwimmer.last_name}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Date of Birth</label>
-                <p className="mt-1 text-sm text-gray-900">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Date of Birth</label>
+                <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
                   {formatDate(selectedSwimmer.date_of_birth)} ({calculateAge(selectedSwimmer.date_of_birth)} years old)
                 </p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Gender</label>
-                <p className="mt-1 text-sm text-gray-900 capitalize">{selectedSwimmer.gender}</p>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Gender</label>
+                <p className="mt-1 text-sm text-gray-900 dark:text-gray-100 capitalize">{selectedSwimmer.gender}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Squad</label>
-                <p className="mt-1 text-sm text-gray-900">{selectedSwimmer.squad.replace('_', ' ').toUpperCase()}</p>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Squad</label>
+                <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">{selectedSwimmer.squad.replace('_', ' ').toUpperCase()}</p>
               </div>
               {selectedSwimmer.sub_squad && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Sub Squad</label>
-                  <p className="mt-1 text-sm text-gray-900 uppercase">{selectedSwimmer.sub_squad}</p>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Sub Squad</label>
+                  <p className="mt-1 text-sm text-gray-900 dark:text-gray-100 uppercase">{selectedSwimmer.sub_squad}</p>
                 </div>
               )}
               <div>
-                <label className="block text-sm font-medium text-gray-700">Registration Date</label>
-                <p className="mt-1 text-sm text-gray-900">{formatDate(selectedSwimmer.created_at)}</p>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Registration Date</label>
+                <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">{formatDate(selectedSwimmer.created_at)}</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Payment Status</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Payment Status</label>
                 <div className="mt-1">
                   {selectedSwimmer.invoices?.[0] ? (
                     <Badge variant={selectedSwimmer.invoices[0].status === 'paid' ? 'success' : 'warning'}>

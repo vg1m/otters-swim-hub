@@ -16,6 +16,26 @@ export function useAuth() {
   // Memoize the Supabase client to avoid creating a new instance on every render
   const supabase = useMemo(() => createClient(), [])
 
+  // Check and link orphaned registrations (for users who paid before signing up)
+  const linkOrphanedRegistrations = useCallback(async () => {
+    try {
+      const response = await fetch('/api/link-registrations', {
+        method: 'POST',
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        if (result.linked?.invoices > 0 || result.linked?.swimmers > 0) {
+          console.log('✅ Linked orphaned registrations:', result.linked)
+          return true // Indicates data was linked
+        }
+      }
+    } catch (error) {
+      console.error('Error checking for orphaned registrations:', error)
+    }
+    return false
+  }, [])
+
   // Optimized getProfile with caching and request deduplication
   const getProfile = useCallback(async (userId, forceRefresh = false) => {
     try {
@@ -82,6 +102,15 @@ export function useAuth() {
             await getProfile(session.user.id)
             setLoading(false)
           }
+          
+          // Check for and link any orphaned registrations (pay-before-signup scenario)
+          // Run this in background to avoid blocking UI
+          linkOrphanedRegistrations().then(wasLinked => {
+            if (wasLinked) {
+              // Refresh profile to show newly linked data
+              getProfile(session.user.id, true)
+            }
+          })
         } else {
           setUser(null)
           setProfile(null)
@@ -140,7 +169,7 @@ export function useAuth() {
       }
       authListener?.subscription.unsubscribe()
     }
-  }, [supabase, getProfile])
+  }, [supabase, getProfile, linkOrphanedRegistrations])
 
   const signIn = useCallback(async (email, password) => {
     const { data, error } = await supabase.auth.signInWithPassword({

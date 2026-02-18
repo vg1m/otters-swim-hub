@@ -76,6 +76,7 @@ export default function ReportsPage() {
       // Fetch all data in parallel
       const [
         invoicesResult,
+        paymentsResult,
         swimmersResult,
         sessionsResult,
         attendanceResult
@@ -84,6 +85,14 @@ export default function ReportsPage() {
           .from('invoices')
           .select('*')
           .gte('created_at', startDate.toISOString()),
+        
+        supabase
+          .from('payments')
+          .select('*, invoices(id, total_amount)')
+          .eq('status', 'completed')
+          .gte('paid_at', startDate.toISOString())
+          .order('paid_at', { ascending: false })
+          .limit(20),
         
         supabase
           .from('swimmers')
@@ -135,12 +144,9 @@ export default function ReportsPage() {
         averageAttendance,
       })
 
-      // Get recent payments (last 10)
-      const recentPaid = paidInvoices
-        .sort((a, b) => new Date(b.paid_at) - new Date(a.paid_at))
-        .slice(0, 10)
-      
-      setRecentPayments(recentPaid)
+      // Use actual payments data for recent payments
+      const payments = paymentsResult.data || []
+      setRecentPayments(payments.slice(0, 10))
 
     } catch (error) {
       console.error('Error loading reports:', error)
@@ -255,7 +261,7 @@ export default function ReportsPage() {
                       <thead className="bg-gray-50 dark:bg-gray-800">
                         <tr>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Invoice ID
+                            Payment ID
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Amount
@@ -264,7 +270,10 @@ export default function ReportsPage() {
                             Payment Date
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Method
+                            Channel
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Reference
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Status
@@ -274,20 +283,25 @@ export default function ReportsPage() {
                       <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
                         {recentPayments.map((payment) => (
                           <tr key={payment.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100 font-mono">
                               #{payment.id.slice(0, 8)}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                              {formatKES(payment.total_amount)}
+                            <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-gray-100">
+                              {formatKES(payment.amount || payment.invoices?.total_amount)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                               {payment.paid_at ? formatDate(payment.paid_at) : 'N/A'}
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                              {payment.payment_method || 'M-Pesa'}
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 capitalize">
+                              {payment.payment_channel || 'Card'}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 font-mono max-w-xs truncate">
+                              {payment.paystack_reference || 'N/A'}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <Badge variant="success">Paid</Badge>
+                              <Badge variant="success">
+                                {payment.status === 'completed' ? 'Paid' : payment.status}
+                              </Badge>
                             </td>
                           </tr>
                         ))}

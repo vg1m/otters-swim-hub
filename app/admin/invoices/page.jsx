@@ -62,7 +62,14 @@ export default function InvoicesPage() {
         .select(`
           *,
           swimmers (first_name, last_name),
-          invoice_line_items (*)
+          invoice_line_items (*),
+          payments (
+            id,
+            status,
+            payment_channel,
+            paystack_reference,
+            paid_at
+          )
         `)
         .order('created_at', { ascending: false })
 
@@ -211,6 +218,38 @@ export default function InvoicesPage() {
     setShowDetailsModal(true)
   }
 
+  async function downloadReceipt(invoiceId) {
+    try {
+      toast.loading('Generating receipt...')
+      
+      const response = await fetch(`/api/receipts/${invoiceId}/download`, {
+        method: 'GET',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to generate receipt')
+      }
+
+      // Create blob and download
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `receipt-${invoiceId.substring(0, 8)}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      
+      toast.dismiss()
+      toast.success('Receipt downloaded successfully')
+    } catch (error) {
+      toast.dismiss()
+      console.error('Download error:', error)
+      toast.error('Failed to download receipt')
+    }
+  }
+
   const columns = [
     {
       header: 'Invoice ID',
@@ -247,14 +286,31 @@ export default function InvoicesPage() {
       },
     },
     {
+      header: 'Payment Info',
+      accessor: 'payment_info',
+      render: (row) => {
+        const payment = row.payments?.[0]
+        if (!payment) {
+          return <span className="text-sm text-gray-500 dark:text-gray-400">No payment</span>
+        }
+        return (
+          <div className="text-sm">
+            <div className="font-medium capitalize text-gray-900 dark:text-gray-100">
+              {payment.payment_channel || 'Card'}
+            </div>
+            {payment.paystack_reference && (
+              <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">
+                {payment.paystack_reference.substring(0, 16)}...
+              </div>
+            )}
+          </div>
+        )
+      },
+    },
+    {
       header: 'Due Date',
       accessor: 'due_date',
       render: (row) => formatDate(row.due_date),
-    },
-    {
-      header: 'Created',
-      accessor: 'created_at',
-      render: (row) => formatDate(row.created_at),
     },
     {
       header: 'Actions',
@@ -268,10 +324,19 @@ export default function InvoicesPage() {
           >
             View
           </Button>
-          {row.status !== 'paid' && (
+          {row.status === 'paid' && (
             <Button
               size="sm"
               variant="success"
+              onClick={() => downloadReceipt(row.id)}
+            >
+              Receipt
+            </Button>
+          )}
+          {row.status !== 'paid' && (
+            <Button
+              size="sm"
+              variant="primary"
               onClick={() => updateInvoiceStatus(row.id, 'paid')}
             >
               Mark Paid
@@ -294,12 +359,12 @@ export default function InvoicesPage() {
     <>
       <Navigation />
       
-      <div className="min-h-screen bg-gray-50 py-8">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-8 flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Invoice Management</h1>
-              <p className="text-gray-600 mt-2">Generate and track invoices</p>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Invoice Management</h1>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">Generate and track invoices</p>
             </div>
             <Button onClick={() => setShowCreateModal(true)}>
               + Create Invoice
@@ -443,13 +508,13 @@ export default function InvoicesPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Swimmer</label>
-                <p className="mt-1 text-sm text-gray-900">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Swimmer</label>
+                <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
                   {selectedInvoice.swimmers?.first_name} {selectedInvoice.swimmers?.last_name}
                 </p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Status</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Status</label>
                 <div className="mt-1">
                   <Badge variant={
                     { draft: 'default', issued: 'info', due: 'warning', paid: 'success' }[selectedInvoice.status]
@@ -459,43 +524,59 @@ export default function InvoicesPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Due Date</label>
-                <p className="mt-1 text-sm text-gray-900">{formatDate(selectedInvoice.due_date)}</p>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Due Date</label>
+                <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">{formatDate(selectedInvoice.due_date)}</p>
               </div>
               {selectedInvoice.paid_at && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700">Paid At</label>
-                  <p className="mt-1 text-sm text-gray-900">{formatDate(selectedInvoice.paid_at)}</p>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Paid At</label>
+                  <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">{formatDate(selectedInvoice.paid_at)}</p>
+                </div>
+              )}
+              {selectedInvoice.payments?.[0]?.payment_channel && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Payment Channel</label>
+                  <p className="mt-1 text-sm text-gray-900 dark:text-gray-100 capitalize">
+                    {selectedInvoice.payments[0].payment_channel}
+                  </p>
+                </div>
+              )}
+              {selectedInvoice.payments?.[0]?.paystack_reference && (
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Paystack Reference</label>
+                  <p className="mt-1 text-sm text-gray-900 dark:text-gray-100 font-mono break-all">
+                    {selectedInvoice.payments[0].paystack_reference}
+                  </p>
                 </div>
               )}
             </div>
 
-            <div className="border-t pt-4">
-              <h3 className="font-semibold mb-3">Line Items</h3>
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+              <h3 className="font-semibold mb-3 text-gray-900 dark:text-gray-100">Line Items</h3>
               <table className="min-w-full">
                 <thead>
-                  <tr className="border-b">
-                    <th className="text-left text-sm font-medium text-gray-700 py-2">Description</th>
-                    <th className="text-right text-sm font-medium text-gray-700 py-2">Amount</th>
-                    <th className="text-right text-sm font-medium text-gray-700 py-2">Qty</th>
-                    <th className="text-right text-sm font-medium text-gray-700 py-2">Total</th>
+                  <tr className="border-b border-gray-200 dark:border-gray-700">
+                    <th className="text-left text-sm font-medium text-gray-700 dark:text-gray-300 py-2">Description</th>
+                    <th className="text-right text-sm font-medium text-gray-700 dark:text-gray-300 py-2">Amount</th>
+                    <th className="text-right text-sm font-medium text-gray-700 dark:text-gray-300 py-2">Qty</th>
+                    <th className="text-right text-sm font-medium text-gray-700 dark:text-gray-300 py-2">Total</th>
                   </tr>
                 </thead>
                 <tbody>
                   {selectedInvoice.invoice_line_items?.map((item, index) => (
-                    <tr key={index} className="border-b">
-                      <td className="text-sm text-gray-900 py-2">{item.description}</td>
-                      <td className="text-sm text-gray-900 py-2 text-right">{formatKES(item.amount)}</td>
-                      <td className="text-sm text-gray-900 py-2 text-right">{item.quantity}</td>
-                      <td className="text-sm text-gray-900 py-2 text-right font-semibold">
+                    <tr key={index} className="border-b border-gray-200 dark:border-gray-700">
+                      <td className="text-sm text-gray-900 dark:text-gray-100 py-2">{item.description}</td>
+                      <td className="text-sm text-gray-900 dark:text-gray-100 py-2 text-right">{formatKES(item.amount)}</td>
+                      <td className="text-sm text-gray-900 dark:text-gray-100 py-2 text-right">{item.quantity}</td>
+                      <td className="text-sm text-gray-900 dark:text-gray-100 py-2 text-right font-semibold">
                         {formatKES(item.amount * item.quantity)}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              <div className="flex justify-between items-center pt-4 border-t-2">
-                <span className="font-bold">Total:</span>
+              <div className="flex justify-between items-center pt-4 border-t-2 border-gray-300 dark:border-gray-600">
+                <span className="font-bold text-gray-900 dark:text-gray-100">Total:</span>
                 <span className="text-2xl font-bold text-primary">
                   {formatKES(selectedInvoice.total_amount)}
                 </span>

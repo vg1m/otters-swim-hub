@@ -15,8 +15,6 @@ import Modal from '@/components/ui/Modal'
 import { formatDate, formatDateTime } from '@/lib/utils/date-helpers'
 import toast from 'react-hot-toast'
 
-// Dynamically import QRCode to reduce initial bundle size
-const loadQRCode = () => import('qrcode')
 
 export default function SessionsPage() {
   const router = useRouter()
@@ -26,7 +24,6 @@ export default function SessionsPage() {
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showQRModal, setShowQRModal] = useState(false)
   const [selectedSession, setSelectedSession] = useState(null)
-  const [qrCodeUrl, setQrCodeUrl] = useState('')
   const [saving, setSaving] = useState(false)
   
   const [sessionForm, setSessionForm] = useState({
@@ -122,32 +119,7 @@ export default function SessionsPage() {
 
   const showQRCode = useCallback(async (session) => {
     setSelectedSession(session)
-    
-    // Generate QR code URL
-    const qrData = JSON.stringify({
-      sessionId: session.id,
-      token: session.qr_code_token,
-      date: session.session_date,
-      squad: session.squad,
-    })
-
-    try {
-      // Dynamically load QRCode library only when needed
-      const QRCode = (await loadQRCode()).default
-      const url = await QRCode.toDataURL(qrData, {
-        width: 300,
-        margin: 2,
-        color: {
-          dark: '#000000',
-          light: '#FFFFFF',
-        },
-      })
-      setQrCodeUrl(url)
-      setShowQRModal(true)
-    } catch (error) {
-      console.error('Error generating QR code:', error)
-      toast.error('Failed to generate QR code')
-    }
+    setShowQRModal(true)
   }, [])
 
   async function handleDeleteSession(session) {
@@ -181,33 +153,101 @@ export default function SessionsPage() {
   }
 
   function printQRCode() {
-    const printWindow = window.open('', '_blank')
+    const printWindow = window.open('', '', 'width=800,height=600')
     printWindow.document.write(`
       <html>
         <head>
-          <title>Training Session QR Code</title>
+          <title>Session Code - ${selectedSession.qr_code_token}</title>
           <style>
-            body {
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              justify-content: center;
-              min-height: 100vh;
-              font-family: sans-serif;
-              text-align: center;
+            body { 
+              font-family: 'Arial', sans-serif; 
+              text-align: center; 
+              padding: 40px;
+              margin: 0;
             }
-            h1 { font-size: 24px; margin-bottom: 10px; }
-            p { margin: 5px 0; color: #666; }
-            img { margin: 20px 0; }
+            .header {
+              margin-bottom: 40px;
+            }
+            .code-box {
+              background: linear-gradient(135deg, #0084d5 0%, #0066aa 100%);
+              color: white;
+              padding: 80px 60px;
+              border-radius: 20px;
+              margin: 40px 0;
+              box-shadow: 0 10px 40px rgba(0,132,213,0.3);
+            }
+            .code-label {
+              font-size: 20px;
+              text-transform: uppercase;
+              letter-spacing: 3px;
+              opacity: 0.9;
+              margin-bottom: 20px;
+            }
+            .code {
+              font-size: 120px;
+              font-weight: bold;
+              letter-spacing: 18px;
+              margin: 30px 0;
+              font-family: 'Courier New', monospace;
+              text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            }
+            .session-info {
+              font-size: 22px;
+              margin-top: 30px;
+              padding-top: 30px;
+              border-top: 2px solid rgba(255,255,255,0.3);
+              opacity: 0.95;
+            }
+            .instructions {
+              background: #f0f9ff;
+              padding: 30px;
+              border-radius: 15px;
+              margin-top: 40px;
+              text-align: left;
+            }
+            .instructions h3 {
+              color: #0084d5;
+              margin-bottom: 15px;
+              font-size: 20px;
+            }
+            .instructions ol {
+              font-size: 16px;
+              line-height: 2;
+              color: #334155;
+            }
+            @media print {
+              body { padding: 20px; }
+              .code-box { page-break-inside: avoid; }
+            }
           </style>
         </head>
         <body>
-          <h1>Otters Kenya Training Session</h1>
-          <p>${formatDate(selectedSession.session_date)}</p>
-          <p>${selectedSession.start_time} - ${selectedSession.end_time}</p>
-          <p>${selectedSession.squad.replace('_', ' ').toUpperCase()} - ${selectedSession.pool_location}</p>
-          <img src="${qrCodeUrl}" alt="QR Code" />
-          <p>Scan to check in</p>
+          <div class="header">
+            <h1 style="color: #0084d5; font-size: 32px; margin: 0;">OTTERS KENYA SWIM CLUB</h1>
+            <p style="font-size: 18px; color: #64748b; margin-top: 5px;">Training Session Check-In</p>
+          </div>
+          
+          <div class="code-box">
+            <div class="code-label">Session Code</div>
+            <div class="code">${selectedSession.qr_code_token}</div>
+            <div class="session-info">
+              <p style="margin: 5px 0;">${formatDate(selectedSession.session_date)}</p>
+              <p style="margin: 5px 0;">${selectedSession.start_time} - ${selectedSession.end_time}</p>
+              <p style="margin: 5px 0;">${selectedSession.squad.replace('_', ' ').toUpperCase()} • ${selectedSession.pool_location}</p>
+            </div>
+          </div>
+          
+          <div class="instructions">
+            <h3>🏊 Parent Check-In Steps:</h3>
+            <ol>
+              <li>Open the Otters Kenya app on your phone</li>
+              <li>Tap "Check-In" from the menu</li>
+              <li>Select which swimmer is present</li>
+              <li>Enter the code: <strong>${selectedSession.qr_code_token}</strong></li>
+              <li>Tap "Check In" button</li>
+              <li>Done! ✅ Check-in is recorded</li>
+            </ol>
+          </div>
         </body>
       </html>
     `)
@@ -232,7 +272,7 @@ export default function SessionsPage() {
           <div className="mb-8 flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">Training Sessions</h1>
-              <p className="text-gray-600 mt-2">Manage pool schedule and generate QR codes</p>
+              <p className="text-gray-600 mt-2">Manage pool schedule and generate check-in codes</p>
             </div>
             <Button onClick={() => setShowCreateModal(true)}>
               + Create Session
@@ -274,7 +314,7 @@ export default function SessionsPage() {
                         variant="secondary"
                         onClick={() => showQRCode(session)}
                       >
-                        Show QR Code
+                        View Check-In Code
                       </Button>
                       <Button
                         size="sm"
@@ -361,42 +401,71 @@ export default function SessionsPage() {
         </div>
       </Modal>
 
-      {/* QR Code Modal */}
+      {/* Session Code Modal */}
       <Modal
         isOpen={showQRModal}
         onClose={() => setShowQRModal(false)}
-        title="Session QR Code"
-        size="md"
-        footer={
-          <div className="flex gap-3 justify-end">
-            <Button variant="secondary" onClick={downloadQRCode}>
-              Download
-            </Button>
-            <Button onClick={printQRCode}>
-              Print
-            </Button>
-          </div>
-        }
+        title="Session Check-In Code"
+        size="lg"
       >
         {selectedSession && (
-          <div className="text-center">
-            <h3 className="text-lg font-semibold mb-2">
-              {formatDate(selectedSession.session_date)}
-            </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              {selectedSession.start_time} - {selectedSession.end_time}<br />
-              {selectedSession.squad.replace('_', ' ').toUpperCase()} - {selectedSession.pool_location}
-            </p>
-            {qrCodeUrl && (
-              <img 
-                src={qrCodeUrl} 
-                alt="QR Code" 
-                className="mx-auto border-4 border-gray-200 rounded-lg"
-              />
-            )}
-            <p className="text-sm text-gray-500 mt-4">
-              Swimmers scan this code to check in
-            </p>
+          <div className="space-y-6">
+            {/* Big Code Display */}
+            <div className="bg-gradient-to-br from-primary to-primary-dark rounded-2xl p-10 shadow-2xl text-center">
+              <p className="text-white/80 text-sm font-medium mb-3 uppercase tracking-wide">Session Code</p>
+              <p className="text-white text-6xl md:text-7xl font-bold tracking-widest font-mono mb-6">
+                {selectedSession.qr_code_token}
+              </p>
+              <div className="pt-4 border-t border-white/20">
+                <p className="text-white text-lg font-medium">{formatDate(selectedSession.session_date)}</p>
+                <p className="text-white/90 text-sm mt-2">
+                  {selectedSession.start_time} - {selectedSession.end_time}
+                </p>
+                <p className="text-white/80 text-sm mt-1">
+                  {selectedSession.squad.replace('_', ' ').toUpperCase()} • {selectedSession.pool_location}
+                </p>
+              </div>
+            </div>
+
+            {/* Instructions */}
+            <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-xl p-5">
+              <div className="flex items-start mb-3">
+                <svg className="w-6 h-6 text-blue-600 dark:text-blue-400 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+                </svg>
+                <div>
+                  <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">Parent Check-In Instructions</h4>
+                  <ol className="text-sm text-blue-800 dark:text-blue-200 space-y-2">
+                    <li><strong>1. Display this code</strong> at the poolside (print or show on screen)</li>
+                    <li><strong>2. Parents open</strong> the check-in page on their phone/device</li>
+                    <li><strong>3. They select</strong> which swimmer is present</li>
+                    <li><strong>4. They enter</strong> the code shown above</li>
+                    <li><strong>5. Check-in recorded</strong> instantly with timestamp</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                variant="secondary"
+                fullWidth
+                onClick={() => {
+                  navigator.clipboard.writeText(selectedSession.qr_code_token)
+                  toast.success('Code copied to clipboard!')
+                }}
+              >
+                📋 Copy Code
+              </Button>
+              <Button
+                variant="primary"
+                fullWidth
+                onClick={printQRCode}
+              >
+                🖨️ Print Code
+              </Button>
+            </div>
           </div>
         )}
       </Modal>

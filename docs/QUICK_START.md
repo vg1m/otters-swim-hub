@@ -77,13 +77,13 @@ In Supabase:
 -- 1. Create user in Auth (via Supabase Auth UI)
 -- Then run:
 INSERT INTO profiles (id, full_name, email, phone_number, role)
-VALUES ('your-user-id', 'Admin Name', 'admin@otterskenya.com', '+254700000000', 'admin');
+VALUES ('your-user-id', 'Admin Name', 'victor@mwago.me', '+254700000000', 'admin');
 ```
 
 ### Step 5: Replace M-Pesa with Paystack
 Files to update:
-1. `lib/payments/` (rename from lib/mpesa/)
-2. `app/api/paystack/` (rename from app/api/mpesa/)
+1. `lib/paystack/` - Payment gateway integration
+2. `app/api/paystack/` - Payment API routes
 3. Update payment initiation logic
 4. Update webhook handler
 

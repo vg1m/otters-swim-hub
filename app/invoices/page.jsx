@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import Navigation from '@/components/Navigation'
@@ -14,13 +14,19 @@ import { formatKES } from '@/lib/utils/currency'
 import { formatDate } from '@/lib/utils/date-helpers'
 import toast from 'react-hot-toast'
 
-export default function ParentInvoicesPage() {
+function InvoicesPageContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, profile, loading: authLoading } = useAuth()
   const [invoices, setInvoices] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedInvoice, setSelectedInvoice] = useState(null)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
+  const [verifyingPayment, setVerifyingPayment] = useState(false)
+
+  // Check if user just returned from Paystack payment
+  const reference = searchParams.get('reference')
+  const paid = searchParams.get('paid') === 'true'
 
   useEffect(() => {
     if (!authLoading) {
@@ -29,26 +35,144 @@ export default function ParentInvoicesPage() {
         return
       }
       loadInvoices()
+      
+      // If user just returned from payment, verify and refresh
+      if (paid && reference) {
+        verifyPaymentStatus(reference)
+      }
     }
-  }, [user, authLoading, router])
+  }, [user, authLoading, router, paid, reference])
+
+  async function verifyPaymentStatus(reference) {
+    setVerifyingPayment(true)
+    toast.loading('Verifying payment with Paystack...', { id: 'verify-payment' })
+    
+    try {
+      // Call verification API
+      const response = await fetch('/api/paystack/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reference })
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        // If verification failed, poll database for a few seconds in case webhook completed it
+        console.log('API verification failed, polling database...', result)
+        await pollDatabaseStatus(reference)
+        return
+      }
+
+      // Success!
+      toast.dismiss('verify-payment')
+      toast.success('Payment confirmed! Your registration is now active.')
+      setVerifyingPayment(false)
+      
+      // Reload invoices and clear URL params
+      await loadInvoices()
+      router.replace('/invoices')
+
+    } catch (error) {
+      console.error('Payment verification error:', error)
+      // Fallback to polling database
+      await pollDatabaseStatus(reference)
+    }
+  }
+
+  async function pollDatabaseStatus(reference) {
+    let attempts = 0
+    const maxAttempts = 5
+    
+    const poll = async () => {
+      try {
+        const supabase = createClient()
+        
+        const { data: payment, error } = await supabase
+          .from('payments')
+          .select('status, invoice_id, invoices(status)')
+          .eq('paystack_reference', reference)
+          .single()
+
+        if (!error && payment?.status === 'completed' && payment.invoices?.status === 'paid') {
+          toast.dismiss('verify-payment')
+          toast.success('Payment confirmed! Your registration is now active.')
+          setVerifyingPayment(false)
+          await loadInvoices()
+          router.replace('/invoices')
+          return
+        }
+
+        attempts++
+        if (attempts < maxAttempts) {
+          setTimeout(poll, 2000)
+        } else {
+          toast.dismiss('verify-payment')
+          toast('Payment is being processed. Please refresh in a moment.', {
+            icon: 'ℹ️',
+            duration: 5000
+          })
+          setVerifyingPayment(false)
+          await loadInvoices()
+          router.replace('/invoices')
+        }
+      } catch (error) {
+        console.error('Database poll error:', error)
+        toast.dismiss('verify-payment')
+        toast.error('Error verifying payment')
+        setVerifyingPayment(false)
+      }
+    }
+    
+    poll()
+  }
 
   async function loadInvoices() {
     const supabase = createClient()
     setLoading(true)
 
     try {
-      const { data, error } = await supabase
+      // Get invoices first (don't rely on swimmer join since swimmer_id might be NULL)
+      const { data: invoicesData, error: invoicesError } = await supabase
         .from('invoices')
-        .select(`
-          *,
-          swimmers (first_name, last_name),
-          invoice_line_items (*)
-        `)
+        .select('*, invoice_line_items (*)')
         .eq('parent_id', user.id)
         .order('created_at', { ascending: false })
 
-      if (error) throw error
-      setInvoices(data || [])
+      if (invoicesError) throw invoicesError
+
+      // For each invoice, find swimmer name from line items or parent's swimmers
+      const enrichedInvoices = await Promise.all(
+        (invoicesData || []).map(async (invoice) => {
+          // If invoice has swimmer_id, fetch that swimmer
+          if (invoice.swimmer_id) {
+            const { data: swimmer } = await supabase
+              .from('swimmers')
+              .select('first_name, last_name')
+              .eq('id', invoice.swimmer_id)
+              .single()
+            
+            return {
+              ...invoice,
+              swimmers: swimmer
+            }
+          }
+          
+          // Otherwise, get swimmer name from line items description
+          const firstLineItem = invoice.invoice_line_items?.[0]
+          const swimmerName = firstLineItem?.description?.replace('Registration: ', '') || 'Swimmer'
+          
+          return {
+            ...invoice,
+            swimmers: {
+              first_name: swimmerName.split(' ')[0] || 'Swimmer',
+              last_name: swimmerName.split(' ').slice(1).join(' ') || 'Registration'
+            }
+          }
+        })
+      )
+
+      setInvoices(enrichedInvoices)
     } catch (error) {
       console.error('Error loading invoices:', error)
       toast.error('Failed to load invoices')
@@ -60,6 +184,65 @@ export default function ParentInvoicesPage() {
   function viewInvoiceDetails(invoice) {
     setSelectedInvoice(invoice)
     setShowDetailsModal(true)
+  }
+
+  async function handlePayNow(invoiceId) {
+    try {
+      const response = await fetch('/api/paystack/pay-invoice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ invoiceId }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to initialize payment')
+      }
+
+      // Redirect to Paystack checkout
+      toast.success('Redirecting to secure payment page...')
+      setTimeout(() => {
+        window.location.href = data.authorization_url
+      }, 1000)
+    } catch (error) {
+      console.error('Payment error:', error)
+      toast.error(error.message || 'Failed to initialize payment')
+    }
+  }
+
+  async function downloadReceipt(invoiceId) {
+    try {
+      toast.loading('Generating receipt...')
+      
+      const response = await fetch(`/api/receipts/${invoiceId}/download`, {
+        method: 'GET',
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to generate receipt')
+      }
+
+      // Create blob and download
+      const blob = await response.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `receipt-${invoiceId.substring(0, 8)}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      
+      toast.dismiss()
+      toast.success('Receipt downloaded successfully')
+    } catch (error) {
+      toast.dismiss()
+      console.error('Download error:', error)
+      toast.error('Failed to download receipt')
+    }
   }
 
   const columns = [
@@ -119,12 +302,30 @@ export default function ParentInvoicesPage() {
       header: 'Actions',
       accessor: 'actions',
       render: (row) => (
-        <button
-          className="text-primary hover:text-primary-dark font-medium text-sm"
-          onClick={() => viewInvoiceDetails(row)}
-        >
-          View Details
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            className="text-primary hover:text-primary-dark font-medium text-sm"
+            onClick={() => viewInvoiceDetails(row)}
+          >
+            View
+          </button>
+          {(row.status === 'issued' || row.status === 'due') && (
+            <button
+              onClick={() => handlePayNow(row.id)}
+              className="px-3 py-1 bg-primary text-white rounded hover:bg-primary-dark text-sm font-medium transition-colors"
+            >
+              Pay Now
+            </button>
+          )}
+          {row.status === 'paid' && (
+            <button
+              onClick={() => downloadReceipt(row.id)}
+              className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 text-sm font-medium transition-colors"
+            >
+              Receipt
+            </button>
+          )}
+        </div>
       ),
     },
   ]
@@ -150,6 +351,23 @@ export default function ParentInvoicesPage() {
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">My Invoices</h1>
             <p className="text-gray-600 dark:text-gray-400 mt-2">View and manage your payment invoices</p>
+            
+            {/* Payment Verification Alert */}
+            {verifyingPayment && (
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mt-4">
+                <div className="flex items-center">
+                  <div className="animate-spin h-5 w-5 border-2 border-blue-600 border-t-transparent rounded-full mr-3"></div>
+                  <div>
+                    <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                      Verifying your payment with Paystack...
+                    </p>
+                    <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                      This may take a few moments. Please don't close this page.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Summary Cards */}
@@ -277,5 +495,17 @@ export default function ParentInvoicesPage() {
 
       <Footer />
     </>
+  )
+}
+
+export default function ParentInvoicesPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full"></div>
+      </div>
+    }>
+      <InvoicesPageContent />
+    </Suspense>
   )
 }

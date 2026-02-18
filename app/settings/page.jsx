@@ -57,7 +57,7 @@ export default function ProfileSettings() {
       setEditedProfile({
         full_name: profile.full_name || '',
         phone_number: profile.phone_number || '',
-        relationship: profile.relationship || '',
+        relationship: profile.relationship || 'guardian', // Default to 'guardian' if not set
         emergency_contact_name: profile.emergency_contact_name || '',
         emergency_contact_relationship: profile.emergency_contact_relationship || '',
         emergency_contact_phone: profile.emergency_contact_phone || '',
@@ -132,7 +132,7 @@ export default function ProfileSettings() {
     setEditedProfile({
       full_name: profile?.full_name || '',
       phone_number: profile?.phone_number || '',
-      relationship: profile?.relationship || '',
+      relationship: profile?.relationship || 'guardian', // Default to 'guardian' if not set
       emergency_contact_name: profile?.emergency_contact_name || '',
       emergency_contact_relationship: profile?.emergency_contact_relationship || '',
       emergency_contact_phone: profile?.emergency_contact_phone || '',
@@ -145,7 +145,7 @@ export default function ProfileSettings() {
     setEditedProfile({
       full_name: profile?.full_name || '',
       phone_number: profile?.phone_number || '',
-      relationship: profile?.relationship || '',
+      relationship: profile?.relationship || 'guardian', // Default to 'guardian' if not set
       emergency_contact_name: profile?.emergency_contact_name || '',
       emergency_contact_relationship: profile?.emergency_contact_relationship || '',
       emergency_contact_phone: profile?.emergency_contact_phone || '',
@@ -610,7 +610,7 @@ export default function ProfileSettings() {
                   <li>Account access issues</li>
                 </ul>
                 <a
-                  href="mailto:admin@otterskenya.com"
+                  href="mailto:victor@mwago.me"
                   className="text-primary hover:text-primary-dark font-medium text-sm"
                 >
                   Contact Admin →

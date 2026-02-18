@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
@@ -18,12 +18,9 @@ export default function CheckInPage() {
   const { user, profile, loading: authLoading } = useAuth()
   const [swimmers, setSwimmers] = useState([])
   const [selectedSwimmer, setSelectedSwimmer] = useState('')
-  const [manualCode, setManualCode] = useState('')
-  const [scanning, setScanning] = useState(false)
+  const [sessionCode, setSessionCode] = useState('')
   const [loading, setLoading] = useState(false)
   const [recentCheckIns, setRecentCheckIns] = useState([])
-  const videoRef = useRef(null)
-  const streamRef = useRef(null)
 
   useEffect(() => {
     if (!authLoading) {
@@ -36,11 +33,6 @@ export default function CheckInPage() {
     }
   }, [user, authLoading, router])
 
-  useEffect(() => {
-    return () => {
-      stopScanning()
-    }
-  }, [])
 
   async function loadSwimmers() {
     const supabase = createClient()
@@ -85,39 +77,14 @@ export default function CheckInPage() {
     }
   }
 
-  async function startScanning() {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }
-      })
-      
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream
-        streamRef.current = stream
-        setScanning(true)
-      }
-    } catch (error) {
-      console.error('Error accessing camera:', error)
-      toast.error('Could not access camera. Please use manual code entry.')
-    }
-  }
-
-  function stopScanning() {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop())
-      streamRef.current = null
-    }
-    setScanning(false)
-  }
-
-  async function handleManualCheckIn() {
+  async function handleCheckIn() {
     if (!selectedSwimmer) {
       toast.error('Please select a swimmer')
       return
     }
 
-    if (!manualCode.trim()) {
-      toast.error('Please enter session code')
+    if (!sessionCode.trim()) {
+      toast.error('Please enter the session code')
       return
     }
 
@@ -125,25 +92,17 @@ export default function CheckInPage() {
 
     try {
       const supabase = createClient()
-
-      // Parse QR data (it should be JSON from the QR code)
-      let sessionData
-      try {
-        sessionData = JSON.parse(manualCode)
-      } catch {
-        // If not JSON, treat as session token
-        sessionData = { token: manualCode.trim() }
-      }
+      const codeToCheck = sessionCode.trim().toUpperCase()
 
       // Find session by token
       const { data: session, error: sessionError } = await supabase
         .from('training_sessions')
         .select('*')
-        .eq('qr_code_token', sessionData.token)
+        .eq('qr_code_token', codeToCheck)
         .single()
 
       if (sessionError || !session) {
-        toast.error('Invalid session code')
+        toast.error('Invalid session code. Please check the code and try again.')
         return
       }
 
@@ -156,7 +115,7 @@ export default function CheckInPage() {
         .single()
 
       if (existing) {
-        toast.error('Already checked in to this session')
+        toast.error('This swimmer is already checked in to this session')
         return
       }
 
@@ -172,8 +131,10 @@ export default function CheckInPage() {
 
       if (checkInError) throw checkInError
 
-      toast.success('Check-in successful!')
-      setManualCode('')
+      // Get swimmer name for success message
+      const swimmer = swimmers.find(s => s.id === selectedSwimmer)
+      toast.success(`✅ ${swimmer.first_name} checked in successfully!`)
+      setSessionCode('')
       loadRecentCheckIns()
     } catch (error) {
       console.error('Check-in error:', error)
@@ -214,8 +175,24 @@ export default function CheckInPage() {
               {/* Check-In Form */}
               <Card className="mb-8">
                 <div className="space-y-6">
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+                    <div className="flex items-start">
+                      <svg className="w-6 h-6 text-blue-600 dark:text-blue-400 mt-0.5 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
+                      </svg>
+                      <div>
+                        <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-1">How to Check In</h3>
+                        <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+                          <li>1. Select which swimmer is present</li>
+                          <li>2. Get the session code from your coach or poolside sign</li>
+                          <li>3. Enter the code and tap "Check In"</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
                   <Select
-                    label="Select Swimmer"
+                    label="Which swimmer is checking in?"
                     required
                     value={selectedSwimmer}
                     onChange={(e) => setSelectedSwimmer(e.target.value)}
@@ -225,70 +202,48 @@ export default function CheckInPage() {
                     }))}
                   />
 
-                  {/* QR Scanner (placeholder - requires proper QR library) */}
-                  {!scanning && (
-                    <div>
-                      <Button
-                        fullWidth
-                        variant="secondary"
-                        onClick={startScanning}
-                      >
-                        📷 Scan QR Code
-                      </Button>
-                    </div>
-                  )}
-
-                  {scanning && (
-                    <div>
-                      <video
-                        ref={videoRef}
-                        autoPlay
-                        playsInline
-                        className="w-full rounded-lg border-2 border-gray-300"
-                      />
-                      <Button
-                        fullWidth
-                        variant="secondary"
-                        onClick={stopScanning}
-                        className="mt-2"
-                      >
-                        Stop Scanning
-                      </Button>
-                      <p className="text-sm text-gray-600 text-center mt-2">
-                        Position the QR code within the camera frame
-                      </p>
-                    </div>
-                  )}
-
-                  <div className="relative">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t border-gray-300"></div>
-                    </div>
-                    <div className="relative flex justify-center text-sm">
-                      <span className="px-2 bg-white text-gray-500">Or enter manually</span>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2">
-                    <Input
-                      placeholder="Enter session code or paste QR data"
-                      value={manualCode}
-                      onChange={(e) => setManualCode(e.target.value)}
-                      onKeyPress={(e) => {
-                        if (e.key === 'Enter') {
-                          handleManualCheckIn()
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Session Code *
+                    </label>
+                    <input
+                      type="text"
+                      value={sessionCode}
+                      onChange={(e) => {
+                        const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '')
+                        if (value.length <= 6) {
+                          setSessionCode(value)
                         }
                       }}
-                      fullWidth
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          handleCheckIn()
+                        }
+                      }}
+                      placeholder="K4M8N2"
+                      maxLength={6}
+                      className="w-full text-center text-3xl font-bold font-mono tracking-widest uppercase px-4 py-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary dark:bg-gray-800 dark:text-white"
+                      required
                     />
-                    <Button
-                      onClick={handleManualCheckIn}
-                      loading={loading}
-                      disabled={!selectedSwimmer || !manualCode}
-                    >
-                      Check In
-                    </Button>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
+                      Enter the 6-character code from poolside display
+                    </p>
+                    {sessionCode.length > 0 && (
+                      <p className="text-xs text-center mt-1 text-gray-400">
+                        {sessionCode.length}/6 characters
+                      </p>
+                    )}
                   </div>
+
+                  <Button
+                    onClick={handleCheckIn}
+                    loading={loading}
+                    disabled={!selectedSwimmer || !sessionCode}
+                    fullWidth
+                    size="lg"
+                  >
+                    Check In
+                  </Button>
                 </div>
               </Card>
 
@@ -323,15 +278,6 @@ export default function CheckInPage() {
                 </Card>
               )}
 
-              {/* Instructions */}
-              <Card title="How to Check In" className="mt-6">
-                <div className="space-y-2 text-sm text-gray-700">
-                  <p>✓ Select the swimmer who is checking in</p>
-                  <p>✓ Scan the QR code displayed at the pool using your camera</p>
-                  <p>✓ Or manually enter the session code provided by your coach</p>
-                  <p>✓ Confirmation will appear once check-in is successful</p>
-                </div>
-              </Card>
             </>
           )}
         </div>
