@@ -55,6 +55,14 @@ export default function Navigation() {
                     >
                       Dashboard
                     </Link>
+                    {profile?.role !== 'admin' && (
+                      <Link 
+                        href="/settings" 
+                        className="text-stone-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary-light transition-colors font-medium text-sm"
+                      >
+                        Profile
+                      </Link>
+                    )}
                     <button
                       onClick={signOut}
                       className="text-stone-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary-light transition-colors font-medium text-sm"
@@ -137,6 +145,15 @@ export default function Navigation() {
                     >
                       Dashboard
                     </Link>
+                    {profile?.role !== 'admin' && (
+                      <Link 
+                        href="/settings" 
+                        className="block px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        Profile Settings
+                      </Link>
+                    )}
                     <button
                       onClick={() => {
                         signOut()

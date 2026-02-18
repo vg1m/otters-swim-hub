@@ -3,6 +3,7 @@ export default function Card({
   title, 
   subtitle,
   footer,
+  action,
   padding = 'normal',
   className = '',
   ...props 
@@ -19,14 +20,23 @@ export default function Card({
       className={`bg-white dark:bg-gray-800 rounded-lg shadow-custom border border-gray-200 dark:border-gray-700 transition-colors duration-200 ${className}`}
       {...props}
     >
-      {(title || subtitle) && (
+      {(title || subtitle || action) && (
         <div className={`border-b border-gray-200 dark:border-gray-700 ${paddingClasses[padding]}`}>
-          {title && (
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
-          )}
-          {subtitle && (
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{subtitle}</p>
-          )}
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              {title && (
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{title}</h3>
+              )}
+              {subtitle && (
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">{subtitle}</p>
+              )}
+            </div>
+            {action && (
+              <div className="ml-4">
+                {action}
+              </div>
+            )}
+          </div>
         </div>
       )}
       

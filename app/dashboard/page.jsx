@@ -265,7 +265,7 @@ export default function ParentDashboard() {
           {/* Quick Actions */}
           <div>
             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Quick Actions</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <Link href="/check-in">
                 <Card padding="normal" className="hover:shadow-lg transition-shadow cursor-pointer">
                   <div className="text-center py-4">
@@ -273,7 +273,7 @@ export default function ParentDashboard() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                     </svg>
                     <p className="font-semibold text-gray-900 dark:text-gray-100">Check In</p>
-                    <p className="text-sm text-gray-600 mt-1">Scan QR code at training</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Scan QR code at training</p>
                   </div>
                 </Card>
               </Link>
@@ -285,7 +285,7 @@ export default function ParentDashboard() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                     <p className="font-semibold text-gray-900 dark:text-gray-100">View Invoices</p>
-                    <p className="text-sm text-gray-600 mt-1">Check payment status</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Check payment status</p>
                   </div>
                 </Card>
               </Link>
@@ -297,7 +297,20 @@ export default function ParentDashboard() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                     </svg>
                     <p className="font-semibold text-gray-900 dark:text-gray-100">Swimmer Profiles</p>
-                    <p className="text-sm text-gray-600 mt-1">View details & attendance</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">View details & attendance</p>
+                  </div>
+                </Card>
+              </Link>
+
+              <Link href="/settings">
+                <Card padding="normal" className="hover:shadow-lg transition-shadow cursor-pointer">
+                  <div className="text-center py-4">
+                    <svg className="mx-auto h-12 w-12 text-primary mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <p className="font-semibold text-gray-900 dark:text-gray-100">Profile Settings</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Manage your information</p>
                   </div>
                 </Card>
               </Link>
