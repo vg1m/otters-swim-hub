@@ -2,17 +2,20 @@ import { NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { initializePaystackTransaction, generatePaymentReference } from '@/lib/paystack/client'
 import { CONSENT_POLICY_TEXT } from '@/lib/constants/consent-policy'
+import { calculateMonthlyTrainingFee } from '@/lib/utils/currency'
 
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { swimmers, parentInfo, totalAmount, consents, paymentOption } = body
+    const { swimmers, parentInfo, totalAmount, consents, paymentOption, paymentType = 'monthly', costBreakdown } = body
 
     console.log('Payment initialization request received:', {
       swimmers: swimmers?.length,
       parentInfo: parentInfo?.email,
       totalAmount,
       paymentOption,
+      paymentType,
+      hasBreakdown: !!costBreakdown,
     })
 
     // Validate input
@@ -98,6 +101,7 @@ export async function POST(request) {
       date_of_birth: swimmer.dateOfBirth,
       gender: swimmer.gender,
       squad: swimmer.squad,
+      gala_events_opt_in: swimmer.galaEventsOptIn || false,
       status: 'pending',
       registration_complete: true, // Form completed
       payment_deferred: !isPaying, // True if pay-later option selected
@@ -127,14 +131,40 @@ export async function POST(request) {
         .eq('id', invoice.id)
     }
 
-    // Add invoice line items
-    const lineItems = swimmers.map((swimmer, index) => ({
-      invoice_id: invoice.id,
-      description: `Registration: ${swimmer.firstName} ${swimmer.lastName}`,
-      amount: 3500, // Registration fee per swimmer
-      quantity: 1,
-    }))
+    // Add invoice line items (registration + training fees)
+    const currentMonth = new Date().toISOString().slice(0, 7) // "2026-02"
+    const currentYear = new Date().getFullYear()
+    const currentQuarter = `${currentYear}-Q${Math.ceil((new Date().getMonth() + 1) / 3)}`
+    
+    const lineItems = swimmers.flatMap((swimmer) => {
+      const items = [
+        {
+          invoice_id: invoice.id,
+          description: `Annual Registration: ${swimmer.firstName} ${swimmer.lastName}`,
+          amount: 3500,
+          quantity: 1,
+          fee_type: 'registration',
+          payment_period: null
+        }
+      ]
+      
+      // Add training fee
+      const trainingFee = calculateMonthlyTrainingFee(swimmer.squad, paymentType)
+      const squadLabel = swimmer.squad.replace('_', ' ').toUpperCase()
+      
+      items.push({
+        invoice_id: invoice.id,
+        description: `${paymentType === 'quarterly' ? 'Quarterly' : 'Monthly'} Training Fee: ${swimmer.firstName} ${swimmer.lastName} - ${squadLabel}`,
+        amount: trainingFee,
+        quantity: 1,
+        fee_type: paymentType === 'quarterly' ? 'quarterly_training' : 'monthly_training',
+        payment_period: paymentType === 'quarterly' ? currentQuarter : currentMonth
+      })
+      
+      return items
+    })
 
+    console.log('Creating invoice line items:', lineItems.length, 'items')
     await supabase.from('invoice_line_items').insert(lineItems)
 
     // Store consent records for each swimmer (Kenya Data Protection Act compliance)

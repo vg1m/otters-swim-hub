@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useTheme } from '@/contexts/ThemeContext'
 
@@ -12,6 +12,12 @@ export default function Navigation() {
   const [mounted, setMounted] = useState(false)
   const { user, profile, signOut, loading } = useAuth()
   const { isDark, toggleTheme } = useTheme()
+
+  const logoHref = useMemo(() => {
+    if (!profile) return '/'
+    if (profile.role === 'admin') return '/admin'
+    return '/dashboard'
+  }, [profile])
 
   useEffect(() => {
     setMounted(true)
@@ -27,7 +33,7 @@ export default function Navigation() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-20">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-1 group">
+          <Link href={logoHref} className="flex items-center space-x-1 group">
             <div className="relative w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 flex-shrink-0" style={{ filter: 'brightness(0) saturate(100%) invert(42%) sepia(95%) saturate(2140%) hue-rotate(175deg) brightness(98%) contrast(101%)' }}>
               <Image
                 src="/otters-logo.png"
@@ -50,12 +56,40 @@ export default function Navigation() {
                 {user ? (
                   <>
                     <Link 
-                      href={profile?.role === 'admin' ? '/admin' : '/dashboard'} 
+                      href={profile?.role === 'admin' ? '/admin/registrations' : profile?.role === 'coach' ? '/coach' : '/dashboard'} 
                       className="text-stone-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary-light transition-colors font-medium text-sm"
                     >
-                      Dashboard
+                      Registrations
                     </Link>
-                    {profile?.role !== 'admin' && (
+                    {profile?.role === 'admin' && (
+                      <>
+                        <Link 
+                          href="/admin/swimmers" 
+                          className="text-stone-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary-light transition-colors font-medium text-sm"
+                        >
+                          Swimmers
+                        </Link>
+                        <Link 
+                          href="/admin/sessions" 
+                          className="text-stone-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary-light transition-colors font-medium text-sm"
+                        >
+                          Sessions
+                        </Link>
+                        <Link 
+                          href="/admin/coaches" 
+                          className="text-stone-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary-light transition-colors font-medium text-sm"
+                        >
+                          Coaches
+                        </Link>
+                        <Link 
+                          href="/admin/facilities" 
+                          className="text-stone-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary-light transition-colors font-medium text-sm"
+                        >
+                          Facilities
+                        </Link>
+                      </>
+                    )}
+                    {profile?.role !== 'admin' && profile?.role !== 'coach' && (
                       <Link 
                         href="/settings" 
                         className="text-stone-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary-light transition-colors font-medium text-sm"
@@ -139,13 +173,45 @@ export default function Navigation() {
                 {user ? (
                   <>
                     <Link 
-                      href={profile?.role === 'admin' ? '/admin' : '/dashboard'} 
+                      href={profile?.role === 'admin' ? '/admin/registrations' : profile?.role === 'coach' ? '/coach' : '/dashboard'} 
                       className="block px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
-                      Dashboard
+                      Registrations
                     </Link>
-                    {profile?.role !== 'admin' && (
+                    {profile?.role === 'admin' && (
+                      <>
+                        <Link 
+                          href="/admin/swimmers" 
+                          className="block px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          Swimmers
+                        </Link>
+                        <Link 
+                          href="/admin/sessions" 
+                          className="block px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          Sessions
+                        </Link>
+                        <Link 
+                          href="/admin/coaches" 
+                          className="block px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          Coaches
+                        </Link>
+                        <Link 
+                          href="/admin/facilities" 
+                          className="block px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          Facilities
+                        </Link>
+                      </>
+                    )}
+                    {profile?.role !== 'admin' && profile?.role !== 'coach' && (
                       <Link 
                         href="/settings" 
                         className="block px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"

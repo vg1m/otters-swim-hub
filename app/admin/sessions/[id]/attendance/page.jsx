@@ -20,8 +20,9 @@ export default function SessionAttendancePage() {
   const [session, setSession] = useState(null)
   const [swimmers, setSwimmers] = useState([])
   const [attendance, setAttendance] = useState({})
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [dataLoaded, setDataLoaded] = useState(false)
 
   useEffect(() => {
     // Optimistic auth check - use cached profile if available
@@ -36,27 +37,36 @@ export default function SessionAttendancePage() {
     }
     
     // Load data immediately if we have user and sessionId
-    if (user && sessionId && !session) {
+    if (user && sessionId && !dataLoaded) {
       loadSessionData()
     }
-  }, [user, profile, authLoading, sessionId])
+  }, [user, authLoading, sessionId])
 
   async function loadSessionData() {
+    if (dataLoaded) return
+    
+    console.log('Loading attendance data for session:', sessionId)
     const supabase = createClient()
     setLoading(true)
 
     try {
       // Load session
+      console.log('Fetching session...')
       const { data: sessionData, error: sessionError } = await supabase
         .from('training_sessions')
         .select('*')
         .eq('id', sessionId)
         .single()
 
-      if (sessionError) throw sessionError
+      if (sessionError) {
+        console.error('Session fetch error:', sessionError)
+        throw sessionError
+      }
+      console.log('Session loaded:', sessionData)
       setSession(sessionData)
 
       // Load swimmers for this squad
+      console.log('Fetching swimmers for squad:', sessionData.squad)
       const { data: swimmersData, error: swimmersError } = await supabase
         .from('swimmers')
         .select('id, first_name, last_name')
@@ -64,16 +74,25 @@ export default function SessionAttendancePage() {
         .eq('status', 'approved')
         .order('last_name', { ascending: true })
 
-      if (swimmersError) throw swimmersError
+      if (swimmersError) {
+        console.error('Swimmers fetch error:', swimmersError)
+        throw swimmersError
+      }
+      console.log('Swimmers loaded:', swimmersData?.length || 0)
       setSwimmers(swimmersData || [])
 
       // Load existing attendance
+      console.log('Fetching attendance records...')
       const { data: attendanceData, error: attendanceError } = await supabase
         .from('attendance')
         .select('*')
         .eq('session_id', sessionId)
 
-      if (attendanceError) throw attendanceError
+      if (attendanceError) {
+        console.error('Attendance fetch error:', attendanceError)
+        throw attendanceError
+      }
+      console.log('Attendance records loaded:', attendanceData?.length || 0)
 
       const attendanceMap = {}
       attendanceData.forEach(att => {
@@ -84,6 +103,8 @@ export default function SessionAttendancePage() {
         }
       })
       setAttendance(attendanceMap)
+      setDataLoaded(true)
+      console.log('Attendance data load complete')
 
     } catch (error) {
       console.error('Error loading session data:', error)

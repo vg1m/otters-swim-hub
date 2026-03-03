@@ -13,6 +13,7 @@ import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import Modal from '@/components/ui/Modal'
 import { formatDate, formatDateTime } from '@/lib/utils/date-helpers'
+import { buildRecurrencePattern, parseRecurrencePattern, getWeekday, getOrdinalWeek } from '@/lib/utils/recurrence'
 import toast from 'react-hot-toast'
 
 
@@ -20,11 +21,15 @@ export default function SessionsPage() {
   const router = useRouter()
   const { user, profile, loading: authLoading } = useAuth()
   const [sessions, setSessions] = useState([])
+  const [facilities, setFacilities] = useState([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [showQRModal, setShowQRModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
   const [selectedSession, setSelectedSession] = useState(null)
+  const [editingSession, setEditingSession] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [showCustomPool, setShowCustomPool] = useState(false)
+  const [customPoolName, setCustomPoolName] = useState('')
   
   const [sessionForm, setSessionForm] = useState({
     session_date: '',
@@ -32,6 +37,17 @@ export default function SessionsPage() {
     end_time: '',
     squad: '',
     pool_location: '',
+    facility_id: '',
+    is_recurring: false,
+    recurrence_type: 'weekly',
+    recurrence_weekday: '',
+    recurrence_ordinal: '',
+    recurrence_day_type: 'first',
+    recurrence_annually_date: '',
+    recurrence_custom_interval: '1',
+    recurrence_custom_unit: 'week',
+    recurrence_custom_weekdays: [],
+    recurrence_end_date: '',
   })
 
   useEffect(() => {
@@ -48,6 +64,7 @@ export default function SessionsPage() {
     // Load data immediately if we have user (even if profile still loading)
     if (user && !sessions.length) {
       loadSessions()
+      loadFacilities()
     }
   }, [user, profile, authLoading])
 
@@ -73,9 +90,36 @@ export default function SessionsPage() {
     }
   }
 
+  async function loadFacilities() {
+    const supabase = createClient()
+
+    try {
+      const { data, error } = await supabase
+        .from('facilities')
+        .select('id, name, lanes, pool_length, address')
+        .order('name')
+
+      if (error) throw error
+      setFacilities(data || [])
+    } catch (error) {
+      console.error('Error loading facilities:', error)
+      toast.error('Failed to load facilities')
+    }
+  }
+
   async function handleCreateSession() {
-    if (!sessionForm.session_date || !sessionForm.start_time || !sessionForm.end_time || !sessionForm.squad || !sessionForm.pool_location) {
+    if (!sessionForm.session_date || !sessionForm.start_time || !sessionForm.end_time || !sessionForm.squad) {
       toast.error('Please fill in all required fields')
+      return
+    }
+
+    if (showCustomPool && !customPoolName) {
+      toast.error('Please enter a pool name')
+      return
+    }
+
+    if (!showCustomPool && !sessionForm.facility_id) {
+      toast.error('Please select a pool location')
       return
     }
 
@@ -83,6 +127,60 @@ export default function SessionsPage() {
     const supabase = createClient()
 
     try {
+      let facilityId = sessionForm.facility_id
+      let poolLocation = sessionForm.pool_location
+
+      // If custom pool, create facility first
+      if (showCustomPool && customPoolName) {
+        const { data: newFacility, error: facilityError } = await supabase
+          .from('facilities')
+          .insert({
+            name: customPoolName,
+            lanes: 6,
+            pool_length: 25,
+            address: '',
+          })
+          .select()
+          .single()
+
+        if (facilityError) throw facilityError
+        facilityId = newFacility.id
+        poolLocation = newFacility.name
+        
+        // Reload facilities to include the new one
+        await loadFacilities()
+        toast.success('New pool location added!')
+      }
+
+      // Build recurrence pattern JSON
+      let recurrencePattern = null
+      if (sessionForm.is_recurring) {
+        const options = {}
+        
+        switch (sessionForm.recurrence_type) {
+          case 'weekly_on_day':
+            options.weekday = sessionForm.recurrence_weekday || getWeekday(sessionForm.session_date)
+            break
+          case 'monthly_on_week_day':
+            options.weekday = sessionForm.recurrence_weekday || getWeekday(sessionForm.session_date)
+            options.ordinal = sessionForm.recurrence_ordinal || getOrdinalWeek(sessionForm.session_date)
+            break
+          case 'monthly_on_first_last':
+            options.day_type = sessionForm.recurrence_day_type
+            break
+          case 'annually':
+            options.date = sessionForm.recurrence_annually_date
+            break
+          case 'custom':
+            options.interval = sessionForm.recurrence_custom_interval
+            options.unit = sessionForm.recurrence_custom_unit
+            options.weekdays = sessionForm.recurrence_custom_weekdays
+            break
+        }
+        
+        recurrencePattern = buildRecurrencePattern(sessionForm.recurrence_type, options)
+      }
+
       const { data, error } = await supabase
         .from('training_sessions')
         .insert({
@@ -90,9 +188,12 @@ export default function SessionsPage() {
           start_time: sessionForm.start_time,
           end_time: sessionForm.end_time,
           squad: sessionForm.squad,
-          pool_location: sessionForm.pool_location,
+          pool_location: poolLocation,
+          facility_id: facilityId,
           coach_id: user.id,
-          // qr_code_token is auto-generated by database
+          is_recurring: sessionForm.is_recurring,
+          recurrence_pattern: recurrencePattern,
+          recurrence_end_date: sessionForm.is_recurring && sessionForm.recurrence_end_date ? sessionForm.recurrence_end_date : null,
         })
         .select()
         .single()
@@ -101,12 +202,25 @@ export default function SessionsPage() {
 
       toast.success('Training session created successfully')
       setShowCreateModal(false)
+      setShowCustomPool(false)
+      setCustomPoolName('')
       setSessionForm({
         session_date: '',
         start_time: '',
         end_time: '',
         squad: '',
         pool_location: '',
+        facility_id: '',
+        is_recurring: false,
+        recurrence_type: 'weekly',
+        recurrence_weekday: '',
+        recurrence_ordinal: '',
+        recurrence_day_type: 'first',
+        recurrence_annually_date: '',
+        recurrence_custom_interval: '1',
+        recurrence_custom_unit: 'week',
+        recurrence_custom_weekdays: [],
+        recurrence_end_date: '',
       })
       loadSessions()
     } catch (error) {
@@ -117,10 +231,112 @@ export default function SessionsPage() {
     }
   }
 
-  const showQRCode = useCallback(async (session) => {
-    setSelectedSession(session)
-    setShowQRModal(true)
-  }, [])
+  async function handleEditSession() {
+    if (!editingSession) return
+
+    if (!sessionForm.session_date || !sessionForm.start_time || !sessionForm.end_time || !sessionForm.squad) {
+      toast.error('Please fill in all required fields')
+      return
+    }
+
+    if (showCustomPool && !customPoolName) {
+      toast.error('Please enter a pool name')
+      return
+    }
+
+    if (!showCustomPool && !sessionForm.facility_id) {
+      toast.error('Please select a pool location')
+      return
+    }
+
+    setSaving(true)
+    const supabase = createClient()
+
+    try {
+      let facilityId = sessionForm.facility_id
+      let poolLocation = sessionForm.pool_location
+
+      // If custom pool, create facility first
+      if (showCustomPool && customPoolName) {
+        const { data: newFacility, error: facilityError } = await supabase
+          .from('facilities')
+          .insert({
+            name: customPoolName,
+            lanes: 6,
+            pool_length: 25,
+            address: '',
+          })
+          .select()
+          .single()
+
+        if (facilityError) throw facilityError
+        facilityId = newFacility.id
+        poolLocation = newFacility.name
+        
+        // Reload facilities to include the new one
+        await loadFacilities()
+        toast.success('New pool location added!')
+      }
+
+      // Build recurrence pattern JSON
+      let recurrencePattern = null
+      if (sessionForm.is_recurring) {
+        const options = {}
+        
+        switch (sessionForm.recurrence_type) {
+          case 'weekly_on_day':
+            options.weekday = sessionForm.recurrence_weekday || getWeekday(sessionForm.session_date)
+            break
+          case 'monthly_on_week_day':
+            options.weekday = sessionForm.recurrence_weekday || getWeekday(sessionForm.session_date)
+            options.ordinal = sessionForm.recurrence_ordinal || getOrdinalWeek(sessionForm.session_date)
+            break
+          case 'monthly_on_first_last':
+            options.day_type = sessionForm.recurrence_day_type
+            break
+          case 'annually':
+            options.date = sessionForm.recurrence_annually_date
+            break
+          case 'custom':
+            options.interval = sessionForm.recurrence_custom_interval
+            options.unit = sessionForm.recurrence_custom_unit
+            options.weekdays = sessionForm.recurrence_custom_weekdays
+            break
+        }
+        
+        recurrencePattern = buildRecurrencePattern(sessionForm.recurrence_type, options)
+      }
+
+      const { error } = await supabase
+        .from('training_sessions')
+        .update({
+          session_date: sessionForm.session_date,
+          start_time: sessionForm.start_time,
+          end_time: sessionForm.end_time,
+          pool_location: poolLocation,
+          facility_id: facilityId,
+          squad: sessionForm.squad,
+          is_recurring: sessionForm.is_recurring,
+          recurrence_pattern: recurrencePattern,
+          recurrence_end_date: sessionForm.is_recurring && sessionForm.recurrence_end_date ? sessionForm.recurrence_end_date : null,
+        })
+        .eq('id', editingSession.id)
+
+      if (error) throw error
+
+      toast.success('Session updated successfully')
+      setShowEditModal(false)
+      setEditingSession(null)
+      setShowCustomPool(false)
+      setCustomPoolName('')
+      loadSessions()
+    } catch (error) {
+      console.error('Error updating session:', error)
+      toast.error('Failed to update session')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   async function handleDeleteSession(session) {
     if (!confirm(`Delete session on ${formatDate(session.session_date)}?`)) {
@@ -143,116 +359,6 @@ export default function SessionsPage() {
       console.error('Error deleting session:', error)
       toast.error('Failed to delete session')
     }
-  }
-
-  function downloadQRCode() {
-    const link = document.createElement('a')
-    link.download = `session-qr-${selectedSession.id}.png`
-    link.href = qrCodeUrl
-    link.click()
-  }
-
-  function printQRCode() {
-    const printWindow = window.open('', '', 'width=800,height=600')
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Session Code - ${selectedSession.qr_code_token}</title>
-          <style>
-            body { 
-              font-family: 'Arial', sans-serif; 
-              text-align: center; 
-              padding: 40px;
-              margin: 0;
-            }
-            .header {
-              margin-bottom: 40px;
-            }
-            .code-box {
-              background: linear-gradient(135deg, #0084d5 0%, #0066aa 100%);
-              color: white;
-              padding: 80px 60px;
-              border-radius: 20px;
-              margin: 40px 0;
-              box-shadow: 0 10px 40px rgba(0,132,213,0.3);
-            }
-            .code-label {
-              font-size: 20px;
-              text-transform: uppercase;
-              letter-spacing: 3px;
-              opacity: 0.9;
-              margin-bottom: 20px;
-            }
-            .code {
-              font-size: 120px;
-              font-weight: bold;
-              letter-spacing: 18px;
-              margin: 30px 0;
-              font-family: 'Courier New', monospace;
-              text-shadow: 0 2px 10px rgba(0,0,0,0.2);
-            }
-            .session-info {
-              font-size: 22px;
-              margin-top: 30px;
-              padding-top: 30px;
-              border-top: 2px solid rgba(255,255,255,0.3);
-              opacity: 0.95;
-            }
-            .instructions {
-              background: #f0f9ff;
-              padding: 30px;
-              border-radius: 15px;
-              margin-top: 40px;
-              text-align: left;
-            }
-            .instructions h3 {
-              color: #0084d5;
-              margin-bottom: 15px;
-              font-size: 20px;
-            }
-            .instructions ol {
-              font-size: 16px;
-              line-height: 2;
-              color: #334155;
-            }
-            @media print {
-              body { padding: 20px; }
-              .code-box { page-break-inside: avoid; }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1 style="color: #0084d5; font-size: 32px; margin: 0;">OTTERS KENYA SWIM CLUB</h1>
-            <p style="font-size: 18px; color: #64748b; margin-top: 5px;">Training Session Check-In</p>
-          </div>
-          
-          <div class="code-box">
-            <div class="code-label">Session Code</div>
-            <div class="code">${selectedSession.qr_code_token}</div>
-            <div class="session-info">
-              <p style="margin: 5px 0;">${formatDate(selectedSession.session_date)}</p>
-              <p style="margin: 5px 0;">${selectedSession.start_time} - ${selectedSession.end_time}</p>
-              <p style="margin: 5px 0;">${selectedSession.squad.replace('_', ' ').toUpperCase()} • ${selectedSession.pool_location}</p>
-            </div>
-          </div>
-          
-          <div class="instructions">
-            <h3>🏊 Parent Check-In Steps:</h3>
-            <ol>
-              <li>Open the Otters Kenya app on your phone</li>
-              <li>Tap "Check-In" from the menu</li>
-              <li>Select which swimmer is present</li>
-              <li>Enter the code: <strong>${selectedSession.qr_code_token}</strong></li>
-              <li>Tap "Check In" button</li>
-              <li>Done! ✅ Check-in is recorded</li>
-            </ol>
-          </div>
-        </body>
-      </html>
-    `)
-    printWindow.document.close()
-    printWindow.print()
   }
 
   if (authLoading || loading) {
@@ -308,13 +414,40 @@ export default function SessionsPage() {
                         <p>📍 {session.pool_location}</p>
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       <Button
                         size="sm"
                         variant="secondary"
-                        onClick={() => showQRCode(session)}
+                        onClick={() => {
+                          setEditingSession(session)
+                          setShowCustomPool(!session.facility_id)
+                          setCustomPoolName(!session.facility_id ? session.pool_location : '')
+                          
+                          // Parse recurrence pattern
+                          const parsed = parseRecurrencePattern(session.recurrence_pattern)
+                          
+                          setSessionForm({
+                            session_date: session.session_date,
+                            start_time: session.start_time,
+                            end_time: session.end_time,
+                            pool_location: session.pool_location,
+                            facility_id: session.facility_id || '',
+                            squad: session.squad,
+                            is_recurring: session.is_recurring || false,
+                            recurrence_type: parsed.type,
+                            recurrence_weekday: parsed.options.weekday || '',
+                            recurrence_ordinal: parsed.options.ordinal || '',
+                            recurrence_day_type: parsed.options.day_type || 'first',
+                            recurrence_annually_date: parsed.options.date || '',
+                            recurrence_custom_interval: parsed.options.interval || '1',
+                            recurrence_custom_unit: parsed.options.unit || 'week',
+                            recurrence_custom_weekdays: parsed.options.weekdays || [],
+                            recurrence_end_date: session.recurrence_end_date || '',
+                          })
+                          setShowEditModal(true)
+                        }}
                       >
-                        View Check-In Code
+                        Edit
                       </Button>
                       <Button
                         size="sm"
@@ -335,14 +468,22 @@ export default function SessionsPage() {
       {/* Create Session Modal */}
       <Modal
         isOpen={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
+        onClose={() => {
+          setShowCreateModal(false)
+          setShowCustomPool(false)
+          setCustomPoolName('')
+        }}
         title="Create Training Session"
         size="lg"
         footer={
           <div className="flex gap-3 justify-end">
             <Button
               variant="secondary"
-              onClick={() => setShowCreateModal(false)}
+              onClick={() => {
+                setShowCreateModal(false)
+                setShowCustomPool(false)
+                setCustomPoolName('')
+              }}
               disabled={saving}
             >
               Cancel
@@ -391,83 +532,563 @@ export default function SessionsPage() {
               { value: 'fitness', label: 'Fitness' },
             ]}
           />
-          <Input
-            label="Pool Location"
-            required
-            value={sessionForm.pool_location}
-            onChange={(e) => setSessionForm({ ...sessionForm, pool_location: e.target.value })}
-            placeholder="e.g., Main Pool, Training Pool"
-          />
+          <div className={showCustomPool ? 'col-span-2' : ''}>
+            <Select
+              label="Pool Location"
+              required
+              value={showCustomPool ? 'custom' : (sessionForm.facility_id || '')}
+              onChange={(e) => {
+                if (e.target.value === 'custom') {
+                  setShowCustomPool(true)
+                  setCustomPoolName('')
+                  setSessionForm({ ...sessionForm, facility_id: '', pool_location: '' })
+                } else {
+                  setShowCustomPool(false)
+                  setCustomPoolName('')
+                  const facility = facilities.find(f => f.id === e.target.value)
+                  setSessionForm({ 
+                    ...sessionForm, 
+                    facility_id: e.target.value,
+                    pool_location: facility?.name || ''
+                  })
+                }
+              }}
+              options={[
+                ...facilities.map(f => ({ 
+                  value: f.id, 
+                  label: `${f.name} (${f.lanes} lanes, ${f.pool_length}M)`
+                })),
+                { value: 'custom', label: '➕ Add New Pool Location' }
+              ]}
+            />
+            {showCustomPool && (
+              <div className="mt-4">
+                <Input
+                  label="New Pool Name"
+                  required
+                  value={customPoolName}
+                  onChange={(e) => setCustomPoolName(e.target.value)}
+                  placeholder="e.g., New Training Center"
+                  helperText="This pool will be added to your facilities list"
+                />
+              </div>
+            )}
+          </div>
+          
+          {/* Recurring Session Toggle */}
+          <div className="col-span-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={sessionForm.is_recurring}
+                onChange={(e) => setSessionForm({ ...sessionForm, is_recurring: e.target.checked })}
+                className="w-5 h-5 rounded text-primary focus:ring-2 focus:ring-primary"
+              />
+              <div>
+                <span className="font-medium text-gray-900 dark:text-gray-100">Recurring Session</span>
+                <p className="text-sm text-gray-500 dark:text-gray-400">This session repeats on a schedule</p>
+              </div>
+            </label>
+          </div>
+
+          {sessionForm.is_recurring && (
+            <>
+              <Select
+                label="Recurrence Pattern"
+                required={sessionForm.is_recurring}
+                value={sessionForm.recurrence_type}
+                onChange={(e) => setSessionForm({ ...sessionForm, recurrence_type: e.target.value })}
+                options={[
+                  { value: 'daily', label: 'Daily' },
+                  { value: 'weekly', label: 'Weekly' },
+                  { value: 'biweekly', label: 'Bi-weekly' },
+                  { value: 'monthly', label: 'Monthly' },
+                  { value: 'weekly_on_day', label: 'Weekly on specific day' },
+                  { value: 'monthly_on_week_day', label: 'Monthly on specific week/day' },
+                  { value: 'monthly_on_first_last', label: 'Monthly on first/last day' },
+                  { value: 'annually', label: 'Annually on specific date' },
+                  { value: 'custom', label: 'Custom' }
+                ]}
+              />
+
+              {sessionForm.recurrence_type === 'weekly_on_day' && (
+                <Select
+                  label="Day of Week"
+                  required
+                  value={sessionForm.recurrence_weekday}
+                  onChange={(e) => setSessionForm({ ...sessionForm, recurrence_weekday: e.target.value })}
+                  options={[
+                    { value: '0', label: 'Sunday' },
+                    { value: '1', label: 'Monday' },
+                    { value: '2', label: 'Tuesday' },
+                    { value: '3', label: 'Wednesday' },
+                    { value: '4', label: 'Thursday' },
+                    { value: '5', label: 'Friday' },
+                    { value: '6', label: 'Saturday' }
+                  ]}
+                  helperText={sessionForm.session_date ? `Session date is ${new Date(sessionForm.session_date).toLocaleDateString('en-US', { weekday: 'long' })}` : ''}
+                />
+              )}
+
+              {sessionForm.recurrence_type === 'monthly_on_week_day' && (
+                <>
+                  <Select
+                    label="Week of Month"
+                    required
+                    value={sessionForm.recurrence_ordinal}
+                    onChange={(e) => setSessionForm({ ...sessionForm, recurrence_ordinal: e.target.value })}
+                    options={[
+                      { value: '1', label: 'First' },
+                      { value: '2', label: 'Second' },
+                      { value: '3', label: 'Third' },
+                      { value: '4', label: 'Fourth' },
+                      { value: '5', label: 'Fifth' }
+                    ]}
+                  />
+                  <Select
+                    label="Day of Week"
+                    required
+                    value={sessionForm.recurrence_weekday}
+                    onChange={(e) => setSessionForm({ ...sessionForm, recurrence_weekday: e.target.value })}
+                    options={[
+                      { value: '0', label: 'Sunday' },
+                      { value: '1', label: 'Monday' },
+                      { value: '2', label: 'Tuesday' },
+                      { value: '3', label: 'Wednesday' },
+                      { value: '4', label: 'Thursday' },
+                      { value: '5', label: 'Friday' },
+                      { value: '6', label: 'Saturday' }
+                    ]}
+                  />
+                </>
+              )}
+
+              {sessionForm.recurrence_type === 'monthly_on_first_last' && (
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Day Selection
+                  </label>
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="day_type"
+                        value="first"
+                        checked={sessionForm.recurrence_day_type === 'first'}
+                        onChange={(e) => setSessionForm({ ...sessionForm, recurrence_day_type: e.target.value })}
+                        className="w-4 h-4 text-primary"
+                      />
+                      <span className="text-sm">First day of month</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="day_type"
+                        value="last"
+                        checked={sessionForm.recurrence_day_type === 'last'}
+                        onChange={(e) => setSessionForm({ ...sessionForm, recurrence_day_type: e.target.value })}
+                        className="w-4 h-4 text-primary"
+                      />
+                      <span className="text-sm">Last day of month</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {sessionForm.recurrence_type === 'annually' && (
+                <Input
+                  label="Date (Month-Day)"
+                  type="text"
+                  required
+                  value={sessionForm.recurrence_annually_date}
+                  onChange={(e) => setSessionForm({ ...sessionForm, recurrence_annually_date: e.target.value })}
+                  placeholder="MM-DD (e.g., 03-12 for March 12)"
+                  helperText="Format: MM-DD"
+                />
+              )}
+
+              {sessionForm.recurrence_type === 'custom' && (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      label="Repeat every"
+                      type="number"
+                      required
+                      min="1"
+                      max="99"
+                      value={sessionForm.recurrence_custom_interval}
+                      onChange={(e) => setSessionForm({ ...sessionForm, recurrence_custom_interval: e.target.value })}
+                    />
+                    <Select
+                      label="Unit"
+                      required
+                      value={sessionForm.recurrence_custom_unit}
+                      onChange={(e) => setSessionForm({ ...sessionForm, recurrence_custom_unit: e.target.value })}
+                      options={[
+                        { value: 'day', label: 'Day(s)' },
+                        { value: 'week', label: 'Week(s)' },
+                        { value: 'month', label: 'Month(s)' },
+                        { value: 'year', label: 'Year(s)' }
+                      ]}
+                    />
+                  </div>
+
+                  {sessionForm.recurrence_custom_unit === 'week' && (
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Repeat on days
+                      </label>
+                      <div className="flex gap-2">
+                        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) => (
+                          <label key={idx} className="flex flex-col items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={sessionForm.recurrence_custom_weekdays.includes(idx)}
+                              onChange={(e) => {
+                                const days = [...sessionForm.recurrence_custom_weekdays]
+                                if (e.target.checked) {
+                                  days.push(idx)
+                                } else {
+                                  const index = days.indexOf(idx)
+                                  if (index > -1) days.splice(index, 1)
+                                }
+                                setSessionForm({ ...sessionForm, recurrence_custom_weekdays: days })
+                              }}
+                              className="w-5 h-5 rounded text-primary"
+                            />
+                            <span className="text-xs mt-1">{day}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              <Input
+                label="Recurrence End Date"
+                type="date"
+                value={sessionForm.recurrence_end_date}
+                onChange={(e) => setSessionForm({ ...sessionForm, recurrence_end_date: e.target.value })}
+                helperText="Leave blank for indefinite"
+              />
+            </>
+          )}
         </div>
       </Modal>
 
-      {/* Session Code Modal */}
+      {/* Edit Session Modal */}
       <Modal
-        isOpen={showQRModal}
-        onClose={() => setShowQRModal(false)}
-        title="Session Check-In Code"
+        isOpen={showEditModal}
+        onClose={() => {
+          setShowEditModal(false)
+          setEditingSession(null)
+          setShowCustomPool(false)
+          setCustomPoolName('')
+        }}
+        title="Edit Training Session"
         size="lg"
-      >
-        {selectedSession && (
-          <div className="space-y-6">
-            {/* Big Code Display */}
-            <div className="bg-gradient-to-br from-primary to-primary-dark rounded-2xl p-10 shadow-2xl text-center">
-              <p className="text-white/80 text-sm font-medium mb-3 uppercase tracking-wide">Session Code</p>
-              <p className="text-white text-6xl md:text-7xl font-bold tracking-widest font-mono mb-6">
-                {selectedSession.qr_code_token}
-              </p>
-              <div className="pt-4 border-t border-white/20">
-                <p className="text-white text-lg font-medium">{formatDate(selectedSession.session_date)}</p>
-                <p className="text-white/90 text-sm mt-2">
-                  {selectedSession.start_time} - {selectedSession.end_time}
-                </p>
-                <p className="text-white/80 text-sm mt-1">
-                  {selectedSession.squad.replace('_', ' ').toUpperCase()} • {selectedSession.pool_location}
-                </p>
-              </div>
-            </div>
-
-            {/* Instructions */}
-            <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-xl p-5">
-              <div className="flex items-start mb-3">
-                <svg className="w-6 h-6 text-blue-600 dark:text-blue-400 mr-3 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd"/>
-                </svg>
-                <div>
-                  <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">Parent Check-In Instructions</h4>
-                  <ol className="text-sm text-blue-800 dark:text-blue-200 space-y-2">
-                    <li><strong>1. Display this code</strong> at the poolside (print or show on screen)</li>
-                    <li><strong>2. Parents open</strong> the check-in page on their phone/device</li>
-                    <li><strong>3. They select</strong> which swimmer is present</li>
-                    <li><strong>4. They enter</strong> the code shown above</li>
-                    <li><strong>5. Check-in recorded</strong> instantly with timestamp</li>
-                  </ol>
-                </div>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                variant="secondary"
-                fullWidth
-                onClick={() => {
-                  navigator.clipboard.writeText(selectedSession.qr_code_token)
-                  toast.success('Code copied to clipboard!')
-                }}
-              >
-                📋 Copy Code
-              </Button>
-              <Button
-                variant="primary"
-                fullWidth
-                onClick={printQRCode}
-              >
-                🖨️ Print Code
-              </Button>
-            </div>
+        footer={
+          <div className="flex gap-3 justify-end">
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setShowEditModal(false)
+                setEditingSession(null)
+                setShowCustomPool(false)
+                setCustomPoolName('')
+              }}
+              disabled={saving}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleEditSession}
+              loading={saving}
+            >
+              Save Changes
+            </Button>
           </div>
-        )}
+        }
+      >
+        <div className="grid grid-cols-2 gap-4">
+          <Input
+            label="Session Date"
+            type="date"
+            required
+            value={sessionForm.session_date}
+            onChange={(e) => setSessionForm({ ...sessionForm, session_date: e.target.value })}
+          />
+          <div className="grid grid-cols-2 gap-2">
+            <Input
+              label="Start Time"
+              type="time"
+              required
+              value={sessionForm.start_time}
+              onChange={(e) => setSessionForm({ ...sessionForm, start_time: e.target.value })}
+            />
+            <Input
+              label="End Time"
+              type="time"
+              required
+              value={sessionForm.end_time}
+              onChange={(e) => setSessionForm({ ...sessionForm, end_time: e.target.value })}
+            />
+          </div>
+          <Select
+            label="Squad"
+            required
+            value={sessionForm.squad}
+            onChange={(e) => setSessionForm({ ...sessionForm, squad: e.target.value })}
+            options={[
+              { value: 'competitive', label: 'Competitive' },
+              { value: 'learn_to_swim', label: 'Learn to Swim' },
+              { value: 'fitness', label: 'Fitness' },
+            ]}
+          />
+          <div className={showCustomPool ? 'col-span-2' : ''}>
+            <Select
+              label="Pool Location"
+              required
+              value={showCustomPool ? 'custom' : (sessionForm.facility_id || '')}
+              onChange={(e) => {
+                if (e.target.value === 'custom') {
+                  setShowCustomPool(true)
+                  setCustomPoolName('')
+                  setSessionForm({ ...sessionForm, facility_id: '', pool_location: '' })
+                } else {
+                  setShowCustomPool(false)
+                  setCustomPoolName('')
+                  const facility = facilities.find(f => f.id === e.target.value)
+                  setSessionForm({ 
+                    ...sessionForm, 
+                    facility_id: e.target.value,
+                    pool_location: facility?.name || ''
+                  })
+                }
+              }}
+              options={[
+                ...facilities.map(f => ({ 
+                  value: f.id, 
+                  label: `${f.name} (${f.lanes} lanes, ${f.pool_length}M)`
+                })),
+                { value: 'custom', label: '➕ Add New Pool Location' }
+              ]}
+            />
+            {showCustomPool && (
+              <div className="mt-4">
+                <Input
+                  label="New Pool Name"
+                  required
+                  value={customPoolName}
+                  onChange={(e) => setCustomPoolName(e.target.value)}
+                  placeholder="e.g., New Training Center"
+                  helperText="This pool will be added to your facilities list"
+                />
+              </div>
+            )}
+          </div>
+          
+          {/* Recurring Session Toggle */}
+          <div className="col-span-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={sessionForm.is_recurring}
+                onChange={(e) => setSessionForm({ ...sessionForm, is_recurring: e.target.checked })}
+                className="w-5 h-5 rounded text-primary focus:ring-2 focus:ring-primary"
+              />
+              <div>
+                <span className="font-medium text-gray-900 dark:text-gray-100">Recurring Session</span>
+                <p className="text-sm text-gray-500 dark:text-gray-400">This session repeats on a schedule</p>
+              </div>
+            </label>
+          </div>
+
+          {sessionForm.is_recurring && (
+            <>
+              <Select
+                label="Recurrence Pattern"
+                required={sessionForm.is_recurring}
+                value={sessionForm.recurrence_type}
+                onChange={(e) => setSessionForm({ ...sessionForm, recurrence_type: e.target.value })}
+                options={[
+                  { value: 'daily', label: 'Daily' },
+                  { value: 'weekly', label: 'Weekly' },
+                  { value: 'biweekly', label: 'Bi-weekly' },
+                  { value: 'monthly', label: 'Monthly' },
+                  { value: 'weekly_on_day', label: 'Weekly on specific day' },
+                  { value: 'monthly_on_week_day', label: 'Monthly on specific week/day' },
+                  { value: 'monthly_on_first_last', label: 'Monthly on first/last day' },
+                  { value: 'annually', label: 'Annually on specific date' },
+                  { value: 'custom', label: 'Custom' }
+                ]}
+              />
+
+              {sessionForm.recurrence_type === 'weekly_on_day' && (
+                <Select
+                  label="Day of Week"
+                  required
+                  value={sessionForm.recurrence_weekday}
+                  onChange={(e) => setSessionForm({ ...sessionForm, recurrence_weekday: e.target.value })}
+                  options={[
+                    { value: '0', label: 'Sunday' },
+                    { value: '1', label: 'Monday' },
+                    { value: '2', label: 'Tuesday' },
+                    { value: '3', label: 'Wednesday' },
+                    { value: '4', label: 'Thursday' },
+                    { value: '5', label: 'Friday' },
+                    { value: '6', label: 'Saturday' }
+                  ]}
+                  helperText={sessionForm.session_date ? `Session date is ${new Date(sessionForm.session_date).toLocaleDateString('en-US', { weekday: 'long' })}` : ''}
+                />
+              )}
+
+              {sessionForm.recurrence_type === 'monthly_on_week_day' && (
+                <>
+                  <Select
+                    label="Week of Month"
+                    required
+                    value={sessionForm.recurrence_ordinal}
+                    onChange={(e) => setSessionForm({ ...sessionForm, recurrence_ordinal: e.target.value })}
+                    options={[
+                      { value: '1', label: 'First' },
+                      { value: '2', label: 'Second' },
+                      { value: '3', label: 'Third' },
+                      { value: '4', label: 'Fourth' },
+                      { value: '5', label: 'Fifth' }
+                    ]}
+                  />
+                  <Select
+                    label="Day of Week"
+                    required
+                    value={sessionForm.recurrence_weekday}
+                    onChange={(e) => setSessionForm({ ...sessionForm, recurrence_weekday: e.target.value })}
+                    options={[
+                      { value: '0', label: 'Sunday' },
+                      { value: '1', label: 'Monday' },
+                      { value: '2', label: 'Tuesday' },
+                      { value: '3', label: 'Wednesday' },
+                      { value: '4', label: 'Thursday' },
+                      { value: '5', label: 'Friday' },
+                      { value: '6', label: 'Saturday' }
+                    ]}
+                  />
+                </>
+              )}
+
+              {sessionForm.recurrence_type === 'monthly_on_first_last' && (
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Day Selection
+                  </label>
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="day_type"
+                        value="first"
+                        checked={sessionForm.recurrence_day_type === 'first'}
+                        onChange={(e) => setSessionForm({ ...sessionForm, recurrence_day_type: e.target.value })}
+                        className="w-4 h-4 text-primary"
+                      />
+                      <span className="text-sm">First day of month</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="day_type"
+                        value="last"
+                        checked={sessionForm.recurrence_day_type === 'last'}
+                        onChange={(e) => setSessionForm({ ...sessionForm, recurrence_day_type: e.target.value })}
+                        className="w-4 h-4 text-primary"
+                      />
+                      <span className="text-sm">Last day of month</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {sessionForm.recurrence_type === 'annually' && (
+                <Input
+                  label="Date (Month-Day)"
+                  type="text"
+                  required
+                  value={sessionForm.recurrence_annually_date}
+                  onChange={(e) => setSessionForm({ ...sessionForm, recurrence_annually_date: e.target.value })}
+                  placeholder="MM-DD (e.g., 03-12 for March 12)"
+                  helperText="Format: MM-DD"
+                />
+              )}
+
+              {sessionForm.recurrence_type === 'custom' && (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      label="Repeat every"
+                      type="number"
+                      required
+                      min="1"
+                      max="99"
+                      value={sessionForm.recurrence_custom_interval}
+                      onChange={(e) => setSessionForm({ ...sessionForm, recurrence_custom_interval: e.target.value })}
+                    />
+                    <Select
+                      label="Unit"
+                      required
+                      value={sessionForm.recurrence_custom_unit}
+                      onChange={(e) => setSessionForm({ ...sessionForm, recurrence_custom_unit: e.target.value })}
+                      options={[
+                        { value: 'day', label: 'Day(s)' },
+                        { value: 'week', label: 'Week(s)' },
+                        { value: 'month', label: 'Month(s)' },
+                        { value: 'year', label: 'Year(s)' }
+                      ]}
+                    />
+                  </div>
+
+                  {sessionForm.recurrence_custom_unit === 'week' && (
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Repeat on days
+                      </label>
+                      <div className="flex gap-2">
+                        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) => (
+                          <label key={idx} className="flex flex-col items-center cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={sessionForm.recurrence_custom_weekdays.includes(idx)}
+                              onChange={(e) => {
+                                const days = [...sessionForm.recurrence_custom_weekdays]
+                                if (e.target.checked) {
+                                  days.push(idx)
+                                } else {
+                                  const index = days.indexOf(idx)
+                                  if (index > -1) days.splice(index, 1)
+                                }
+                                setSessionForm({ ...sessionForm, recurrence_custom_weekdays: days })
+                              }}
+                              className="w-5 h-5 rounded text-primary"
+                            />
+                            <span className="text-xs mt-1">{day}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              <Input
+                label="Recurrence End Date"
+                type="date"
+                value={sessionForm.recurrence_end_date}
+                onChange={(e) => setSessionForm({ ...sessionForm, recurrence_end_date: e.target.value })}
+                helperText="Leave blank for indefinite"
+              />
+            </>
+          )}
+        </div>
       </Modal>
 
       <Footer />

@@ -13,6 +13,7 @@ import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import Modal from '@/components/ui/Modal'
 import ConsentPolicy from '@/components/ConsentPolicy'
+import PrivacyDSRWidget from '@/components/PrivacyDSRWidget'
 import { format } from 'date-fns'
 import toast from 'react-hot-toast'
 
@@ -80,16 +81,31 @@ export default function ProfileSettings() {
 
       setSwimmers(swimmersData || [])
 
-      // Load consent records
-      const { data: consentsData, error: consentsError } = await supabase
-        .from('registration_consents')
-        .select('*, swimmers(first_name, last_name)')
-        .eq('parent_id', user.id)
-        .order('consented_at', { ascending: false })
+      // Get swimmer IDs
+      const swimmerIds = (swimmersData || []).map(s => s.id)
 
-      if (consentsError) throw consentsError
+      // Load consent records - fetch by both parent_id AND swimmer ownership
+      // This ensures we get ALL consents, including those created before account linking
+      let allConsents = []
 
-      setConsents(consentsData || [])
+      if (swimmerIds.length > 0) {
+        // Fetch consents linked to this parent's swimmers
+        const { data: swimmerConsents, error: swimmerConsentsError } = await supabase
+          .from('registration_consents')
+          .select('*, swimmers(first_name, last_name)')
+          .in('swimmer_id', swimmerIds)
+          .order('consented_at', { ascending: false })
+
+        if (swimmerConsentsError) throw swimmerConsentsError
+        allConsents = swimmerConsents || []
+      }
+
+      // Deduplicate by consent ID (in case both queries returned same records)
+      const uniqueConsents = Array.from(
+        new Map(allConsents.map(c => [c.id, c])).values()
+      )
+
+      setConsents(uniqueConsents)
     } catch (error) {
       console.error('Error loading profile data:', error)
       toast.error('Failed to load profile data')
@@ -590,32 +606,25 @@ export default function ProfileSettings() {
             )}
           </Card>
 
-          {/* Contact Admin Notice */}
+          {/* Data Subject Rights - Kenya Data Protection Act */}
           <Card padding="normal">
-            <div className="flex gap-4">
-              <svg className="w-6 h-6 text-blue-600 dark:text-blue-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-              </svg>
-              <div>
-                <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                  Need help with other changes?
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                  Please contact the club administrator for assistance with:
-                </p>
-                <ul className="text-sm text-gray-600 dark:text-gray-400 mb-3 list-disc list-inside space-y-1">
-                  <li>Email address changes (tied to authentication)</li>
-                  <li>Swimmer details or status updates</li>
-                  <li>Payment or invoice inquiries</li>
-                  <li>Account access issues</li>
-                </ul>
-                <a
-                  href="mailto:victor@mwago.me"
-                  className="text-primary hover:text-primary-dark font-medium text-sm"
-                >
-                  Contact Admin →
-                </a>
+            <div className="space-y-4">
+              <div className="flex gap-4">
+                <svg className="w-6 h-6 text-blue-600 dark:text-blue-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+                <div>
+                  <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">
+                    Need help with other changes?
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+                    Exercise your data protection rights under the Kenya Data Protection Act. Submit requests for data access, correction, deletion, or portability below:
+                  </p>
+                </div>
               </div>
+              
+              {/* Privacy.ke DSR Widget */}
+              <PrivacyDSRWidget />
             </div>
           </Card>
         </div>

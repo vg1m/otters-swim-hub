@@ -9,7 +9,8 @@ import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import Card from '@/components/ui/Card'
 import ConsentPolicy from '@/components/ConsentPolicy'
-import { calculateRegistrationFee, formatKES } from '@/lib/utils/currency'
+import { calculateRegistrationFee, calculateTotalRegistrationCost, formatKES } from '@/lib/utils/currency'
+import { calculateAge } from '@/lib/utils/date-helpers'
 import toast from 'react-hot-toast'
 
 export default function RegisterPage() {
@@ -36,6 +37,7 @@ export default function RegisterPage() {
 
   // Payment option
   const [paymentOption, setPaymentOption] = useState('pay_now') // 'pay_now' or 'pay_later'
+  const [paymentType, setPaymentType] = useState('monthly') // 'monthly' or 'quarterly'
 
   // Swimmers array
   const [swimmers, setSwimmers] = useState([
@@ -45,6 +47,7 @@ export default function RegisterPage() {
       dateOfBirth: '',
       gender: '',
       squad: '',
+      galaEventsOptIn: false,
     },
   ])
 
@@ -57,6 +60,7 @@ export default function RegisterPage() {
         dateOfBirth: '',
         gender: '',
         squad: '',
+        galaEventsOptIn: false,
       },
     ])
   }
@@ -125,6 +129,20 @@ export default function RegisterPage() {
       }
     }
 
+    // Validate swimmer ages (minimum 5 years)
+    for (let i = 0; i < swimmers.length; i++) {
+      const swimmer = swimmers[i]
+      const age = calculateAge(swimmer.dateOfBirth)
+      
+      if (age < 5) {
+        toast.error(
+          `${swimmer.firstName || 'Swimmer ' + (i + 1)} must be at least 5 years old to register. ` +
+          `Current age: ${age} years. Please contact us if you have questions.`
+        )
+        return false
+      }
+    }
+
     // Validate required consents
     if (!consents.dataAccuracy) {
       toast.error('Please confirm that the information provided is accurate')
@@ -153,7 +171,8 @@ export default function RegisterPage() {
     }
 
     setLoading(true)
-    const totalAmount = calculateRegistrationFee(swimmers.length)
+    const costBreakdown = calculateTotalRegistrationCost(swimmers, paymentType)
+    const totalAmount = costBreakdown.total
 
     try {
       console.log('Submitting registration with Paystack...')
@@ -166,6 +185,8 @@ export default function RegisterPage() {
           swimmers,
           parentInfo,
           totalAmount,
+          costBreakdown,
+          paymentType,
           consents,
           paymentOption,
         }),
@@ -357,6 +378,24 @@ export default function RegisterPage() {
                     helperText="Choose the appropriate training group"
                   />
                 </div>
+
+                {/* Gala Events Opt-In */}
+                <div className="mt-4">
+                  <label className="flex items-start gap-3 cursor-pointer p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-primary dark:hover:border-primary-light transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={swimmer.galaEventsOptIn || false}
+                      onChange={(e) => updateSwimmer(index, 'galaEventsOptIn', e.target.checked)}
+                      className="w-5 h-5 mt-0.5 text-primary rounded focus:ring-2 focus:ring-primary"
+                    />
+                    <div>
+                      <span className="font-medium text-gray-900 dark:text-gray-100">Opt in for Gala Events</span>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        Check this box to participate in competitive gala events. Additional fees may apply for gala participation.
+                      </p>
+                    </div>
+                  </label>
+                </div>
               </Card>
             ))}
 
@@ -441,18 +480,94 @@ export default function RegisterPage() {
 
             {/* Payment Summary */}
             <Card title="Payment Summary" padding="normal">
-              <div className="space-y-3">
-                {swimmers.map((swimmer, index) => (
-                  <div key={index} className="flex justify-between text-sm">
-                    <span className="text-gray-600 dark:text-gray-400">
-                      {swimmer.firstName || `Swimmer ${index + 1}`} {swimmer.lastName} - Registration Fee
-                    </span>
-                    <span className="font-medium text-gray-900 dark:text-gray-100">{formatKES(3500)}</span>
+              <div className="space-y-4">
+                {/* Payment Type Selector */}
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                    Training Fee Payment Period
+                  </label>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="paymentType"
+                        value="monthly"
+                        checked={paymentType === 'monthly'}
+                        onChange={(e) => setPaymentType(e.target.value)}
+                        className="w-4 h-4 text-primary"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">Monthly Payment</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="paymentType"
+                        value="quarterly"
+                        checked={paymentType === 'quarterly'}
+                        onChange={(e) => setPaymentType(e.target.value)}
+                        className="w-4 h-4 text-primary"
+                      />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        Quarterly Payment (Save {formatKES(9000)}!)
+                      </span>
+                    </label>
                   </div>
-                ))}
-                <div className="border-t border-gray-200 dark:border-gray-700 pt-3 flex justify-between text-lg font-bold">
-                  <span className="text-gray-900 dark:text-gray-100">Total Amount</span>
-                  <span className="text-primary">{formatKES(totalAmount)}</span>
+                </div>
+
+                {/* Itemized Breakdown */}
+                <div className="space-y-3">
+                  {(() => {
+                    const costBreakdown = calculateTotalRegistrationCost(swimmers, paymentType)
+                    return (
+                      <>
+                        {/* Registration Fees */}
+                        <div className="space-y-2">
+                          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                            Annual Registration Fees
+                          </p>
+                          {swimmers.map((swimmer, index) => (
+                            <div key={`reg-${index}`} className="flex justify-between text-sm pl-3">
+                              <span className="text-gray-600 dark:text-gray-400">
+                                {swimmer.firstName || `Swimmer ${index + 1}`} {swimmer.lastName}
+                              </span>
+                              <span className="font-medium text-gray-900 dark:text-gray-100">{formatKES(3500)}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Training Fees */}
+                        <div className="space-y-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                          <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                            {paymentType === 'quarterly' ? 'Quarterly' : 'Monthly'} Training Fees
+                          </p>
+                          {costBreakdown.breakdown.map((item, index) => (
+                            <div key={`train-${index}`} className="flex justify-between text-sm pl-3">
+                              <span className="text-gray-600 dark:text-gray-400">
+                                {item.swimmerName} - {item.squad.replace('_', ' ').toUpperCase()}
+                              </span>
+                              <span className="font-medium text-gray-900 dark:text-gray-100">{formatKES(item.trainingFee)}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* Totals */}
+                        <div className="space-y-2 pt-3 border-t-2 border-gray-300 dark:border-gray-600">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600 dark:text-gray-400">Registration Fees Subtotal</span>
+                            <span className="font-medium text-gray-900 dark:text-gray-100">{formatKES(costBreakdown.registrationFees)}</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                            <span className="text-gray-600 dark:text-gray-400">Training Fees Subtotal</span>
+                            <span className="font-medium text-gray-900 dark:text-gray-100">{formatKES(costBreakdown.trainingFees)}</span>
+                          </div>
+                          <div className="flex justify-between text-lg font-bold pt-2">
+                            <span className="text-gray-900 dark:text-gray-100">Total Amount</span>
+                            <span className="text-primary">{formatKES(costBreakdown.total)}</span>
+                          </div>
+                        </div>
+                      </>
+                    )
+                  })()}
                 </div>
               </div>
             </Card>
@@ -467,10 +582,13 @@ export default function RegisterPage() {
                 fullWidth
                 className="max-w-md rounded-2xl shadow-soft hover:shadow-md hover:scale-105 transition-all"
               >
-                {loading ? 'Processing...' : paymentOption === 'pay_now' 
-                  ? `Pay Now (${formatKES(totalAmount)})` 
-                  : `Submit Registration`
-                }
+                {(() => {
+                  if (loading) return 'Processing...'
+                  const costBreakdown = calculateTotalRegistrationCost(swimmers, paymentType)
+                  return paymentOption === 'pay_now' 
+                    ? `Pay Now (${formatKES(costBreakdown.total)})` 
+                    : `Submit Registration`
+                })()}
               </Button>
               <p className="text-sm text-stone-600 dark:text-gray-400 text-center max-w-md">
                 {paymentOption === 'pay_now' 

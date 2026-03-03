@@ -21,6 +21,7 @@ export default function SwimmersManagementPage() {
   const router = useRouter()
   const { user, profile, loading: authLoading } = useAuth()
   const [swimmers, setSwimmers] = useState([])
+  const [coaches, setCoaches] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
@@ -52,6 +53,7 @@ export default function SwimmersManagementPage() {
     setLoading(true)
 
     try {
+      // Load swimmers
       const { data, error } = await supabase
         .from('swimmers')
         .select('*')
@@ -59,6 +61,15 @@ export default function SwimmersManagementPage() {
 
       if (error) throw error
       setSwimmers(data || [])
+
+      // Load coaches for assignment dropdown
+      const { data: coachesData } = await supabase
+        .from('profiles')
+        .select('id, full_name, coach_squad')
+        .eq('role', 'coach')
+        .order('full_name')
+
+      setCoaches(coachesData || [])
     } catch (error) {
       console.error('Error loading swimmers:', error)
       toast.error('Failed to load swimmers')
@@ -75,8 +86,7 @@ export default function SwimmersManagementPage() {
     if (searchTerm) {
       const term = searchTerm.toLowerCase()
       filtered = filtered.filter(s =>
-        `${s.first_name} ${s.last_name}`.toLowerCase().includes(term) ||
-        s.license_number?.toLowerCase().includes(term)
+        `${s.first_name} ${s.last_name}`.toLowerCase().includes(term)
       )
     }
 
@@ -101,10 +111,9 @@ export default function SwimmersManagementPage() {
       date_of_birth: swimmer.date_of_birth,
       gender: swimmer.gender,
       squad: swimmer.squad,
-      sub_squad: swimmer.sub_squad || '',
-      license_number: swimmer.license_number || '',
-      medical_expiry_date: swimmer.medical_expiry_date || '',
       status: swimmer.status,
+      coach_id: swimmer.coach_id || '',
+      gala_events_opt_in: swimmer.gala_events_opt_in || false,
     })
     setShowEditModal(true)
   }, [])
@@ -116,9 +125,15 @@ export default function SwimmersManagementPage() {
     const supabase = createClient()
 
     try {
+      // Clean up form data: convert empty string to null for coach_id
+      const cleanedData = {
+        ...editForm,
+        coach_id: editForm.coach_id || null,
+      }
+
       const { error } = await supabase
         .from('swimmers')
-        .update(editForm)
+        .update(cleanedData)
         .eq('id', selectedSwimmer.id)
 
       if (error) throw error
@@ -181,14 +196,9 @@ export default function SwimmersManagementPage() {
       header: 'Squad',
       accessor: 'squad',
       render: (row) => (
-        <div>
-          <Badge variant="info">
-            {row.squad.replace('_', ' ').toUpperCase()}
-          </Badge>
-          {row.sub_squad && (
-            <p className="text-xs text-gray-500 mt-1 uppercase">{row.sub_squad}</p>
-          )}
-        </div>
+        <Badge variant="info">
+          {row.squad.replace('_', ' ').toUpperCase()}
+        </Badge>
       ),
     },
     {
@@ -204,18 +214,13 @@ export default function SwimmersManagementPage() {
       },
     },
     {
-      header: 'Medical Expiry',
-      accessor: 'medical_expiry_date',
-      render: (row) => {
-        if (!row.medical_expiry_date) return <span className="text-gray-400">-</span>
-        const expiry = new Date(row.medical_expiry_date)
-        const isExpired = expiry < new Date()
-        return (
-          <span className={isExpired ? 'text-red-600 font-medium' : 'text-gray-700'}>
-            {formatDate(row.medical_expiry_date)}
-          </span>
-        )
-      },
+      header: 'Gala Events',
+      accessor: 'gala_events_opt_in',
+      render: (row) => (
+        <Badge variant={row.gala_events_opt_in ? 'success' : 'default'} size="sm">
+          {row.gala_events_opt_in ? 'Opted In' : 'Not Opted In'}
+        </Badge>
+      ),
     },
     {
       header: 'Actions',
@@ -386,27 +391,17 @@ export default function SwimmersManagementPage() {
             ]}
           />
           <Select
-            label="Sub Squad"
-            value={editForm.sub_squad || ''}
-            onChange={(e) => setEditForm({ ...editForm, sub_squad: e.target.value })}
+            label="Assigned Coach"
+            value={editForm.coach_id || ''}
+            onChange={(e) => setEditForm({ ...editForm, coach_id: e.target.value })}
             options={[
-              { value: '', label: 'None' },
-              { value: 'elite', label: 'Elite' },
-              { value: 'dev1', label: 'Dev 1' },
-              { value: 'dev2', label: 'Dev 2' },
-              { value: 'dev3', label: 'Dev 3' },
+              { value: '', label: 'No Coach Assigned' },
+              ...coaches.map(c => ({ 
+                value: c.id, 
+                label: `${c.full_name}${c.coach_squad ? ` (${c.coach_squad.replace('_', ' ').toUpperCase()})` : ''}`
+              }))
             ]}
-          />
-          <Input
-            label="License Number"
-            value={editForm.license_number || ''}
-            onChange={(e) => setEditForm({ ...editForm, license_number: e.target.value })}
-          />
-          <Input
-            label="Medical Expiry Date"
-            type="date"
-            value={editForm.medical_expiry_date || ''}
-            onChange={(e) => setEditForm({ ...editForm, medical_expiry_date: e.target.value })}
+            helperText="Manually assign coach based on availability"
           />
           <Select
             label="Status"
@@ -419,6 +414,24 @@ export default function SwimmersManagementPage() {
               { value: 'inactive', label: 'Inactive' },
             ]}
           />
+        </div>
+
+        {/* Gala Events Opt-In */}
+        <div className="mt-4">
+          <label className="flex items-start gap-3 cursor-pointer p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-primary dark:hover:border-primary-light transition-colors">
+            <input
+              type="checkbox"
+              checked={editForm.gala_events_opt_in || false}
+              onChange={(e) => setEditForm({ ...editForm, gala_events_opt_in: e.target.checked })}
+              className="w-5 h-5 mt-0.5 text-primary rounded focus:ring-2 focus:ring-primary"
+            />
+            <div>
+              <span className="font-medium text-gray-900 dark:text-gray-100">Opt in for Gala Events</span>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Enable this option if the swimmer will participate in competitive gala events.
+              </p>
+            </div>
+          </label>
         </div>
       </Modal>
 
