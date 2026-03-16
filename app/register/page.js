@@ -9,7 +9,18 @@ import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import Card from '@/components/ui/Card'
 import ConsentPolicy from '@/components/ConsentPolicy'
-import { calculateRegistrationFee, calculateTotalRegistrationCost, formatKES } from '@/lib/utils/currency'
+import {
+  calculateRegistrationFee,
+  calculateTotalRegistrationCost,
+  formatKES,
+  isEarlyBirdEligible,
+  getQuarterlySaving,
+  hasQuarterlyOption,
+  EARLY_BIRD_DISCOUNT,
+  OCCASIONAL_SWIMMER_RATE,
+  REGISTRATION_FEE,
+  SQUAD_PRICING,
+} from '@/lib/utils/currency'
 import { calculateAge } from '@/lib/utils/date-helpers'
 import toast from 'react-hot-toast'
 
@@ -171,7 +182,8 @@ export default function RegisterPage() {
     }
 
     setLoading(true)
-    const costBreakdown = calculateTotalRegistrationCost(swimmers, paymentType)
+    const earlyBird = paymentType === 'monthly' && isEarlyBirdEligible()
+    const costBreakdown = calculateTotalRegistrationCost(swimmers, paymentType, earlyBird)
     const totalAmount = costBreakdown.total
 
     try {
@@ -187,6 +199,7 @@ export default function RegisterPage() {
           totalAmount,
           costBreakdown,
           paymentType,
+          earlyBird,
           consents,
           paymentOption,
         }),
@@ -221,7 +234,14 @@ export default function RegisterPage() {
     }
   }
 
-  const totalAmount = calculateRegistrationFee(swimmers.length)
+  // Determine early bird eligibility for the summary display
+  const earlyBirdActive = paymentType === 'monthly' && isEarlyBirdEligible()
+
+  // Quarterly is only available if at least one swimmer has a squad with a quarterly option
+  const anyQuarterlyEligible = swimmers.some(s => hasQuarterlyOption(s.squad))
+
+  // If paymentType is quarterly but no swimmer qualifies, reset to monthly
+  // (handled gracefully in calculateTotalRegistrationCost via fallback)
 
   const relationshipOptions = [
     { value: 'father', label: 'Father' },
@@ -481,6 +501,7 @@ export default function RegisterPage() {
             {/* Payment Summary */}
             <Card title="Payment Summary" padding="normal">
               <div className="space-y-4">
+
                 {/* Payment Type Selector */}
                 <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
@@ -496,28 +517,49 @@ export default function RegisterPage() {
                         onChange={(e) => setPaymentType(e.target.value)}
                         className="w-4 h-4 text-primary"
                       />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">Monthly Payment</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="paymentType"
-                        value="quarterly"
-                        checked={paymentType === 'quarterly'}
-                        onChange={(e) => setPaymentType(e.target.value)}
-                        className="w-4 h-4 text-primary"
-                      />
                       <span className="text-sm text-gray-700 dark:text-gray-300">
-                        Quarterly Payment (Save {formatKES(9000)}!)
+                        Monthly Payment
+                        {earlyBirdActive && (
+                          <span className="ml-2 inline-flex items-center gap-1 text-xs font-semibold bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full">
+                            Early Bird — {formatKES(EARLY_BIRD_DISCOUNT)} off
+                          </span>
+                        )}
                       </span>
                     </label>
+
+                    {anyQuarterlyEligible && (
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="radio"
+                          name="paymentType"
+                          value="quarterly"
+                          checked={paymentType === 'quarterly'}
+                          onChange={(e) => setPaymentType(e.target.value)}
+                          className="w-4 h-4 text-primary"
+                        />
+                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                          Quarterly Payment
+                          {swimmers.some(s => getQuarterlySaving(s.squad) > 0) && (
+                            <span className="ml-2 inline-flex items-center gap-1 text-xs font-semibold bg-primary/10 text-primary dark:text-primary-light px-2 py-0.5 rounded-full">
+                              Save up to {formatKES(Math.max(...swimmers.map(s => getQuarterlySaving(s.squad))))}
+                            </span>
+                          )}
+                        </span>
+                      </label>
+                    )}
+
+                    {!anyQuarterlyEligible && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 pl-1">
+                        Quarterly payment is not available for the Learn to Swim squad.
+                      </p>
+                    )}
                   </div>
                 </div>
 
                 {/* Itemized Breakdown */}
                 <div className="space-y-3">
                   {(() => {
-                    const costBreakdown = calculateTotalRegistrationCost(swimmers, paymentType)
+                    const costBreakdown = calculateTotalRegistrationCost(swimmers, paymentType, earlyBirdActive)
                     return (
                       <>
                         {/* Registration Fees */}
@@ -530,7 +572,7 @@ export default function RegisterPage() {
                               <span className="text-gray-600 dark:text-gray-400">
                                 {swimmer.firstName || `Swimmer ${index + 1}`} {swimmer.lastName}
                               </span>
-                              <span className="font-medium text-gray-900 dark:text-gray-100">{formatKES(3500)}</span>
+                              <span className="font-medium text-gray-900 dark:text-gray-100">{formatKES(REGISTRATION_FEE)}</span>
                             </div>
                           ))}
                         </div>
@@ -541,11 +583,27 @@ export default function RegisterPage() {
                             {paymentType === 'quarterly' ? 'Quarterly' : 'Monthly'} Training Fees
                           </p>
                           {costBreakdown.breakdown.map((item, index) => (
-                            <div key={`train-${index}`} className="flex justify-between text-sm pl-3">
-                              <span className="text-gray-600 dark:text-gray-400">
-                                {item.swimmerName} - {item.squad.replace('_', ' ').toUpperCase()}
+                            <div key={`train-${index}`} className="flex justify-between text-sm pl-3 gap-2">
+                              <span className="text-gray-600 dark:text-gray-400 flex items-center gap-2 flex-wrap">
+                                {item.swimmerName} — {item.squad.replace(/_/g, ' ').toUpperCase()}
+                                {item.isFreeSwimmer && (
+                                  <span className="text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full">
+                                    4th sibling — Free
+                                  </span>
+                                )}
+                                {item.earlyBirdApplied && (
+                                  <span className="text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full">
+                                    Early Bird
+                                  </span>
+                                )}
                               </span>
-                              <span className="font-medium text-gray-900 dark:text-gray-100">{formatKES(item.trainingFee)}</span>
+                              <span className="font-medium text-gray-900 dark:text-gray-100 flex-shrink-0">
+                                {item.isFreeSwimmer ? (
+                                  <span className="text-green-600 dark:text-green-400">FREE</span>
+                                ) : (
+                                  formatKES(item.trainingFee)
+                                )}
+                              </span>
                             </div>
                           ))}
                         </div>
@@ -569,7 +627,69 @@ export default function RegisterPage() {
                     )
                   })()}
                 </div>
+
+                {/* Occasional Swimmer info */}
+                <div className="bg-stone-50 dark:bg-gray-700/40 border border-stone-200 dark:border-gray-600 rounded-lg p-4">
+                  <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">Occasional / Drop-In Swimmer?</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Drop-in sessions are available at <span className="font-semibold">{formatKES(OCCASIONAL_SWIMMER_RATE)} per class</span>. Contact the club directly to arrange — no registration required.
+                  </p>
+                </div>
+
               </div>
+            </Card>
+
+            {/* Fee Terms & Conditions */}
+            <Card padding="normal">
+              <details className="group">
+                <summary className="flex items-center justify-between cursor-pointer list-none">
+                  <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">Fee Terms &amp; Conditions</span>
+                  <svg className="w-4 h-4 text-gray-400 group-open:rotate-180 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </summary>
+                <div className="mt-3 space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                  <ol className="list-decimal list-inside space-y-2">
+                    <li>Fees are payable either monthly or quarterly.</li>
+                    <li>Once a member, fees are due per calendar month for the season.</li>
+                    <li>Otters Academy of Swimming Ltd reserves the right to change fees within the season should circumstances dictate this.</li>
+                    <li>
+                      <span className="font-medium text-gray-700 dark:text-gray-300">Early Bird Discount:</span> A {formatKES(EARLY_BIRD_DISCOUNT)} discount applies to monthly training fees (Competitive and Fitness squads) when payment is received on or before the 3rd of the month.
+                    </li>
+                    <li>
+                      <span className="font-medium text-gray-700 dark:text-gray-300">4th Sibling Free:</span> The 4th child and any subsequent siblings train free — the monthly or quarterly training fee is waived. The annual registration fee ({formatKES(REGISTRATION_FEE)}) still applies for each swimmer.
+                    </li>
+                  </ol>
+                  <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700 space-y-1">
+                    <p className="font-semibold text-gray-700 dark:text-gray-300 text-xs uppercase tracking-wide">Fee Schedule</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs mt-2">
+                      <div className="bg-stone-50 dark:bg-gray-700/40 rounded-lg p-3">
+                        <p className="font-semibold text-gray-700 dark:text-gray-300">Competitive (1–4 sessions/week)</p>
+                        <p>Monthly: {formatKES(SQUAD_PRICING.competitive.monthly)}</p>
+                        <p className="text-green-600 dark:text-green-400">Early Bird: {formatKES(SQUAD_PRICING.competitive.monthly - EARLY_BIRD_DISCOUNT)}</p>
+                        <p>Quarterly: {formatKES(SQUAD_PRICING.competitive.quarterly)}</p>
+                      </div>
+                      <div className="bg-stone-50 dark:bg-gray-700/40 rounded-lg p-3">
+                        <p className="font-semibold text-gray-700 dark:text-gray-300">Fitness / Daily (Mon–Sat)</p>
+                        <p>Monthly: {formatKES(SQUAD_PRICING.fitness.monthly)}</p>
+                        <p className="text-green-600 dark:text-green-400">Early Bird: {formatKES(SQUAD_PRICING.fitness.monthly - EARLY_BIRD_DISCOUNT)}</p>
+                        <p>Quarterly: {formatKES(SQUAD_PRICING.fitness.quarterly)}</p>
+                      </div>
+                      <div className="bg-stone-50 dark:bg-gray-700/40 rounded-lg p-3">
+                        <p className="font-semibold text-gray-700 dark:text-gray-300">Pups / Learn to Swim (1–2 sessions/week)</p>
+                        <p>Monthly: {formatKES(SQUAD_PRICING.learn_to_swim.monthly)}</p>
+                        <p className="text-gray-500 dark:text-gray-500">No quarterly option</p>
+                      </div>
+                      <div className="bg-stone-50 dark:bg-gray-700/40 rounded-lg p-3">
+                        <p className="font-semibold text-gray-700 dark:text-gray-300">Annual Registration (all squads)</p>
+                        <p>{formatKES(REGISTRATION_FEE)} per swimmer</p>
+                        <p className="font-semibold text-gray-700 dark:text-gray-300 mt-1">Occasional / Drop-In</p>
+                        <p>{formatKES(OCCASIONAL_SWIMMER_RATE)} per class</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </details>
             </Card>
 
             {/* Submit Button */}
@@ -584,9 +704,9 @@ export default function RegisterPage() {
               >
                 {(() => {
                   if (loading) return 'Processing...'
-                  const costBreakdown = calculateTotalRegistrationCost(swimmers, paymentType)
-                  return paymentOption === 'pay_now' 
-                    ? `Pay Now (${formatKES(costBreakdown.total)})` 
+                  const costBreakdown = calculateTotalRegistrationCost(swimmers, paymentType, earlyBirdActive)
+                  return paymentOption === 'pay_now'
+                    ? `Pay Now (${formatKES(costBreakdown.total)})`
                     : `Submit Registration`
                 })()}
               </Button>

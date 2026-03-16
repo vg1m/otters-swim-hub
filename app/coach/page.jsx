@@ -136,6 +136,19 @@ export default function CoachDashboard() {
         </Badge>
       ),
     },
+    {
+      header: 'Actions',
+      accessor: 'actions',
+      render: (row) => (
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => router.push(`/swimmers/${row.id}/performance`)}
+        >
+          Progress
+        </Button>
+      ),
+    },
   ]
 
   if (loading) {

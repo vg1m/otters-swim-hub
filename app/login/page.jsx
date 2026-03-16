@@ -58,10 +58,10 @@ export default function LoginPage() {
               <circle cx="25" cy="16" r="2" fill="white"/>
             </svg>
           </div>
-          <h2 className="text-center text-3xl font-bold text-stone-900 tracking-tightest mb-2">
+          <h2 className="text-center text-3xl font-bold text-stone-900 dark:text-gray-100 tracking-tightest mb-2">
             Welcome Back
           </h2>
-          <p className="text-center text-stone-600">
+          <p className="text-center text-stone-600 dark:text-gray-400">
             Sign in to your Otters Kenya account
           </p>
           <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
@@ -71,7 +71,7 @@ export default function LoginPage() {
         <form className="mt-8 space-y-6" onSubmit={handleLogin}>
           <div className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Email address
               </label>
               <input
@@ -87,7 +87,7 @@ export default function LoginPage() {
               />
             </div>
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Password
               </label>
               <input
@@ -128,7 +128,7 @@ export default function LoginPage() {
           </div>
 
           <div className="text-sm text-center">
-            <Link href="/" className="font-medium text-gray-600 hover:text-primary">
+            <Link href="/" className="font-medium text-gray-600 dark:text-gray-400 hover:text-primary dark:hover:text-primary-light">
               ← Back to home
             </Link>
           </div>

@@ -2,12 +2,12 @@ import { NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { initializePaystackTransaction, generatePaymentReference } from '@/lib/paystack/client'
 import { CONSENT_POLICY_TEXT } from '@/lib/constants/consent-policy'
-import { calculateMonthlyTrainingFee } from '@/lib/utils/currency'
+import { calculateTrainingFee, isEarlyBirdEligible, REGISTRATION_FEE } from '@/lib/utils/currency'
 
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { swimmers, parentInfo, totalAmount, consents, paymentOption, paymentType = 'monthly', costBreakdown } = body
+    const { swimmers, parentInfo, totalAmount, consents, paymentOption, paymentType = 'monthly', costBreakdown, earlyBird } = body
 
     console.log('Payment initialization request received:', {
       swimmers: swimmers?.length,
@@ -135,32 +135,45 @@ export async function POST(request) {
     const currentMonth = new Date().toISOString().slice(0, 7) // "2026-02"
     const currentYear = new Date().getFullYear()
     const currentQuarter = `${currentYear}-Q${Math.ceil((new Date().getMonth() + 1) / 3)}`
-    
-    const lineItems = swimmers.flatMap((swimmer) => {
+
+    // Resolve early bird: trust the client flag but also verify server-side
+    const applyEarlyBird = (earlyBird === true) && (paymentType === 'monthly') && isEarlyBirdEligible()
+
+    const lineItems = swimmers.flatMap((swimmer, index) => {
+      const isFreeSwimmer = index >= 3 // 4th sibling onwards — training fee waived
       const items = [
         {
           invoice_id: invoice.id,
           description: `Annual Registration: ${swimmer.firstName} ${swimmer.lastName}`,
-          amount: 3500,
+          amount: REGISTRATION_FEE,
           quantity: 1,
           fee_type: 'registration',
           payment_period: null
         }
       ]
-      
-      // Add training fee
-      const trainingFee = calculateMonthlyTrainingFee(swimmer.squad, paymentType)
-      const squadLabel = swimmer.squad.replace('_', ' ').toUpperCase()
-      
+
+      // Training fee (waived for 4th sibling+)
+      const trainingFee = isFreeSwimmer
+        ? 0
+        : calculateTrainingFee(swimmer.squad, paymentType, applyEarlyBird)
+      const squadLabel = swimmer.squad.replace(/_/g, ' ').toUpperCase()
+
+      let trainingDescription = `${paymentType === 'quarterly' ? 'Quarterly' : 'Monthly'} Training Fee: ${swimmer.firstName} ${swimmer.lastName} - ${squadLabel}`
+      if (isFreeSwimmer) {
+        trainingDescription += ' (4th Sibling — Free)'
+      } else if (applyEarlyBird && ['competitive', 'fitness'].includes(swimmer.squad)) {
+        trainingDescription += ' (Early Bird)'
+      }
+
       items.push({
         invoice_id: invoice.id,
-        description: `${paymentType === 'quarterly' ? 'Quarterly' : 'Monthly'} Training Fee: ${swimmer.firstName} ${swimmer.lastName} - ${squadLabel}`,
+        description: trainingDescription,
         amount: trainingFee,
         quantity: 1,
         fee_type: paymentType === 'quarterly' ? 'quarterly_training' : 'monthly_training',
         payment_period: paymentType === 'quarterly' ? currentQuarter : currentMonth
       })
-      
+
       return items
     })
 

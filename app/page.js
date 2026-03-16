@@ -26,7 +26,7 @@ export default function Home() {
             </h1>
             <p className="text-lg sm:text-xl text-stone-600 dark:text-gray-300 mb-10 leading-relaxed max-w-2xl mx-auto font-medium">
               Your home for competitive swimming excellence in Kenya. 
-              Register your swimmers, track attendance, and stay connected with our swimming community.
+              Register your swimmers, book sessions, track performance, and stay connected with our swimming community.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link href="/register">
@@ -69,18 +69,65 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div className="order-2 lg:order-1">
-              <div className="bg-stone-900 dark:bg-gray-950 rounded-3xl p-8 shadow-soft">
-                <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 space-y-4">
-                  <h3 className="text-lg font-bold text-stone-900 dark:text-gray-100 dark:text-gray-100">Join Otters Kenya</h3>
-                  <div className="space-y-3">
-                    <div className="h-10 bg-stone-100 dark:bg-gray-700 rounded-xl border border-stone-200 dark:border-gray-600"></div>
-                    <div className="h-10 bg-stone-100 dark:bg-gray-700 rounded-xl border border-stone-200 dark:border-gray-600"></div>
-                    <div className="h-10 bg-stone-100 dark:bg-gray-700 rounded-xl border border-stone-200 dark:border-gray-600"></div>
-                    <div className="h-10 bg-stone-100 dark:bg-gray-700 rounded-xl border border-stone-200 dark:border-gray-600"></div>
-                    <button className="w-full h-12 bg-primary text-white rounded-xl font-semibold hover:bg-primary-dark transition-all shadow-md hover:shadow-lg">
-                      Complete Registration
-                    </button>
+              <div className="bg-stone-900 dark:bg-gray-950 rounded-3xl p-5 shadow-soft">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 space-y-4">
+                  {/* Form header */}
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-base font-bold text-stone-900 dark:text-gray-100">Join Otters Kenya</h3>
+                    <span className="text-xs text-stone-400 dark:text-gray-500 bg-stone-100 dark:bg-gray-700 px-2 py-1 rounded-full">Step 1 of 3</span>
                   </div>
+
+                  {/* Parent fields */}
+                  <div className="space-y-2">
+                    <p className="text-xs font-semibold text-stone-500 dark:text-gray-400 uppercase tracking-wide">Parent / Guardian</p>
+                    <div className="flex items-center gap-2 h-9 bg-stone-50 dark:bg-gray-700 border border-stone-200 dark:border-gray-600 rounded-lg px-3">
+                      <svg className="w-3.5 h-3.5 text-stone-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                      <span className="text-sm text-stone-700 dark:text-gray-300">Sarah Njoroge</span>
+                    </div>
+                    <div className="flex items-center gap-2 h-9 bg-stone-50 dark:bg-gray-700 border border-stone-200 dark:border-gray-600 rounded-lg px-3">
+                      <svg className="w-3.5 h-3.5 text-stone-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                      <span className="text-sm text-stone-700 dark:text-gray-300">sarah@email.com</span>
+                    </div>
+                    <div className="flex items-center gap-2 h-9 bg-stone-50 dark:bg-gray-700 border border-stone-200 dark:border-gray-600 rounded-lg px-3">
+                      <svg className="w-3.5 h-3.5 text-stone-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+                      <span className="text-sm text-stone-700 dark:text-gray-300">0712 345 678</span>
+                    </div>
+                  </div>
+
+                  {/* Swimmer details divider */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-px bg-stone-200 dark:bg-gray-700"></div>
+                    <span className="text-xs font-semibold text-stone-400 dark:text-gray-500 uppercase tracking-wide">Swimmer Details</span>
+                    <div className="flex-1 h-px bg-stone-200 dark:bg-gray-700"></div>
+                  </div>
+
+                  {/* Swimmer card */}
+                  <div className="border-2 border-primary/20 bg-primary/5 dark:bg-primary/10 rounded-xl p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-stone-900 dark:text-gray-100">Amara Wanza</p>
+                        <p className="text-xs text-stone-500 dark:text-gray-400">Age 10 &nbsp;·&nbsp; Female</p>
+                      </div>
+                      <span className="text-xs font-semibold bg-primary text-white px-2.5 py-1 rounded-full">Competitive</span>
+                    </div>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <div className="w-4 h-4 rounded bg-primary flex items-center justify-center flex-shrink-0">
+                        <svg className="w-2.5 h-2.5 text-white" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+                      </div>
+                      <span className="text-xs text-stone-600 dark:text-gray-400">Opt in for Gala Events</span>
+                    </label>
+                  </div>
+
+                  {/* Fee summary */}
+                  <div className="flex items-center justify-between bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800/50 rounded-xl px-3 py-2">
+                    <span className="text-xs font-medium text-stone-600 dark:text-gray-400">Registration Fee</span>
+                    <span className="text-sm font-bold text-green-700 dark:text-green-400">KES X,XXX</span>
+                  </div>
+
+                  {/* CTA button */}
+                  <button className="w-full h-10 bg-primary text-white rounded-xl text-sm font-semibold shadow-md">
+                    Complete Registration
+                  </button>
                 </div>
               </div>
             </div>
@@ -92,7 +139,7 @@ export default function Home() {
                 Register your swimmers online and pay securely. Our streamlined process makes joining Otters Kenya quick and easy.
               </p>
               <ul className="space-y-4">
-                {['Register multiple swimmers at once', 'Secure online payment', 'Instant confirmation', 'Quick approval process'].map((item) => (
+                {['Register multiple swimmers at once', 'Secure online payment (Mpesa, Airtel Money, Card)', 'Instant confirmation', 'Quick approval process'].map((item) => (
                   <li key={item} className="flex items-start gap-3">
                     <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
                       <svg className="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 20 20">
@@ -109,18 +156,18 @@ export default function Home() {
       </section>
 
       {/* Feature Section 2: Attendance */}
-      <section className="py-20 bg-stone-50 dark:bg-gray-850 relative transition-colors duration-200">
+      <section className="py-20 bg-stone-50 dark:bg-gray-900 relative transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div className="animate-reveal">
               <h2 className="text-4xl lg:text-5xl font-bold text-stone-900 dark:text-gray-100 mb-6 tracking-tightest">
-                Track Your <span className="text-primary">Progress</span>
+                Track Your <span className="text-primary dark:text-primary-light">Progress</span>
               </h2>
-              <p className="text-lg text-stone-600 dark:text-gray-400 mb-8 leading-relaxed">
+              <p className="text-lg text-stone-600 dark:text-gray-300 mb-8 leading-relaxed">
                 Stay connected with your swimmer's journey. View attendance, check training schedules, and monitor their development at Otters Kenya.
               </p>
               <ul className="space-y-4">
-                {['Quick QR code check-in', 'View attendance history', 'Training session schedule', 'Real-time updates'].map((item) => (
+                {['Race times and personal best tracking', 'Coach notes and development feedback', 'Attendance history and training calendar', 'Real-time session updates'].map((item) => (
                   <li key={item} className="flex items-start gap-3">
                     <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
                       <svg className="w-4 h-4 text-primary" fill="currentColor" viewBox="0 0 20 20">
@@ -133,21 +180,66 @@ export default function Home() {
               </ul>
             </div>
             <div>
-              <div className="bg-stone-900 dark:bg-gray-950 rounded-3xl p-8 shadow-soft">
-                <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 space-y-4">
-                  <h3 className="text-lg font-bold text-stone-900 dark:text-gray-100 text-center">Training Session</h3>
-                  <p className="text-sm text-stone-600 dark:text-gray-400 text-center">Competitive Squad</p>
-                  <div className="flex justify-center py-6">
-                    <div className="w-32 h-32 bg-primary rounded-2xl grid grid-cols-3 gap-1 p-2 shadow-md">
-                      {[...Array(9)].map((_, i) => (
-                        <div key={i} className="bg-white rounded-sm"></div>
-                      ))}
+              <div className="bg-stone-900 dark:bg-gray-950 rounded-3xl p-5 shadow-soft">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 space-y-4">
+
+                  {/* Swimmer header */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                        <span className="text-sm font-bold text-primary">AN</span>
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-stone-900 dark:text-gray-100">Amara Wanza</p>
+                        <p className="text-xs text-stone-500 dark:text-gray-400">Age 10 · Competitive</p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-semibold bg-primary/10 text-primary px-2.5 py-1 rounded-full">📈 Progress</span>
+                  </div>
+
+                  {/* Stats row */}
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="bg-stone-50 dark:bg-gray-700/60 rounded-xl py-2">
+                      <p className="text-lg font-bold text-stone-900 dark:text-gray-100">6</p>
+                      <p className="text-xs text-stone-500 dark:text-gray-400">Races</p>
+                    </div>
+                    <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-xl py-2">
+                      <p className="text-lg font-bold text-yellow-600 dark:text-yellow-400">⭐ 3</p>
+                      <p className="text-xs text-stone-500 dark:text-gray-400">PBs</p>
+                    </div>
+                    <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl py-2">
+                      <p className="text-lg font-bold text-blue-600 dark:text-blue-400">4</p>
+                      <p className="text-xs text-stone-500 dark:text-gray-400">Notes</p>
                     </div>
                   </div>
-                  <div className="bg-primary-50 rounded-2xl p-4 text-center">
-                    <p className="text-sm text-stone-600 dark:text-gray-400 mb-1">Swimmers Present:</p>
-                    <p className="text-3xl font-bold text-primary">18 / 25</p>
+
+                  {/* Race times mini-table */}
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-semibold text-stone-500 dark:text-gray-400 uppercase tracking-wide">Race Times</p>
+                    {[
+                      { event: '100m Freestyle', time: '1:12.45', pb: true, meet: 'Regional Champs' },
+                      { event: '50m Backstroke', time: '38.20', pb: false, meet: 'Club Time Trial' },
+                      { event: '200m IM', time: '2:48.10', pb: true, meet: 'National Games' },
+                    ].map((row) => (
+                      <div key={row.event} className="flex items-center justify-between py-2 px-2.5 rounded-lg bg-stone-50 dark:bg-gray-700/40 border border-stone-100 dark:border-gray-700">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="text-xs text-stone-700 dark:text-gray-300 font-medium truncate">{row.event}</span>
+                          {row.pb && <span className="text-xs font-bold text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/30 px-1.5 py-0.5 rounded-full flex-shrink-0">⭐ PB</span>}
+                        </div>
+                        <span className="font-mono text-sm font-bold text-primary ml-2 flex-shrink-0">{row.time}</span>
+                      </div>
+                    ))}
                   </div>
+
+                  {/* Coach note */}
+                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/40 rounded-xl p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-semibold bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded-full">Technique</span>
+                    </div>
+                    <p className="text-xs font-semibold text-stone-800 dark:text-gray-200">Great flip turn improvement</p>
+                    <p className="text-xs text-stone-500 dark:text-gray-400 mt-0.5 line-clamp-1">Shows consistent improvement in butterfly stroke and turns...</p>
+                  </div>
+
                 </div>
               </div>
             </div>
@@ -160,33 +252,70 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div className="order-2 lg:order-1">
-              <div className="bg-stone-900 rounded-3xl p-4 shadow-soft">
-                <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 space-y-4">
-                  <h3 className="text-lg font-bold text-stone-900 dark:text-gray-100">Your Dashboard</h3>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="bg-primary-50 rounded-2xl p-3">
-                      <p className="text-xs text-stone-600 dark:text-gray-400 mb-1">Swimmers</p>
-                      <p className="text-2xl font-bold text-primary">3</p>
+              <div className="bg-stone-900 dark:bg-gray-950 rounded-3xl p-5 shadow-soft">
+                <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 space-y-4">
+
+                  {/* Dashboard header */}
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-base font-bold text-stone-900 dark:text-gray-100">My Dashboard</h3>
+                    <span className="text-xs text-stone-400 dark:text-gray-500">Welcome back, Sarah</span>
+                  </div>
+
+                  {/* Stat pills */}
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="bg-primary/8 dark:bg-primary/15 rounded-xl py-2.5">
+                      <p className="text-xl font-bold text-primary">2</p>
+                      <p className="text-xs text-stone-500 dark:text-gray-400">Swimmers</p>
                     </div>
-                    <div className="bg-accent-sage rounded-2xl p-3">
-                      <p className="text-xs text-stone-600 dark:text-gray-400 mb-1">Sessions</p>
-                      <p className="text-2xl font-bold text-secondary">12</p>
+                    <div className="bg-accent-sage dark:bg-green-900/20 rounded-xl py-2.5">
+                      <p className="text-xl font-bold text-secondary">12</p>
+                      <p className="text-xs text-stone-500 dark:text-gray-400">Sessions</p>
                     </div>
-                    <div className="bg-accent-lavender rounded-2xl p-3">
-                      <p className="text-xs text-stone-600 dark:text-gray-400 mb-1">Invoices</p>
-                      <p className="text-2xl font-bold text-stone-800 dark:text-gray-200">2</p>
+                    <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl py-2.5">
+                      <p className="text-xl font-bold text-amber-600 dark:text-amber-400">1</p>
+                      <p className="text-xs text-stone-500 dark:text-gray-400">Invoice Due</p>
                     </div>
                   </div>
-                  <div className="space-y-2 mt-4">
-                    <div className="flex justify-between items-center p-3 bg-stone-50 rounded-xl">
-                      <span className="text-sm text-stone-700 dark:text-gray-300">Next Session</span>
-                      <span className="text-sm font-bold text-stone-900 dark:text-gray-100">Mon 4PM</span>
+
+                  {/* Swimmer card 1 */}
+                  <div className="border border-stone-200 dark:border-gray-700 rounded-xl p-3 space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold text-stone-900 dark:text-gray-100">Amara Wanza</p>
+                        <p className="text-xs text-stone-500 dark:text-gray-400">Age 10 · COMPETITIVE SQUAD</p>
+                      </div>
+                      <span className="text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full flex-shrink-0">Approved</span>
                     </div>
-                    <div className="flex justify-between items-center p-3 bg-stone-50 rounded-xl">
-                      <span className="text-sm text-stone-700 dark:text-gray-300">Attendance Rate</span>
-                      <span className="text-sm font-bold text-secondary">92%</span>
+                    <div className="flex gap-2">
+                      <span className="flex-1 text-center text-xs font-medium bg-stone-100 dark:bg-gray-700 text-stone-600 dark:text-gray-300 py-1.5 rounded-lg">📅 Attendance</span>
+                      <span className="flex-1 text-center text-xs font-medium bg-stone-50 dark:bg-gray-750 text-stone-500 dark:text-gray-400 py-1.5 rounded-lg border border-stone-200 dark:border-gray-700">📈 Progress</span>
                     </div>
                   </div>
+
+                  {/* Swimmer card 2 */}
+                  <div className="border border-stone-200 dark:border-gray-700 rounded-xl p-3 space-y-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-semibold text-stone-900 dark:text-gray-100">Kofi Maina</p>
+                        <p className="text-xs text-stone-500 dark:text-gray-400">Age 7 · LEARN TO SWIM</p>
+                      </div>
+                      <span className="text-xs font-semibold bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 px-2 py-0.5 rounded-full flex-shrink-0">Approved</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <span className="flex-1 text-center text-xs font-medium bg-stone-100 dark:bg-gray-700 text-stone-600 dark:text-gray-300 py-1.5 rounded-lg">📅 Attendance</span>
+                      <span className="flex-1 text-center text-xs font-medium bg-stone-50 dark:bg-gray-750 text-stone-500 dark:text-gray-400 py-1.5 rounded-lg border border-stone-200 dark:border-gray-700">📈 Progress</span>
+                    </div>
+                  </div>
+
+                  {/* Next session */}
+                  <div className="flex items-center gap-2 bg-stone-50 dark:bg-gray-700/50 rounded-xl px-3 py-2.5">
+                    <svg className="w-4 h-4 text-primary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-stone-700 dark:text-gray-300">Mon 16 Mar · 4:00 – 5:30pm</p>
+                      <p className="text-xs text-stone-400 dark:text-gray-500 truncate">📍 Nairobi Club Pool</p>
+                    </div>
+                  </div>
+
                 </div>
               </div>
             </div>
@@ -258,7 +387,7 @@ export default function Home() {
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M3 5a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2h-2.22l.123.489.804.804A1 1 0 0113 18H7a1 1 0 01-.707-1.707l.804-.804L7.22 15H5a2 2 0 01-2-2V5zm5.771 7H5V5h10v7H8.771z" clipRule="evenodd"/>
               </svg>
-              <span>Mobile-Optimized</span>
+              <span>Data Driven</span>
             </div>
           </div>
         </div>

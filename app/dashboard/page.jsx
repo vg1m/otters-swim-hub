@@ -364,16 +364,22 @@ const SwimmerCard = memo(function SwimmerCard({ swimmer, sessions, attendance })
           </div>
         </div>
         
-        {/* Attendance Button */}
-        <Button 
-          size="sm" 
-          variant="secondary" 
-          fullWidth
-          onClick={() => setShowAttendanceModal(true)}
-          className="mb-3"
-        >
-          📅 View Full Attendance {recentCount > 0 && `(${recentCount} recent)`}
-        </Button>
+        {/* Action Buttons */}
+        <div className="flex gap-2 mb-3">
+          <Button 
+            size="sm" 
+            variant="secondary"
+            fullWidth
+            onClick={() => setShowAttendanceModal(true)}
+          >
+            📅 Attendance {recentCount > 0 && `(${recentCount})`}
+          </Button>
+          <Link href={`/swimmers/${swimmer.id}/performance`} className="flex-1">
+            <Button size="sm" variant="ghost" fullWidth>
+              📈 Progress
+            </Button>
+          </Link>
+        </div>
         
         {/* Next Session */}
         {nextSession && (

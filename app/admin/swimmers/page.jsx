@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { profileCache } from '@/lib/cache/profile-cache'
@@ -226,7 +227,12 @@ export default function SwimmersManagementPage() {
       header: 'Actions',
       accessor: 'actions',
       render: (row) => (
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Link href={`/swimmers/${row.id}/performance`}>
+            <Button size="sm" variant="ghost">
+              Progress
+            </Button>
+          </Link>
           <Button
             size="sm"
             variant="secondary"
