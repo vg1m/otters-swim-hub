@@ -373,12 +373,12 @@ export default function SessionsPage() {
     <>
       <Navigation />
       
-      <div className="min-h-screen bg-gray-50 py-8">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-8 flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Training Sessions</h1>
-              <p className="text-gray-600 mt-2">Manage pool schedule and generate check-in codes</p>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Training Sessions</h1>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">Manage pool schedule and training sessions</p>
             </div>
             <Button onClick={() => setShowCreateModal(true)}>
               + Create Session
@@ -392,8 +392,8 @@ export default function SessionsPage() {
                   <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                   </svg>
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">No sessions scheduled</h3>
-                  <p className="mt-1 text-sm text-gray-500">Get started by creating a training session.</p>
+                  <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No sessions scheduled</h3>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Get started by creating a training session.</p>
                 </div>
               </Card>
             ) : (
@@ -402,14 +402,14 @@ export default function SessionsPage() {
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-semibold text-gray-900">
+                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
                           {formatDate(session.session_date)}
                         </h3>
                         <span className="px-3 py-1 bg-primary text-white text-sm rounded-full">
                           {session.squad.replace('_', ' ').toUpperCase()}
                         </span>
                       </div>
-                      <div className="space-y-1 text-sm text-gray-600">
+                      <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
                         <p>⏰ {session.start_time} - {session.end_time}</p>
                         <p>📍 {session.pool_location}</p>
                       </div>
@@ -678,7 +678,7 @@ export default function SessionsPage() {
                         onChange={(e) => setSessionForm({ ...sessionForm, recurrence_day_type: e.target.value })}
                         className="w-4 h-4 text-primary"
                       />
-                      <span className="text-sm">First day of month</span>
+                      <span className="text-sm text-gray-700 dark:text-gray-300">First day of month</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
@@ -689,7 +689,7 @@ export default function SessionsPage() {
                         onChange={(e) => setSessionForm({ ...sessionForm, recurrence_day_type: e.target.value })}
                         className="w-4 h-4 text-primary"
                       />
-                      <span className="text-sm">Last day of month</span>
+                      <span className="text-sm text-gray-700 dark:text-gray-300">Last day of month</span>
                     </label>
                   </div>
                 </div>
@@ -756,7 +756,7 @@ export default function SessionsPage() {
                               }}
                               className="w-5 h-5 rounded text-primary"
                             />
-                            <span className="text-xs mt-1">{day}</span>
+                            <span className="text-xs mt-1 text-gray-700 dark:text-gray-300">{day}</span>
                           </label>
                         ))}
                       </div>
@@ -992,7 +992,7 @@ export default function SessionsPage() {
                         onChange={(e) => setSessionForm({ ...sessionForm, recurrence_day_type: e.target.value })}
                         className="w-4 h-4 text-primary"
                       />
-                      <span className="text-sm">First day of month</span>
+                      <span className="text-sm text-gray-700 dark:text-gray-300">First day of month</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input
@@ -1003,7 +1003,7 @@ export default function SessionsPage() {
                         onChange={(e) => setSessionForm({ ...sessionForm, recurrence_day_type: e.target.value })}
                         className="w-4 h-4 text-primary"
                       />
-                      <span className="text-sm">Last day of month</span>
+                      <span className="text-sm text-gray-700 dark:text-gray-300">Last day of month</span>
                     </label>
                   </div>
                 </div>
@@ -1070,7 +1070,7 @@ export default function SessionsPage() {
                               }}
                               className="w-5 h-5 rounded text-primary"
                             />
-                            <span className="text-xs mt-1">{day}</span>
+                            <span className="text-xs mt-1 text-gray-700 dark:text-gray-300">{day}</span>
                           </label>
                         ))}
                       </div>

@@ -179,11 +179,11 @@ export default function SwimmersManagementPage() {
       accessor: 'name',
       render: (row) => (
         <div>
-          <p className="font-medium text-gray-900">
+          <p className="font-medium text-gray-900 dark:text-gray-100">
             {row.first_name} {row.last_name}
           </p>
           {row.license_number && (
-            <p className="text-xs text-gray-500">License: {row.license_number}</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">License: {row.license_number}</p>
           )}
         </div>
       ),
@@ -266,11 +266,11 @@ export default function SwimmersManagementPage() {
     <>
       <Navigation />
       
-      <div className="min-h-screen bg-gray-50 py-8">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">Swimmer Management</h1>
-            <p className="text-gray-600 mt-2">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Swimmer Management</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-2">
               Manage all registered swimmers
             </p>
           </div>
@@ -325,7 +325,7 @@ export default function SwimmersManagementPage() {
             />
           </Card>
 
-          <div className="mt-4 text-sm text-gray-600">
+          <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
             Showing {filteredSwimmers.length} of {swimmers.length} swimmers
           </div>
         </div>
