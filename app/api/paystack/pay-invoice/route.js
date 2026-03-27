@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { initializePaystackTransaction, generatePaymentReference } from '@/lib/paystack/client'
+import { EARLY_BIRD_DISCOUNT } from '@/lib/utils/currency'
 
 /**
  * Initialize payment for an existing invoice
@@ -24,7 +25,7 @@ export async function POST(request) {
       .from('invoices')
       .select(`
         *,
-        swimmers (id, first_name, last_name, squad),
+        swimmers (id, first_name, last_name, squad_id, squads (name)),
         profiles (id, full_name, email, phone_number),
         invoice_line_items (*)
       `)
@@ -64,16 +65,32 @@ export async function POST(request) {
       )
     }
 
+    // ── Early bird discount ───────────────────────────────────────────────────
+    // Applies when ALL conditions are met (checked server-side):
+    //   1. Today is on or before the 3rd of the month
+    //   2. The invoice has at least one monthly_training line item
+    //   3. The swimmer's assigned squad has early_bird_eligible = true
+    const today = new Date().getDate()
+    const hasMonthlyTraining = invoice.invoice_line_items?.some(
+      (item) => item.fee_type === 'monthly_training'
+    )
+    const squadEarlyBirdEligible = invoice.swimmers?.squads?.early_bird_eligible === true
+
+    const earlyBirdApplied = today <= 3 && hasMonthlyTraining && squadEarlyBirdEligible
+    const chargedAmount = earlyBirdApplied
+      ? Math.max(0, Number(invoice.total_amount) - EARLY_BIRD_DISCOUNT)
+      : Number(invoice.total_amount)
+
     // Generate unique payment reference
     const paymentReference = generatePaymentReference('INV', invoice.id)
 
-    // Create payment record
+    // Create payment record — store the actual charged amount (may differ from invoice total)
     const { data: payment, error: paymentError } = await supabase
       .from('payments')
       .insert({
         invoice_id: invoice.id,
         phone_number: invoice.profiles?.phone_number || '',
-        amount: invoice.total_amount,
+        amount: chargedAmount,
         status: 'pending',
         paystack_reference: paymentReference,
       })
@@ -93,10 +110,10 @@ export async function POST(request) {
       ? (Array.isArray(invoice.swimmers) ? invoice.swimmers : [invoice.swimmers])
       : []
 
-    // Initialize Paystack transaction
+    // Initialize Paystack transaction with the (possibly discounted) amount
     const paystackResult = await initializePaystackTransaction({
       email: invoice.profiles?.email || user.email,
-      amount: invoice.total_amount,
+      amount: chargedAmount,
       reference: paymentReference,
       metadata: {
         invoice_id: invoice.id,
@@ -137,6 +154,9 @@ export async function POST(request) {
       reference: paystackResult.reference,
       invoiceId: invoice.id,
       paymentId: payment.id,
+      earlyBirdApplied,
+      earlyBirdDiscount: earlyBirdApplied ? EARLY_BIRD_DISCOUNT : 0,
+      chargedAmount,
     })
   } catch (error) {
     console.error('Invoice payment initialization error:', error)

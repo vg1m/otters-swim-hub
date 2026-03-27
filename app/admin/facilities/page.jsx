@@ -20,6 +20,7 @@ export default function FacilityManagementPage() {
   const { user, profile, loading: authLoading } = useAuth()
   const [facilities, setFacilities] = useState([])
   const [schedules, setSchedules] = useState([])
+  const [squadList, setSquadList] = useState([])
   const [capacityRules, setCapacityRules] = useState([])
   const [loading, setLoading] = useState(true)
   const [showFacilityModal, setShowFacilityModal] = useState(false)
@@ -42,7 +43,7 @@ export default function FacilityManagementPage() {
     day_of_week: '',
     start_time: '',
     end_time: '',
-    squad: '',
+    squad_ids: [],
   })
 
   const [capacityForm, setCapacityForm] = useState({
@@ -70,18 +71,33 @@ export default function FacilityManagementPage() {
     const supabase = createClient()
 
     try {
-      const [facilitiesRes, schedulesRes, capacityRes] = await Promise.all([
+      const [facilitiesRes, schedulesRes, capacityRes, squadsRes] = await Promise.all([
         supabase.from('facilities').select('*').order('name'),
-        supabase.from('facility_schedules').select('*, facilities(name)').order('facility_id'),
+        supabase
+          .from('facility_schedules')
+          .select(
+            `
+            *,
+            facilities(name),
+            facility_schedule_squads (
+              squad_id,
+              squads (id, name)
+            )
+          `
+          )
+          .order('facility_id'),
         supabase.from('lane_capacity_rules').select('*').order('sub_squad'),
+        supabase.from('squads').select('id, name').eq('is_active', true).order('sort_order').order('name'),
       ])
 
       if (facilitiesRes.error) throw facilitiesRes.error
       if (schedulesRes.error) throw schedulesRes.error
       if (capacityRes.error) throw capacityRes.error
+      if (squadsRes.error) throw squadsRes.error
 
       setFacilities(facilitiesRes.data || [])
       setSchedules(schedulesRes.data || [])
+      setSquadList(squadsRes.data || [])
       setCapacityRules(capacityRes.data || [])
     } catch (error) {
       console.error('Error loading data:', error)
@@ -163,8 +179,14 @@ export default function FacilityManagementPage() {
 
   // Schedule CRUD
   async function handleSaveSchedule() {
-    if (!scheduleForm.facility_id || !scheduleForm.day_of_week || !scheduleForm.start_time || !scheduleForm.end_time || !scheduleForm.squad) {
-      toast.error('Please fill in all required fields')
+    if (
+      !scheduleForm.facility_id ||
+      !scheduleForm.day_of_week ||
+      !scheduleForm.start_time ||
+      !scheduleForm.end_time ||
+      !scheduleForm.squad_ids?.length
+    ) {
+      toast.error('Please fill in all required fields and select at least one squad')
       return
     }
 
@@ -172,34 +194,45 @@ export default function FacilityManagementPage() {
     const supabase = createClient()
 
     try {
+      let scheduleId = selectedSchedule?.id
+
       if (selectedSchedule) {
         const { error } = await supabase
           .from('facility_schedules')
           .update({
             facility_id: scheduleForm.facility_id,
-            day_of_week: parseInt(scheduleForm.day_of_week),
+            day_of_week: parseInt(scheduleForm.day_of_week, 10),
             start_time: scheduleForm.start_time,
             end_time: scheduleForm.end_time,
-            squad: scheduleForm.squad,
           })
           .eq('id', selectedSchedule.id)
 
         if (error) throw error
+        await supabase.from('facility_schedule_squads').delete().eq('schedule_id', selectedSchedule.id)
         toast.success('Schedule updated successfully')
       } else {
-        const { error } = await supabase
+        const { data: inserted, error } = await supabase
           .from('facility_schedules')
           .insert({
             facility_id: scheduleForm.facility_id,
-            day_of_week: parseInt(scheduleForm.day_of_week),
+            day_of_week: parseInt(scheduleForm.day_of_week, 10),
             start_time: scheduleForm.start_time,
             end_time: scheduleForm.end_time,
-            squad: scheduleForm.squad,
           })
+          .select('id')
+          .single()
 
         if (error) throw error
+        scheduleId = inserted.id
         toast.success('Schedule created successfully')
       }
+
+      const junctionRows = scheduleForm.squad_ids.map((squad_id) => ({
+        schedule_id: scheduleId,
+        squad_id,
+      }))
+      const { error: jErr } = await supabase.from('facility_schedule_squads').insert(junctionRows)
+      if (jErr) throw jErr
 
       setShowScheduleModal(false)
       setSelectedSchedule(null)
@@ -278,6 +311,24 @@ export default function FacilityManagementPage() {
 
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
+  function scheduleSquadLabel(row) {
+    const links = row.facility_schedule_squads || []
+    if (!links.length) return '—'
+    return links
+      .map((l) => l.squads?.name || '')
+      .filter(Boolean)
+      .join(', ')
+  }
+
+  function toggleScheduleSquad(id) {
+    setScheduleForm((prev) => {
+      const set = new Set(prev.squad_ids || [])
+      if (set.has(id)) set.delete(id)
+      else set.add(id)
+      return { ...prev, squad_ids: [...set] }
+    })
+  }
+
   const facilityColumns = [
     { header: 'Name', accessor: 'name' },
     { 
@@ -335,10 +386,10 @@ export default function FacilityManagementPage() {
       accessor: 'time',
       render: (row) => `${row.start_time} - ${row.end_time}`
     },
-    { 
-      header: 'Squad', 
-      accessor: 'squad',
-      render: (row) => row.squad.replace('_', ' ').toUpperCase()
+    {
+      header: 'Squads',
+      accessor: 'squads_col',
+      render: (row) => scheduleSquadLabel(row),
     },
     {
       header: 'Actions',
@@ -355,7 +406,7 @@ export default function FacilityManagementPage() {
                 day_of_week: row.day_of_week.toString(),
                 start_time: row.start_time,
                 end_time: row.end_time,
-                squad: row.squad,
+                squad_ids: (row.facility_schedule_squads || []).map((l) => l.squad_id),
               })
               setShowScheduleModal(true)
             }}
@@ -457,7 +508,13 @@ export default function FacilityManagementPage() {
               <Button
                 onClick={() => {
                   setSelectedSchedule(null)
-                  setScheduleForm({ facility_id: '', day_of_week: '', start_time: '', end_time: '', squad: '' })
+                  setScheduleForm({
+                    facility_id: '',
+                    day_of_week: '',
+                    start_time: '',
+                    end_time: '',
+                    squad_ids: [],
+                  })
                   setShowScheduleModal(true)
                 }}
                 disabled={facilities.length === 0}
@@ -617,17 +674,26 @@ export default function FacilityManagementPage() {
               onChange={(e) => setScheduleForm({ ...scheduleForm, end_time: e.target.value })}
             />
           </div>
-          <Select
-            label="Squad"
-            required
-            value={scheduleForm.squad}
-            onChange={(e) => setScheduleForm({ ...scheduleForm, squad: e.target.value })}
-            options={[
-              { value: 'competitive', label: 'Competitive' },
-              { value: 'learn_to_swim', label: 'Learn to Swim' },
-              { value: 'fitness', label: 'Fitness' },
-            ]}
-          />
+          <div className="md:col-span-2">
+            <p className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Squads (select all that apply)</p>
+            <div className="flex flex-wrap gap-3 border border-gray-200 dark:border-gray-600 rounded-lg p-3">
+              {squadList.length === 0 ? (
+                <p className="text-sm text-gray-500">Add squads under Admin → Squads first.</p>
+              ) : (
+                squadList.map((sq) => (
+                  <label key={sq.id} className="flex items-center gap-2 cursor-pointer text-sm">
+                    <input
+                      type="checkbox"
+                      checked={scheduleForm.squad_ids?.includes(sq.id)}
+                      onChange={() => toggleScheduleSquad(sq.id)}
+                      className="rounded border-gray-300"
+                    />
+                    {sq.name}
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
         </div>
       </Modal>
 

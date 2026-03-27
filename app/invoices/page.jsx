@@ -10,7 +10,7 @@ import Card from '@/components/ui/Card'
 import Table from '@/components/ui/Table'
 import Badge from '@/components/ui/Badge'
 import Modal from '@/components/ui/Modal'
-import { formatKES } from '@/lib/utils/currency'
+import { formatKES, EARLY_BIRD_DISCOUNT } from '@/lib/utils/currency'
 import { formatDate } from '@/lib/utils/date-helpers'
 import toast from 'react-hot-toast'
 
@@ -132,7 +132,7 @@ function InvoicesPageContent() {
     setLoading(true)
 
     try {
-      // Get invoices first (don't rely on swimmer join since swimmer_id might be NULL)
+      // Get invoices including line items and squad early_bird_eligible for discount logic
       const { data: invoicesData, error: invoicesError } = await supabase
         .from('invoices')
         .select('*, invoice_line_items (*)')
@@ -144,11 +144,11 @@ function InvoicesPageContent() {
       // For each invoice, find swimmer name from line items or parent's swimmers
       const enrichedInvoices = await Promise.all(
         (invoicesData || []).map(async (invoice) => {
-          // If invoice has swimmer_id, fetch that swimmer
+          // If invoice has swimmer_id, fetch that swimmer (include squad for early bird check)
           if (invoice.swimmer_id) {
             const { data: swimmer } = await supabase
               .from('swimmers')
-              .select('first_name, last_name')
+              .select('first_name, last_name, squad_id, squads(early_bird_eligible)')
               .eq('id', invoice.swimmer_id)
               .single()
             
@@ -186,6 +186,18 @@ function InvoicesPageContent() {
     setShowDetailsModal(true)
   }
 
+  // Returns the early bird discount amount (KES) if this invoice qualifies today, else 0.
+  function getEarlyBirdDiscount(invoice) {
+    if (invoice.status === 'paid') return 0
+    const today = new Date().getDate()
+    if (today > 3) return 0
+    const hasMonthlyTraining = invoice.invoice_line_items?.some(
+      (item) => item.fee_type === 'monthly_training'
+    )
+    const squadEligible = invoice.swimmers?.squads?.early_bird_eligible === true
+    return hasMonthlyTraining && squadEligible ? EARLY_BIRD_DISCOUNT : 0
+  }
+
   async function handlePayNow(invoiceId) {
     try {
       const response = await fetch('/api/paystack/pay-invoice', {
@@ -202,8 +214,11 @@ function InvoicesPageContent() {
         throw new Error(data.error || 'Failed to initialize payment')
       }
 
-      // Redirect to Paystack checkout
-      toast.success('Redirecting to secure payment page...')
+      if (data.earlyBirdApplied) {
+        toast.success(`Early bird discount applied — saving ${formatKES(data.earlyBirdDiscount)}!`)
+      } else {
+        toast.success('Redirecting to secure payment page...')
+      }
       setTimeout(() => {
         window.location.href = data.authorization_url
       }, 1000)
@@ -263,9 +278,24 @@ function InvoicesPageContent() {
     {
       header: 'Amount',
       accessor: 'total_amount',
-      render: (row) => (
-        <span className="font-semibold">{formatKES(row.total_amount)}</span>
-      ),
+      render: (row) => {
+        const discount = getEarlyBirdDiscount(row)
+        return (
+          <div>
+            {discount > 0 ? (
+              <>
+                <span className="font-semibold text-green-700 dark:text-green-400">
+                  {formatKES(Number(row.total_amount) - discount)}
+                </span>
+                <span className="ml-1 text-xs line-through text-gray-400">{formatKES(row.total_amount)}</span>
+                <span className="ml-1 text-xs text-green-600 dark:text-green-400 font-medium">Early bird</span>
+              </>
+            ) : (
+              <span className="font-semibold">{formatKES(row.total_amount)}</span>
+            )}
+          </div>
+        )
+      },
     },
     {
       header: 'Status',
@@ -309,14 +339,25 @@ function InvoicesPageContent() {
           >
             View
           </button>
-          {(row.status === 'issued' || row.status === 'due') && (
-            <button
-              onClick={() => handlePayNow(row.id)}
-              className="px-3 py-1 bg-primary text-white rounded hover:bg-primary-dark text-sm font-medium transition-colors"
-            >
-              Pay Now
-            </button>
-          )}
+          {(row.status === 'issued' || row.status === 'due') && (() => {
+            const discount = getEarlyBirdDiscount(row)
+            const payAmount = Number(row.total_amount) - discount
+            return (
+              <div className="flex flex-col items-start gap-0.5">
+                <button
+                  onClick={() => handlePayNow(row.id)}
+                  className="px-3 py-1 bg-primary text-white rounded hover:bg-primary-dark text-sm font-medium transition-colors"
+                >
+                  Pay {formatKES(payAmount)}
+                </button>
+                {discount > 0 && (
+                  <span className="text-xs text-green-600 dark:text-green-400">
+                    Discount valid until 3rd
+                  </span>
+                )}
+              </div>
+            )
+          })()}
           {row.status === 'paid' && (
             <button
               onClick={() => downloadReceipt(row.id)}
@@ -369,6 +410,25 @@ function InvoicesPageContent() {
               </div>
             )}
           </div>
+
+          {/* Early bird banner — shown when at least one invoice qualifies today */}
+          {invoices.some(inv => getEarlyBirdDiscount(inv) > 0) && (
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4 mb-6">
+              <div className="flex items-start gap-3">
+                <svg className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <div>
+                  <p className="text-sm font-semibold text-green-800 dark:text-green-200">
+                    Early bird discount active — save {formatKES(EARLY_BIRD_DISCOUNT)}!
+                  </p>
+                  <p className="text-xs text-green-700 dark:text-green-300 mt-0.5">
+                    Pay your outstanding invoice(s) before the 3rd of this month to receive the discount automatically.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">

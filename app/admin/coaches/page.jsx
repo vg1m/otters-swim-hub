@@ -23,6 +23,7 @@ export default function CoachManagementPage() {
   const [coaches, setCoaches] = useState([])
   const [swimmers, setSwimmers] = useState([])
   const [assignments, setAssignments] = useState([])
+  const [squadList, setSquadList] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAssignModal, setShowAssignModal] = useState(false)
   const [showEditCoachModal, setShowEditCoachModal] = useState(false)
@@ -31,14 +32,14 @@ export default function CoachManagementPage() {
   const [assignmentType, setAssignmentType] = useState('squad')
   const [assignForm, setAssignForm] = useState({
     coach_id: '',
-    squad: '',
+    squad_id: '',
     swimmer_id: '',
     notes: '',
   })
   const [editCoachForm, setEditCoachForm] = useState({
     full_name: '',
     email: '',
-    coach_squad: '',
+    coach_squad_id: '',
   })
   const [saving, setSaving] = useState(false)
 
@@ -62,20 +63,25 @@ export default function CoachManagementPage() {
     const supabase = createClient()
 
     try {
-      const [coachesRes, swimmersRes, assignmentsRes] = await Promise.all([
+      const [coachesRes, swimmersRes, assignmentsRes, squadsRes] = await Promise.all([
         supabase
           .from('profiles')
-          .select('*')
+          .select('*, squads(id, name)')
           .eq('role', 'coach')
           .order('full_name'),
         supabase
           .from('swimmers')
-          .select('id, first_name, last_name, squad, status, coach_id')
+          .select('id, first_name, last_name, squad_id, squads(name), status, coach_id')
           .order('last_name'),
         supabase
           .from('coach_assignments')
-          .select('*, profiles(full_name), swimmers(first_name, last_name)')
+          .select('*, profiles(full_name), swimmers(first_name, last_name), squads(id, name)')
           .order('assigned_at', { ascending: false }),
+        supabase
+          .from('squads')
+          .select('id, name, slug')
+          .eq('is_active', true)
+          .order('sort_order'),
       ])
 
       if (coachesRes.error) {
@@ -92,6 +98,7 @@ export default function CoachManagementPage() {
       setCoaches(coachesRes.data || [])
       setSwimmers(swimmersRes.data || [])
       setAssignments(assignmentsRes.data || [])
+      setSquadList(squadsRes.data || [])
 
       // Debug log to help troubleshoot
       console.log('Loaded coaches:', coachesRes.data?.length || 0)
@@ -111,7 +118,7 @@ export default function CoachManagementPage() {
       return
     }
 
-    if (assignmentType === 'squad' && !assignForm.squad) {
+    if (assignmentType === 'squad' && !assignForm.squad_id) {
       toast.error('Please select a squad')
       return
     }
@@ -129,7 +136,7 @@ export default function CoachManagementPage() {
         .from('coach_assignments')
         .insert({
           coach_id: assignForm.coach_id,
-          squad: assignmentType === 'squad' ? assignForm.squad : null,
+          squad_id: assignmentType === 'squad' ? assignForm.squad_id : null,
           swimmer_id: assignmentType === 'swimmer' ? assignForm.swimmer_id : null,
           notes: assignForm.notes || null,
         })
@@ -169,8 +176,8 @@ export default function CoachManagementPage() {
   }
 
   async function handleDeleteAssignment(assignment) {
-    const target = assignment.squad 
-      ? `squad: ${assignment.squad.toUpperCase()}`
+    const target = assignment.squad_id 
+      ? `squad: ${assignment.squads?.name || assignment.squad_id}`
       : `swimmer: ${assignment.swimmers?.first_name} ${assignment.swimmers?.last_name}`
     
     if (!confirm(`Remove assignment for ${target}?`)) return
@@ -206,7 +213,7 @@ export default function CoachManagementPage() {
     setEditCoachForm({
       full_name: coach.full_name || '',
       email: coach.email || '',
-      coach_squad: coach.coach_squad || '',
+      coach_squad_id: coach.coach_squad_id || '',
     })
     setShowEditCoachModal(true)
   }
@@ -228,7 +235,7 @@ export default function CoachManagementPage() {
         .update({
           full_name: editCoachForm.full_name,
           email: editCoachForm.email,
-          coach_squad: editCoachForm.coach_squad || null,
+          coach_squad_id: editCoachForm.coach_squad_id || null,
         })
         .eq('id', selectedCoach.id)
 
@@ -305,7 +312,7 @@ export default function CoachManagementPage() {
       // Change role from 'coach' to 'parent'
       const { error: roleError } = await supabase
         .from('profiles')
-        .update({ role: 'parent', coach_squad: null, coach_schedule: null })
+        .update({ role: 'parent', coach_squad_id: null, coach_schedule: null })
         .eq('id', coach.id)
 
       if (roleError) {
@@ -329,7 +336,7 @@ export default function CoachManagementPage() {
 
   const getCoachWorkload = (coachId) => {
     const coachAssignments = assignments.filter(a => a.coach_id === coachId)
-    const squadCount = coachAssignments.filter(a => a.squad).length
+    const squadCount = coachAssignments.filter(a => a.squad_id).length
     const swimmerCount = coachAssignments.filter(a => a.swimmer_id).length
     const directSwimmers = swimmers.filter(s => s.coach_id === coachId).length
     
@@ -353,15 +360,15 @@ export default function CoachManagementPage() {
       render: (row) => {
         const workload = getCoachWorkload(row.id)
         const coachAssignments = assignments.filter(a => a.coach_id === row.id)
-        const assignedSquads = coachAssignments.filter(a => a.squad).map(a => a.squad)
+        const assignedSquads = coachAssignments.filter(a => a.squad_id).map(a => a.squads?.name || a.squad_id)
         
         return (
           <div className="text-sm">
             {assignedSquads.length > 0 ? (
               <div className="flex flex-wrap gap-1 mb-1">
-                {assignedSquads.map((squad, idx) => (
+                {assignedSquads.map((name, idx) => (
                   <Badge key={idx} variant="info" size="sm">
-                    {squad.replace('_', ' ').toUpperCase()}
+                    {name}
                   </Badge>
                 ))}
               </div>
@@ -385,7 +392,7 @@ export default function CoachManagementPage() {
             variant="secondary"
             onClick={() => {
               setSelectedCoach(row)
-              setAssignForm({ coach_id: row.id, squad: '', swimmer_id: '', notes: '' })
+              setAssignForm({ coach_id: row.id, squad_id: '', swimmer_id: '', notes: '' })
               setShowAssignModal(true)
             }}
           >
@@ -502,7 +509,7 @@ export default function CoachManagementPage() {
             onChange={(e) => setAssignForm({ ...assignForm, coach_id: e.target.value })}
             options={coaches.map(c => ({ 
               value: c.id, 
-              label: `${c.full_name}${c.coach_squad ? ` (${c.coach_squad.replace('_', ' ').toUpperCase()})` : ''}`
+              label: `${c.full_name}${c.squads?.name ? ` (${c.squads.name})` : ''}`
             }))}
           />
 
@@ -541,13 +548,9 @@ export default function CoachManagementPage() {
             <Select
               label="Squad"
               required
-              value={assignForm.squad}
-              onChange={(e) => setAssignForm({ ...assignForm, squad: e.target.value, swimmer_id: '' })}
-              options={[
-                { value: 'competitive', label: 'Competitive' },
-                { value: 'learn_to_swim', label: 'Learn to Swim' },
-                { value: 'fitness', label: 'Fitness' },
-              ]}
+              value={assignForm.squad_id}
+              onChange={(e) => setAssignForm({ ...assignForm, squad_id: e.target.value, swimmer_id: '' })}
+              options={squadList.map(s => ({ value: s.id, label: s.name }))}
               helperText="Coach will oversee all swimmers in this squad"
             />
           ) : (
@@ -555,10 +558,10 @@ export default function CoachManagementPage() {
               label="Swimmer"
               required
               value={assignForm.swimmer_id}
-              onChange={(e) => setAssignForm({ ...assignForm, swimmer_id: e.target.value, squad: '' })}
+              onChange={(e) => setAssignForm({ ...assignForm, swimmer_id: e.target.value, squad_id: '' })}
               options={swimmers.map(s => ({ 
                 value: s.id, 
-                label: `${s.first_name} ${s.last_name} (${s.squad.replace('_', ' ').toUpperCase()}) - ${s.status}`
+                label: `${s.first_name} ${s.last_name} (${s.squads?.name || 'No squad'}) - ${s.status}`
               }))}
               helperText="Coach will work with this specific swimmer"
             />
@@ -619,13 +622,11 @@ export default function CoachManagementPage() {
           />
           <Select
             label="Primary Squad"
-            value={editCoachForm.coach_squad}
-            onChange={(e) => setEditCoachForm({ ...editCoachForm, coach_squad: e.target.value })}
+            value={editCoachForm.coach_squad_id}
+            onChange={(e) => setEditCoachForm({ ...editCoachForm, coach_squad_id: e.target.value })}
             options={[
               { value: '', label: 'Not Set' },
-              { value: 'competitive', label: 'Competitive' },
-              { value: 'learn_to_swim', label: 'Learn to Swim' },
-              { value: 'fitness', label: 'Fitness' },
+              ...squadList.map(s => ({ value: s.id, label: s.name }))
             ]}
             helperText="Primary squad for this coach"
           />
@@ -658,7 +659,7 @@ export default function CoachManagementPage() {
                       className="mt-4"
                       onClick={() => {
                         setShowViewAssignmentsModal(false)
-                        setAssignForm({ coach_id: selectedCoach.id, squad: '', swimmer_id: '', notes: '' })
+                        setAssignForm({ coach_id: selectedCoach.id, squad_id: '', swimmer_id: '', notes: '' })
                         setShowAssignModal(true)
                       }}
                     >
@@ -681,8 +682,8 @@ export default function CoachManagementPage() {
                           >
                             <div>
                               <p className="font-medium text-gray-900 dark:text-gray-100">
-                                {assignment.squad 
-                                  ? assignment.squad.replace('_', ' ').toUpperCase()
+                                {assignment.squad_id 
+                                  ? (assignment.squads?.name || assignment.squad_id)
                                   : `${assignment.swimmers?.first_name} ${assignment.swimmers?.last_name}`
                                 }
                               </p>
@@ -723,7 +724,7 @@ export default function CoachManagementPage() {
                                 {swimmer.first_name} {swimmer.last_name}
                               </p>
                               <p className="text-xs text-gray-500 dark:text-gray-400">
-                                {swimmer.squad.replace('_', ' ').toUpperCase()}
+                                {swimmer.squads?.name || 'Squad pending'}
                               </p>
                             </div>
                             <Badge variant="info" size="sm">Direct</Badge>

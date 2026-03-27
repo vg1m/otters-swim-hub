@@ -14,6 +14,7 @@ function SuccessPageContent() {
   const searchParams = useSearchParams()
   const invoiceId = searchParams.get('invoiceId')
   const payLater = searchParams.get('payLater') === 'true'
+  const applicationOnly = searchParams.get('application') === 'true'
   
   // For unauthenticated users (pay later), don't query database (RLS will block)
   // Just display success message with invoice ID
@@ -50,14 +51,26 @@ function SuccessPageContent() {
                 Registration Submitted Successfully!
               </h1>
               <p className="text-gray-600 dark:text-gray-400">
-                {payLater 
-                  ? 'Your registration has been received. An invoice has been sent to your email.'
-                  : 'Thank you for completing your registration with Otters Kenya Swim Club.'
-                }
+                {applicationOnly
+                  ? 'We have received your application. No payment is due yet. The club will assign a squad and coach, then you can sign in and pay from your dashboard when an invoice appears.'
+                  : payLater
+                    ? 'Your registration has been received. An invoice has been sent to your email.'
+                    : 'Thank you for completing your registration with Otters Kenya Swim Club.'}
               </p>
             </div>
 
             {/* Registration Details (No database query - uses URL params only) */}
+            {applicationOnly && (
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-6 mb-6 text-left">
+                <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">Next steps</h3>
+                <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-2 list-disc list-inside">
+                  <li>Use the same email to create or sign in to your account when you are ready.</li>
+                  <li>Watch your dashboard — when your swimmer is approved, an invoice will appear under Invoices.</li>
+                  <li>Pay online from the dashboard when you are ready.</li>
+                </ul>
+              </div>
+            )}
+
             {invoiceId && (
               <div className="bg-stone-50 dark:bg-gray-800 rounded-lg p-6 mb-6">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
@@ -73,7 +86,7 @@ function SuccessPageContent() {
                   <div className="flex justify-between">
                     <span className="text-gray-600 dark:text-gray-400">Registration Fee:</span>
                     <span className="font-bold text-gray-900 dark:text-gray-100">
-                      {formatKES(3500)}
+                      {formatKES(3000)}
                     </span>
                   </div>
                   {payLater && (

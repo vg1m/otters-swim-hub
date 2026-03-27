@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
@@ -13,8 +13,37 @@ import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import Modal from '@/components/ui/Modal'
 import { formatDate, formatDateTime } from '@/lib/utils/date-helpers'
-import { buildRecurrencePattern, parseRecurrencePattern, getWeekday, getOrdinalWeek } from '@/lib/utils/recurrence'
+import { buildRecurrencePattern, parseRecurrencePattern, formatRecurrencePattern, getWeekday, getOrdinalWeek, expandRecurringSessions } from '@/lib/utils/recurrence'
 import toast from 'react-hot-toast'
+import { Calendar, dateFnsLocalizer } from 'react-big-calendar'
+import { format, parse, startOfWeek, getDay, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns'
+import { enUS } from 'date-fns/locale/en-US'
+import 'react-big-calendar/lib/css/react-big-calendar.css'
+
+const localizer = dateFnsLocalizer({
+  format,
+  parse,
+  startOfWeek: () => startOfWeek(new Date(), { weekStartsOn: 1 }),
+  getDay,
+  locales: { 'en-US': enUS },
+})
+
+// Map squad slug (or lowercase name) → CSS class applied to the calendar event chip
+const SQUAD_COLOR_CLASS = {
+  elite:       'rbc-squad-elite',
+  pups:        'rbc-squad-pups',
+  development: 'rbc-squad-development',
+  masters:     'rbc-squad-masters',
+}
+
+function squadColorClass(session) {
+  const squads = session.training_session_squads ?? []
+  if (squads.length === 0) return 'rbc-squad-default'
+  // Use the first squad's slug or fall back to lowercased name
+  const first = squads[0]?.squads
+  const key = (first?.slug || first?.name || '').toLowerCase().replace(/[^a-z]/g, '')
+  return SQUAD_COLOR_CLASS[key] || 'rbc-squad-default'
+}
 
 
 export default function SessionsPage() {
@@ -22,6 +51,7 @@ export default function SessionsPage() {
   const { user, profile, loading: authLoading } = useAuth()
   const [sessions, setSessions] = useState([])
   const [facilities, setFacilities] = useState([])
+  const [squadList, setSquadList] = useState([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
@@ -30,12 +60,15 @@ export default function SessionsPage() {
   const [saving, setSaving] = useState(false)
   const [showCustomPool, setShowCustomPool] = useState(false)
   const [customPoolName, setCustomPoolName] = useState('')
+  const [calendarDate, setCalendarDate] = useState(new Date())
+  const [calendarView, setCalendarView] = useState('week')
+  const [selectedEvent, setSelectedEvent] = useState(null)
   
   const [sessionForm, setSessionForm] = useState({
     session_date: '',
     start_time: '',
     end_time: '',
-    squad: '',
+    squad_ids: [],
     pool_location: '',
     facility_id: '',
     is_recurring: false,
@@ -65,8 +98,28 @@ export default function SessionsPage() {
     if (user && !sessions.length) {
       loadSessions()
       loadFacilities()
+      loadSquads()
     }
   }, [user, profile, authLoading])
+
+  // Default to agenda view on small screens
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      setCalendarView('agenda')
+    }
+  }, [])
+
+  const calendarEvents = useMemo(() => {
+    const windowStart = startOfMonth(subMonths(calendarDate, 1))
+    const windowEnd   = endOfMonth(addMonths(calendarDate, 2))
+    return expandRecurringSessions(sessions, windowStart, windowEnd).map((s) => ({
+      id:       s.id + '_' + s.session_date,
+      title:    (s.training_session_squads?.map((ts) => ts.squads?.name).filter(Boolean).join(', ') || 'No squad'),
+      start:    new Date(`${s.session_date}T${s.start_time}`),
+      end:      new Date(`${s.session_date}T${s.end_time}`),
+      resource: s,
+    }))
+  }, [sessions, calendarDate])
 
   async function loadSessions() {
     const supabase = createClient()
@@ -75,7 +128,7 @@ export default function SessionsPage() {
     try {
       const { data, error } = await supabase
         .from('training_sessions')
-        .select('*')
+        .select('*, training_session_squads(squad_id, squads(id, name))')
         .order('session_date', { ascending: false })
         .order('start_time', { ascending: false })
         .limit(50)
@@ -87,6 +140,21 @@ export default function SessionsPage() {
       toast.error('Failed to load sessions')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function loadSquads() {
+    const supabase = createClient()
+    try {
+      const { data, error } = await supabase
+        .from('squads')
+        .select('id, name, slug')
+        .eq('is_active', true)
+        .order('sort_order')
+      if (error) throw error
+      setSquadList(data || [])
+    } catch (error) {
+      console.error('Error loading squads:', error)
     }
   }
 
@@ -108,8 +176,8 @@ export default function SessionsPage() {
   }
 
   async function handleCreateSession() {
-    if (!sessionForm.session_date || !sessionForm.start_time || !sessionForm.end_time || !sessionForm.squad) {
-      toast.error('Please fill in all required fields')
+    if (!sessionForm.session_date || !sessionForm.start_time || !sessionForm.end_time || sessionForm.squad_ids.length === 0) {
+      toast.error('Please fill in all required fields including at least one squad')
       return
     }
 
@@ -181,13 +249,12 @@ export default function SessionsPage() {
         recurrencePattern = buildRecurrencePattern(sessionForm.recurrence_type, options)
       }
 
-      const { data, error } = await supabase
+      const { data: newSession, error } = await supabase
         .from('training_sessions')
         .insert({
           session_date: sessionForm.session_date,
           start_time: sessionForm.start_time,
           end_time: sessionForm.end_time,
-          squad: sessionForm.squad,
           pool_location: poolLocation,
           facility_id: facilityId,
           coach_id: user.id,
@@ -200,6 +267,14 @@ export default function SessionsPage() {
 
       if (error) throw error
 
+      // Insert squad associations
+      if (sessionForm.squad_ids.length > 0) {
+        const { error: squadError } = await supabase
+          .from('training_session_squads')
+          .insert(sessionForm.squad_ids.map(squad_id => ({ session_id: newSession.id, squad_id })))
+        if (squadError) throw squadError
+      }
+
       toast.success('Training session created successfully')
       setShowCreateModal(false)
       setShowCustomPool(false)
@@ -208,7 +283,7 @@ export default function SessionsPage() {
         session_date: '',
         start_time: '',
         end_time: '',
-        squad: '',
+        squad_ids: [],
         pool_location: '',
         facility_id: '',
         is_recurring: false,
@@ -234,8 +309,8 @@ export default function SessionsPage() {
   async function handleEditSession() {
     if (!editingSession) return
 
-    if (!sessionForm.session_date || !sessionForm.start_time || !sessionForm.end_time || !sessionForm.squad) {
-      toast.error('Please fill in all required fields')
+    if (!sessionForm.session_date || !sessionForm.start_time || !sessionForm.end_time || sessionForm.squad_ids.length === 0) {
+      toast.error('Please fill in all required fields including at least one squad')
       return
     }
 
@@ -315,7 +390,6 @@ export default function SessionsPage() {
           end_time: sessionForm.end_time,
           pool_location: poolLocation,
           facility_id: facilityId,
-          squad: sessionForm.squad,
           is_recurring: sessionForm.is_recurring,
           recurrence_pattern: recurrencePattern,
           recurrence_end_date: sessionForm.is_recurring && sessionForm.recurrence_end_date ? sessionForm.recurrence_end_date : null,
@@ -323,6 +397,15 @@ export default function SessionsPage() {
         .eq('id', editingSession.id)
 
       if (error) throw error
+
+      // Sync squad associations: delete existing then re-insert
+      await supabase.from('training_session_squads').delete().eq('session_id', editingSession.id)
+      if (sessionForm.squad_ids.length > 0) {
+        const { error: squadError } = await supabase
+          .from('training_session_squads')
+          .insert(sessionForm.squad_ids.map(squad_id => ({ session_id: editingSession.id, squad_id })))
+        if (squadError) throw squadError
+      }
 
       toast.success('Session updated successfully')
       setShowEditModal(false)
@@ -385,85 +468,158 @@ export default function SessionsPage() {
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 gap-4">
-            {sessions.length === 0 ? (
-              <Card>
-                <div className="text-center py-12">
-                  <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">No sessions scheduled</h3>
-                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">Get started by creating a training session.</p>
-                </div>
-              </Card>
-            ) : (
-              sessions.map((session) => (
-                <Card key={session.id} padding="normal">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                          {formatDate(session.session_date)}
-                        </h3>
-                        <span className="px-3 py-1 bg-primary text-white text-sm rounded-full">
-                          {session.squad.replace('_', ' ').toUpperCase()}
-                        </span>
-                      </div>
-                      <div className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
-                        <p>⏰ {session.start_time} - {session.end_time}</p>
-                        <p>📍 {session.pool_location}</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2 flex-wrap">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => {
-                          setEditingSession(session)
-                          setShowCustomPool(!session.facility_id)
-                          setCustomPoolName(!session.facility_id ? session.pool_location : '')
-                          
-                          // Parse recurrence pattern
-                          const parsed = parseRecurrencePattern(session.recurrence_pattern)
-                          
-                          setSessionForm({
-                            session_date: session.session_date,
-                            start_time: session.start_time,
-                            end_time: session.end_time,
-                            pool_location: session.pool_location,
-                            facility_id: session.facility_id || '',
-                            squad: session.squad,
-                            is_recurring: session.is_recurring || false,
-                            recurrence_type: parsed.type,
-                            recurrence_weekday: parsed.options.weekday || '',
-                            recurrence_ordinal: parsed.options.ordinal || '',
-                            recurrence_day_type: parsed.options.day_type || 'first',
-                            recurrence_annually_date: parsed.options.date || '',
-                            recurrence_custom_interval: parsed.options.interval || '1',
-                            recurrence_custom_unit: parsed.options.unit || 'week',
-                            recurrence_custom_weekdays: parsed.options.weekdays || [],
-                            recurrence_end_date: session.recurrence_end_date || '',
-                          })
-                          setShowEditModal(true)
-                        }}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="danger"
-                        onClick={() => handleDeleteSession(session)}
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              ))
-            )}
+          {/* Squad colour legend */}
+          <div className="flex flex-wrap gap-3 mb-4">
+            {[
+              { label: 'Elite',       cls: 'rbc-squad-elite' },
+              { label: 'Pups',        cls: 'rbc-squad-pups' },
+              { label: 'Development', cls: 'rbc-squad-development' },
+              { label: 'Masters',     cls: 'rbc-squad-masters' },
+              { label: 'Other',       cls: 'rbc-squad-default' },
+            ].map(({ label, cls }) => (
+              <span key={label} className={`squad-legend-chip ${cls}`}>{label}</span>
+            ))}
+          </div>
+
+          <div className="rbc-wrapper bg-white dark:bg-gray-800 rounded-xl shadow p-2 min-h-[500px]">
+            <Calendar
+              localizer={localizer}
+              events={calendarEvents}
+              startAccessor="start"
+              endAccessor="end"
+              style={{ height: 680 }}
+              view={calendarView}
+              onView={setCalendarView}
+              date={calendarDate}
+              onNavigate={setCalendarDate}
+              views={['month', 'week', 'day', 'agenda']}
+              onSelectEvent={(event) => setSelectedEvent(event.resource)}
+              onSelectSlot={(slotInfo) => {
+                setSessionForm((f) => ({ ...f, session_date: format(slotInfo.start, 'yyyy-MM-dd') }))
+                setShowCreateModal(true)
+              }}
+              selectable
+              popup
+              eventPropGetter={(event) => ({ className: `rbc-event-custom ${squadColorClass(event.resource)}` })}
+              components={{
+                event: ({ event }) => (
+                  <span className="text-xs font-medium leading-tight">
+                    {event.title}
+                    {event.resource?.is_recurring && (
+                      <span className="ml-1 opacity-70">↻</span>
+                    )}
+                  </span>
+                ),
+              }}
+            />
           </div>
         </div>
       </div>
+
+      {/* Event Detail Modal */}
+      <Modal
+        isOpen={!!selectedEvent}
+        onClose={() => setSelectedEvent(null)}
+        title="Session Details"
+        size="md"
+        footer={
+          <div className="flex gap-3 justify-end flex-wrap">
+            <Button variant="secondary" onClick={() => setSelectedEvent(null)}>Close</Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                const session = selectedEvent
+                setSelectedEvent(null)
+                router.push(`/admin/sessions/${session.id}/attendance`)
+              }}
+            >
+              Manage Attendance
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                const session = selectedEvent
+                setSelectedEvent(null)
+                setEditingSession(session)
+                setShowCustomPool(!session.facility_id)
+                setCustomPoolName(!session.facility_id ? session.pool_location : '')
+                const parsed = parseRecurrencePattern(session.recurrence_pattern)
+                setSessionForm({
+                  session_date: session.session_date,
+                  start_time: session.start_time,
+                  end_time: session.end_time,
+                  pool_location: session.pool_location,
+                  facility_id: session.facility_id || '',
+                  squad_ids: session.training_session_squads?.map((ts) => ts.squad_id) || [],
+                  is_recurring: session.is_recurring || false,
+                  recurrence_type: parsed.type,
+                  recurrence_weekday: parsed.options.weekday || '',
+                  recurrence_ordinal: parsed.options.ordinal || '',
+                  recurrence_day_type: parsed.options.day_type || 'first',
+                  recurrence_annually_date: parsed.options.date || '',
+                  recurrence_custom_interval: parsed.options.interval || '1',
+                  recurrence_custom_unit: parsed.options.unit || 'week',
+                  recurrence_custom_weekdays: parsed.options.weekdays || [],
+                  recurrence_end_date: session.recurrence_end_date || '',
+                })
+                setShowEditModal(true)
+              }}
+            >
+              Edit
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                const session = selectedEvent
+                setSelectedEvent(null)
+                handleDeleteSession(session)
+              }}
+            >
+              Delete
+            </Button>
+          </div>
+        }
+      >
+        {selectedEvent && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Date</p>
+                <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100">{formatDate(selectedEvent.session_date)}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Time</p>
+                <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100">{selectedEvent.start_time} – {selectedEvent.end_time}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Pool</p>
+                <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">{selectedEvent.pool_location || '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Recurrence</p>
+                <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                  {selectedEvent.is_recurring
+                    ? formatRecurrencePattern(selectedEvent.recurrence_pattern)
+                    : 'One-time'}
+                </p>
+              </div>
+            </div>
+            <div>
+              <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Squads</p>
+              <div className="flex flex-wrap gap-2">
+                {(selectedEvent.training_session_squads?.map((ts) => ts.squads?.name).filter(Boolean) || []).length > 0
+                  ? selectedEvent.training_session_squads.map((ts, i) =>
+                      ts.squads?.name ? (
+                        <span key={i} className="px-3 py-1 bg-primary text-white text-sm rounded-full">{ts.squads.name}</span>
+                      ) : null
+                    )
+                  : <span className="text-sm text-gray-500 dark:text-gray-400">No squad assigned</span>
+                }
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
 
       {/* Create Session Modal */}
       <Modal
@@ -521,17 +677,36 @@ export default function SessionsPage() {
               onChange={(e) => setSessionForm({ ...sessionForm, end_time: e.target.value })}
             />
           </div>
-          <Select
-            label="Squad"
-            required
-            value={sessionForm.squad}
-            onChange={(e) => setSessionForm({ ...sessionForm, squad: e.target.value })}
-            options={[
-              { value: 'competitive', label: 'Competitive' },
-              { value: 'learn_to_swim', label: 'Learn to Swim' },
-              { value: 'fitness', label: 'Fitness' },
-            ]}
-          />
+          <div className="col-span-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Squads <span className="text-red-500">*</span>
+            </label>
+            <div className="flex flex-wrap gap-3">
+              {squadList.map(squad => (
+                <label key={squad.id} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    value={squad.id}
+                    checked={sessionForm.squad_ids.includes(squad.id)}
+                    onChange={(e) => {
+                      const id = e.target.value
+                      setSessionForm(prev => ({
+                        ...prev,
+                        squad_ids: e.target.checked
+                          ? [...prev.squad_ids, id]
+                          : prev.squad_ids.filter(s => s !== id)
+                      }))
+                    }}
+                    className="w-4 h-4 rounded text-primary focus:ring-primary"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">{squad.name}</span>
+                </label>
+              ))}
+            </div>
+            {squadList.length === 0 && (
+              <p className="text-sm text-gray-400 dark:text-gray-500">No active squads. Create squads under Admin &rsaquo; Squads.</p>
+            )}
+          </div>
           <div className={showCustomPool ? 'col-span-2' : ''}>
             <Select
               label="Pool Location"
@@ -835,17 +1010,36 @@ export default function SessionsPage() {
               onChange={(e) => setSessionForm({ ...sessionForm, end_time: e.target.value })}
             />
           </div>
-          <Select
-            label="Squad"
-            required
-            value={sessionForm.squad}
-            onChange={(e) => setSessionForm({ ...sessionForm, squad: e.target.value })}
-            options={[
-              { value: 'competitive', label: 'Competitive' },
-              { value: 'learn_to_swim', label: 'Learn to Swim' },
-              { value: 'fitness', label: 'Fitness' },
-            ]}
-          />
+          <div className="col-span-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Squads <span className="text-red-500">*</span>
+            </label>
+            <div className="flex flex-wrap gap-3">
+              {squadList.map(squad => (
+                <label key={squad.id} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    value={squad.id}
+                    checked={sessionForm.squad_ids.includes(squad.id)}
+                    onChange={(e) => {
+                      const id = e.target.value
+                      setSessionForm(prev => ({
+                        ...prev,
+                        squad_ids: e.target.checked
+                          ? [...prev.squad_ids, id]
+                          : prev.squad_ids.filter(s => s !== id)
+                      }))
+                    }}
+                    className="w-4 h-4 rounded text-primary focus:ring-primary"
+                  />
+                  <span className="text-sm text-gray-700 dark:text-gray-300">{squad.name}</span>
+                </label>
+              ))}
+            </div>
+            {squadList.length === 0 && (
+              <p className="text-sm text-gray-400 dark:text-gray-500">No active squads. Create squads under Admin &rsaquo; Squads.</p>
+            )}
+          </div>
           <div className={showCustomPool ? 'col-span-2' : ''}>
             <Select
               label="Pool Location"

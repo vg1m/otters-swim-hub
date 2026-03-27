@@ -16,6 +16,17 @@ import { formatKES } from '@/lib/utils/currency'
 import { formatRecurrencePattern } from '@/lib/utils/recurrence'
 import toast from 'react-hot-toast'
 
+function sessionSquadsLabel(session) {
+  const links = session.training_session_squads || []
+  return links.map((l) => l.squads?.name).filter(Boolean).join(', ') || '—'
+}
+
+function sessionMatchesSwimmerSquad(session, squadId) {
+  if (!squadId) return false
+  const links = session.training_session_squads || []
+  return links.some((l) => l.squad_id === squadId)
+}
+
 export default function ParentDashboard() {
   const router = useRouter()
   const { user, profile, loading: authLoading } = useAuth()
@@ -38,7 +49,7 @@ export default function ParentDashboard() {
       // First load swimmers to get their IDs
       const swimmersResult = await supabase
         .from('swimmers')
-        .select('*')
+        .select('*, squads(id, name)')
         .eq('parent_id', user.id)
         .order('first_name', { ascending: true })
 
@@ -58,7 +69,15 @@ export default function ParentDashboard() {
       const [sessionsResult, invoicesResult, attendanceResult] = await Promise.all([
         supabase
           .from('training_sessions')
-          .select('*')
+          .select(
+            `
+            *,
+            training_session_squads (
+              squad_id,
+              squads (id, name)
+            )
+          `
+          )
           .gte('session_date', today)
           .lte('session_date', nextWeek)
           .order('session_date', { ascending: true })
@@ -179,6 +198,15 @@ export default function ParentDashboard() {
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">My Dashboard</h1>
             <p className="text-gray-600 dark:text-gray-400 mt-2">Welcome back, {profile?.full_name}</p>
           </div>
+
+          {swimmers.some((s) => s.status === 'pending') && (
+            <Card className="mb-6 border-amber-200 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-900/20">
+              <p className="text-sm text-amber-900 dark:text-amber-100">
+                <strong>Application in review.</strong> The club is assigning a squad and coach. You will see an invoice
+                here when you can pay — no payment is required until then.
+              </p>
+            </Card>
+          )}
 
           {/* Quick Actions - MOVED TO TOP */}
           <div className="mb-6">
@@ -320,7 +348,7 @@ export default function ParentDashboard() {
                         <p className="text-sm text-gray-600 dark:text-gray-400">{session.start_time} - {session.end_time}</p>
                         <p className="text-sm text-gray-600 dark:text-gray-400">📍 {session.pool_location}</p>
                       </div>
-                      <Badge variant="info">{session.squad.replace('_', ' ').toUpperCase()}</Badge>
+                      <Badge variant="info">{sessionSquadsLabel(session)}</Badge>
                     </div>
                   </Card>
                 ))}
@@ -338,7 +366,7 @@ export default function ParentDashboard() {
 const SwimmerCard = memo(function SwimmerCard({ swimmer, sessions, attendance }) {
   const [showAttendanceModal, setShowAttendanceModal] = useState(false)
   const age = calculateAge(swimmer.date_of_birth)
-  const nextSession = sessions.find(s => s.squad === swimmer.squad)
+  const nextSession = sessions.find((s) => sessionMatchesSwimmerSquad(s, swimmer.squad_id))
   const recentCount = attendance.slice(0, 5).length
 
   return (
@@ -351,7 +379,7 @@ const SwimmerCard = memo(function SwimmerCard({ swimmer, sessions, attendance })
               {swimmer.first_name} {swimmer.last_name}
             </h3>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              Age {age} • {swimmer.squad.replace('_', ' ').toUpperCase()}
+              Age {age} • {swimmer.squads?.name || 'Squad pending'}
             </p>
           </div>
           <div className="flex flex-col gap-1">

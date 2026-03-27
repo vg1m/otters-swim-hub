@@ -41,52 +41,78 @@ export default function CoachDashboard() {
     const supabase = createClient()
 
     try {
-      // Get coach assignments (squads)
+      // Get coach squad assignments
       const { data: squadAssignments } = await supabase
         .from('coach_assignments')
-        .select('squad')
+        .select('squad_id, squads(id, name)')
         .eq('coach_id', user.id)
-        .not('squad', 'is', null)
+        .not('squad_id', 'is', null)
 
-      const assignedSquads = squadAssignments?.map(a => a.squad) || []
-      setMySquads(assignedSquads)
+      const assignedSquadIds = squadAssignments?.map(a => a.squad_id) || []
+      const assignedSquadNames = squadAssignments?.map(a => a.squads?.name).filter(Boolean) || []
+      setMySquads(assignedSquadNames)
 
-      // Get swimmers (direct + squad-based + individual assignments)
-      const { data: swimmersData } = await supabase
-        .from('swimmers')
-        .select('*')
-        .or(`coach_id.eq.${user.id},squad.in.(${assignedSquads.join(',') || 'none'})`)
-        .eq('status', 'approved')
-        .order('last_name')
+      // Get swimmers (direct + squad-based)
+      let swimmersData = []
+      if (assignedSquadIds.length > 0) {
+        const { data } = await supabase
+          .from('swimmers')
+          .select('*, squads(id, name)')
+          .in('squad_id', assignedSquadIds)
+          .eq('status', 'approved')
+          .order('last_name')
+        swimmersData = data || []
+      }
 
       // Get individually assigned swimmers
       const { data: individualAssignments } = await supabase
         .from('coach_assignments')
-        .select('swimmers(*)')
+        .select('swimmers(*, squads(id, name))')
         .eq('coach_id', user.id)
         .not('swimmer_id', 'is', null)
 
       const individualSwimmers = individualAssignments?.map(a => a.swimmers).filter(Boolean) || []
 
+      // Get direct coach_id swimmers
+      const { data: directSwimmerData } = await supabase
+        .from('swimmers')
+        .select('*, squads(id, name)')
+        .eq('coach_id', user.id)
+        .eq('status', 'approved')
+        .order('last_name')
+
       // Combine and deduplicate
-      const allSwimmers = [...(swimmersData || []), ...individualSwimmers]
+      const allSwimmers = [...swimmersData, ...individualSwimmers, ...(directSwimmerData || [])]
       const uniqueSwimmers = Array.from(new Map(allSwimmers.map(s => [s.id, s])).values())
       setMySwimmers(uniqueSwimmers)
 
-      // Get upcoming sessions for assigned squads
+      // Get upcoming sessions for assigned squads via junction table
       const today = new Date().toISOString().split('T')[0]
       const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
-      const { data: sessionsData } = await supabase
-        .from('training_sessions')
-        .select('*')
-        .in('squad', assignedSquads.length > 0 ? assignedSquads : ['none'])
-        .gte('session_date', today)
-        .lte('session_date', nextWeek)
-        .order('session_date')
-        .order('start_time')
+      let sessionsData = []
+      if (assignedSquadIds.length > 0) {
+        const { data: sessionSquadLinks } = await supabase
+          .from('training_session_squads')
+          .select('session_id')
+          .in('squad_id', assignedSquadIds)
+        
+        const sessionIds = [...new Set(sessionSquadLinks?.map(l => l.session_id) || [])]
+        
+        if (sessionIds.length > 0) {
+          const { data } = await supabase
+            .from('training_sessions')
+            .select('*, training_session_squads(squad_id, squads(name))')
+            .in('id', sessionIds)
+            .gte('session_date', today)
+            .lte('session_date', nextWeek)
+            .order('session_date')
+            .order('start_time')
+          sessionsData = data || []
+        }
+      }
 
-      setUpcomingSessions(sessionsData || [])
+      setUpcomingSessions(sessionsData)
 
       // Calculate stats
       const todayStr = new Date().toISOString().split('T')[0]
@@ -124,7 +150,7 @@ export default function CoachDashboard() {
       header: 'Squad',
       accessor: 'squad',
       render: (row) => (
-        <Badge variant="info">{row.squad.replace('_', ' ').toUpperCase()}</Badge>
+        <Badge variant="info">{row.squads?.name || 'Pending'}</Badge>
       ),
     },
     {
@@ -192,7 +218,7 @@ export default function CoachDashboard() {
                 </p>
                 {mySquads.length > 0 && (
                   <p className="text-xs text-gray-500 mt-1">
-                    {mySquads.map(s => s.replace('_', ' ').toUpperCase()).join(', ')}
+                    {mySquads.join(', ')}
                   </p>
                 )}
               </div>
@@ -244,7 +270,11 @@ export default function CoachDashboard() {
                           {session.start_time} - {session.end_time}
                         </p>
                       </div>
-                      <Badge variant="info">{session.squad.replace('_', ' ').toUpperCase()}</Badge>
+                      <div className="flex flex-wrap gap-1">
+                        {(session.training_session_squads?.map(ts => ts.squads?.name).filter(Boolean) || []).map((name, i) => (
+                          <Badge key={i} variant="info" size="sm">{name}</Badge>
+                        ))}
+                      </div>
                     </div>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
                       📍 {session.pool_location}

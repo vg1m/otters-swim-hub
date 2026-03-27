@@ -87,6 +87,12 @@ export default function Navigation() {
                         >
                           Facilities
                         </Link>
+                        <Link 
+                          href="/admin/squads" 
+                          className="text-stone-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary-light transition-colors font-medium text-sm"
+                        >
+                          Squads
+                        </Link>
                       </>
                     )}
                     {profile?.role !== 'admin' && profile?.role !== 'coach' && (
@@ -208,6 +214,13 @@ export default function Navigation() {
                           onClick={() => setIsMobileMenuOpen(false)}
                         >
                           Facilities
+                        </Link>
+                        <Link 
+                          href="/admin/squads" 
+                          className="block px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          Squads
                         </Link>
                       </>
                     )}

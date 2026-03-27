@@ -71,3 +71,160 @@ html.dark .grain-overlay {
     @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
   }
 }
+
+/* ── react-big-calendar: shared event chip base ─────────────────────────── */
+.rbc-event-custom {
+  border: none !important;
+  border-radius: 4px !important;
+  padding: 2px 6px !important;
+  font-size: 0.75rem !important;
+  color: #fff !important;
+}
+
+/* ── Squad colour palette ────────────────────────────────────────────────── */
+
+/* Elite — pool blue */
+.rbc-squad-elite                         { background-color: #0ea5e9 !important; }
+.rbc-squad-elite:hover, .rbc-squad-elite:focus { background-color: #0284c7 !important; }
+
+/* Pups — soft green */
+.rbc-squad-pups                          { background-color: #22c55e !important; }
+.rbc-squad-pups:hover, .rbc-squad-pups:focus   { background-color: #16a34a !important; }
+
+/* Development — purple */
+.rbc-squad-development                   { background-color: #a855f7 !important; }
+.rbc-squad-development:hover,
+.rbc-squad-development:focus             { background-color: #9333ea !important; }
+
+/* Masters — amber / yellow */
+.rbc-squad-masters                       { background-color: #f59e0b !important; color: #1f2937 !important; }
+.rbc-squad-masters:hover,
+.rbc-squad-masters:focus                 { background-color: #d97706 !important; }
+
+/* Default / unassigned — gray */
+.rbc-squad-default                       { background-color: #6b7280 !important; }
+.rbc-squad-default:hover,
+.rbc-squad-default:focus                 { background-color: #4b5563 !important; }
+
+/* ── Squad legend chips (shown above the calendar) ───────────────────────── */
+.squad-legend-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #fff;
+}
+.squad-legend-chip.rbc-squad-masters { color: #1f2937; }
+
+/* ── react-big-calendar: dark mode overrides ────────────────────────────── */
+.dark .rbc-calendar {
+  background-color: #1f2937; /* gray-800 */
+  color: #f3f4f6;             /* gray-100 */
+}
+
+.dark .rbc-toolbar button {
+  color: #d1d5db;             /* gray-300 */
+  border-color: #374151;      /* gray-700 */
+}
+
+.dark .rbc-toolbar button:hover,
+.dark .rbc-toolbar button.rbc-active {
+  background-color: #374151;
+  color: #f9fafb;
+}
+
+.dark .rbc-month-view,
+.dark .rbc-time-view,
+.dark .rbc-agenda-view {
+  border-color: #1f2937;
+}
+
+.dark .rbc-header,
+.dark .rbc-month-header {
+  background-color: #111827; /* gray-900 */
+  border-color: #283141;
+  color: #9ca3af;             /* gray-400 */
+}
+
+.dark .rbc-day-bg,
+.dark .rbc-time-slot,
+.dark .rbc-timeslot-group {
+  background-color: #1f2937;
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+/* Inner time-grid lines — half-hour dividers and column separators */
+.dark .rbc-time-content,
+.dark .rbc-time-content > * + * > *,
+.dark .rbc-day-slot .rbc-time-slot,
+.dark .rbc-day-slot .rbc-timeslot-group,
+.dark .rbc-time-header,
+.dark .rbc-time-header-content,
+.dark .rbc-time-header-cell,
+.dark .rbc-time-gutter .rbc-timeslot-group,
+.dark .rbc-time-gutter .rbc-time-slot {
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+/* Month view day-cell and row borders */
+.dark .rbc-month-row,
+.dark .rbc-day-bg + .rbc-day-bg,
+.dark .rbc-month-row + .rbc-month-row {
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.dark .rbc-off-range-bg {
+  background-color: #111827;
+}
+
+.dark .rbc-today {
+  background-color: #1e3a5f; /* subtle blue highlight for today */
+}
+
+.dark .rbc-date-cell,
+.dark .rbc-label,
+.dark .rbc-agenda-date-cell,
+.dark .rbc-agenda-time-cell,
+.dark .rbc-agenda-event-cell {
+  color: #d1d5db;             /* gray-300 */
+}
+
+.dark .rbc-agenda-table,
+.dark .rbc-agenda-table tbody > tr > td {
+  border-color: #283141;
+}
+
+.dark .rbc-agenda-table tbody > tr:hover {
+  background-color: #374151;
+}
+
+.dark .rbc-show-more {
+  color: #60a5fa;             /* blue-400 */
+}
+
+.dark .rbc-overlay {
+  background-color: #1f2937;
+  border-color: #374151;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.5);
+}
+
+.dark .rbc-overlay-header {
+  border-color: #374151;
+  color: #f3f4f6;
+}
+
+/* ── react-big-calendar: mobile tweaks ──────────────────────────────────── */
+@media (max-width: 767px) {
+  .rbc-toolbar {
+    flex-direction: column;
+    gap: 0.5rem;
+    align-items: flex-start;
+  }
+
+  .rbc-toolbar .rbc-btn-group {
+    display: flex;
+    flex-wrap: wrap;
+  }
+}

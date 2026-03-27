@@ -44,17 +44,14 @@ export default function SessionAttendancePage() {
 
   async function loadSessionData() {
     if (dataLoaded) return
-    
-    console.log('Loading attendance data for session:', sessionId)
     const supabase = createClient()
     setLoading(true)
 
     try {
-      // Load session
-      console.log('Fetching session...')
+      // Load session with squads
       const { data: sessionData, error: sessionError } = await supabase
         .from('training_sessions')
-        .select('*')
+        .select('*, training_session_squads(squad_id, squads(id, name))')
         .eq('id', sessionId)
         .single()
 
@@ -62,27 +59,39 @@ export default function SessionAttendancePage() {
         console.error('Session fetch error:', sessionError)
         throw sessionError
       }
-      console.log('Session loaded:', sessionData)
       setSession(sessionData)
 
-      // Load swimmers for this squad
-      console.log('Fetching swimmers for squad:', sessionData.squad)
-      const { data: swimmersData, error: swimmersError } = await supabase
-        .from('swimmers')
-        .select('id, first_name, last_name')
-        .eq('squad', sessionData.squad)
-        .eq('status', 'approved')
-        .order('last_name', { ascending: true })
+      // Load swimmers for all squads in this session
+      const squadIds = sessionData.training_session_squads?.map(ts => ts.squad_id).filter(Boolean) || []
+      let swimmersData = []
+      let swimmersError = null
+      if (squadIds.length > 0) {
+        const result = await supabase
+          .from('swimmers')
+          .select('id, first_name, last_name, squad_id, squads(name)')
+          .in('squad_id', squadIds)
+          .eq('status', 'approved')
+          .order('last_name', { ascending: true })
+        swimmersData = result.data || []
+        swimmersError = result.error
+      } else {
+        // Fall back: load all approved swimmers if no squads linked
+        const result = await supabase
+          .from('swimmers')
+          .select('id, first_name, last_name, squad_id, squads(name)')
+          .eq('status', 'approved')
+          .order('last_name', { ascending: true })
+        swimmersData = result.data || []
+        swimmersError = result.error
+      }
 
       if (swimmersError) {
         console.error('Swimmers fetch error:', swimmersError)
         throw swimmersError
       }
-      console.log('Swimmers loaded:', swimmersData?.length || 0)
       setSwimmers(swimmersData || [])
 
       // Load existing attendance
-      console.log('Fetching attendance records...')
       const { data: attendanceData, error: attendanceError } = await supabase
         .from('attendance')
         .select('*')
@@ -92,7 +101,6 @@ export default function SessionAttendancePage() {
         console.error('Attendance fetch error:', attendanceError)
         throw attendanceError
       }
-      console.log('Attendance records loaded:', attendanceData?.length || 0)
 
       const attendanceMap = {}
       attendanceData.forEach(att => {
@@ -104,7 +112,6 @@ export default function SessionAttendancePage() {
       })
       setAttendance(attendanceMap)
       setDataLoaded(true)
-      console.log('Attendance data load complete')
 
     } catch (error) {
       console.error('Error loading session data:', error)
@@ -176,6 +183,7 @@ export default function SessionAttendancePage() {
       }
 
       toast.success('Attendance saved successfully')
+      setDataLoaded(false)
       loadSessionData()
     } catch (error) {
       console.error('Error saving attendance:', error)
@@ -207,7 +215,7 @@ export default function SessionAttendancePage() {
     <>
       <Navigation />
       
-      <div className="min-h-screen bg-gray-50 py-8">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Session Attendance</h1>
@@ -215,7 +223,7 @@ export default function SessionAttendancePage() {
               {formatDate(session.session_date)} - {session.start_time} to {session.end_time}
             </p>
             <p className="text-gray-600 dark:text-gray-400">
-              {session.squad.replace('_', ' ').toUpperCase()} - {session.pool_location}
+              {session.training_session_squads?.map(ts => ts.squads?.name).filter(Boolean).join(', ') || 'No squad'} — {session.pool_location}
             </p>
           </div>
 
@@ -244,8 +252,8 @@ export default function SessionAttendancePage() {
                     key={swimmer.id}
                     className={`flex items-center justify-between p-3 rounded-lg border-2 transition-colors ${
                       isCheckedIn
-                        ? 'border-secondary bg-green-50'
-                        : 'border-gray-200 bg-white hover:bg-gray-50'
+                        ? 'border-secondary bg-green-50 dark:bg-green-900/20'
+                        : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
                     }`}
                   >
                     <div className="flex items-center gap-3">

@@ -16,6 +16,7 @@ import Table from '@/components/ui/Table'
 import Badge from '@/components/ui/Badge'
 import Modal from '@/components/ui/Modal'
 import { calculateAge, formatDate } from '@/lib/utils/date-helpers'
+import { createSwimmerOnboardingInvoice } from '@/lib/invoices/create-swimmer-onboarding-invoice'
 import toast from 'react-hot-toast'
 
 export default function SwimmersManagementPage() {
@@ -31,6 +32,7 @@ export default function SwimmersManagementPage() {
   const [showEditModal, setShowEditModal] = useState(false)
   const [editForm, setEditForm] = useState({})
   const [saving, setSaving] = useState(false)
+  const [squadList, setSquadList] = useState([])
 
   useEffect(() => {
     // Optimistic auth check - use cached profile if available
@@ -57,20 +59,28 @@ export default function SwimmersManagementPage() {
       // Load swimmers
       const { data, error } = await supabase
         .from('swimmers')
-        .select('*')
+        .select('*, squads(id, name)')
         .order('last_name', { ascending: true })
 
       if (error) throw error
       setSwimmers(data || [])
 
-      // Load coaches for assignment dropdown
       const { data: coachesData } = await supabase
         .from('profiles')
-        .select('id, full_name, coach_squad')
+        .select('id, full_name, coach_squad_id, squads(name)')
         .eq('role', 'coach')
         .order('full_name')
 
       setCoaches(coachesData || [])
+
+      const { data: squadsData } = await supabase
+        .from('squads')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('sort_order')
+        .order('name')
+
+      setSquadList(squadsData || [])
     } catch (error) {
       console.error('Error loading swimmers:', error)
       toast.error('Failed to load swimmers')
@@ -98,7 +108,7 @@ export default function SwimmersManagementPage() {
 
     // Squad filter
     if (squadFilter !== 'all') {
-      filtered = filtered.filter(s => s.squad === squadFilter)
+      filtered = filtered.filter((s) => s.squad_id === squadFilter)
     }
 
     return filtered
@@ -111,7 +121,7 @@ export default function SwimmersManagementPage() {
       last_name: swimmer.last_name,
       date_of_birth: swimmer.date_of_birth,
       gender: swimmer.gender,
-      squad: swimmer.squad,
+      squad_id: swimmer.squad_id || '',
       status: swimmer.status,
       coach_id: swimmer.coach_id || '',
       gala_events_opt_in: swimmer.gala_events_opt_in || false,
@@ -122,14 +132,35 @@ export default function SwimmersManagementPage() {
   async function handleSaveEdit() {
     if (!selectedSwimmer) return
 
+    if (editForm.status === 'approved') {
+      if (!editForm.squad_id) {
+        toast.error('Assign a squad before approving')
+        return
+      }
+      if (!editForm.coach_id) {
+        toast.error('Assign a coach before approving')
+        return
+      }
+      if (!selectedSwimmer.parent_id) {
+        toast.error('Parent account must be linked (same email signup) before approval and invoicing')
+        return
+      }
+    }
+
     setSaving(true)
     const supabase = createClient()
+    const prevStatus = selectedSwimmer.status
 
     try {
-      // Clean up form data: convert empty string to null for coach_id
       const cleanedData = {
-        ...editForm,
+        first_name: editForm.first_name,
+        last_name: editForm.last_name,
+        date_of_birth: editForm.date_of_birth,
+        gender: editForm.gender,
+        squad_id: editForm.squad_id || null,
+        status: editForm.status,
         coach_id: editForm.coach_id || null,
+        gala_events_opt_in: editForm.gala_events_opt_in || false,
       }
 
       const { error } = await supabase
@@ -139,7 +170,20 @@ export default function SwimmersManagementPage() {
 
       if (error) throw error
 
-      toast.success('Swimmer updated successfully')
+      if (editForm.status === 'approved' && prevStatus !== 'approved') {
+        const inv = await createSwimmerOnboardingInvoice(supabase, {
+          swimmerId: selectedSwimmer.id,
+          paymentType: 'monthly',
+        })
+        if (inv.error) {
+          toast.error(inv.error)
+        } else {
+          toast.success('Swimmer approved and invoice created — parent can pay from the dashboard')
+        }
+      } else {
+        toast.success('Swimmer updated successfully')
+      }
+
       setShowEditModal(false)
       loadSwimmers()
     } catch (error) {
@@ -196,11 +240,19 @@ export default function SwimmersManagementPage() {
     {
       header: 'Squad',
       accessor: 'squad',
-      render: (row) => (
-        <Badge variant="info">
-          {row.squad.replace('_', ' ').toUpperCase()}
-        </Badge>
-      ),
+      render: (row) => {
+        const isUnderSix = row.date_of_birth && calculateAge(row.date_of_birth) < 6
+        return (
+          <div className="flex flex-wrap items-center gap-1">
+            <Badge variant={row.squads?.name ? 'info' : 'default'}>
+              {row.squads?.name || 'Pending assignment'}
+            </Badge>
+            {isUnderSix && (
+              <Badge variant="success" size="sm">Under 6</Badge>
+            )}
+          </div>
+        )
+      },
     },
     {
       header: 'Status',
@@ -298,9 +350,7 @@ export default function SwimmersManagementPage() {
                 onChange={(e) => setSquadFilter(e.target.value)}
                 options={[
                   { value: 'all', label: 'All Squads' },
-                  { value: 'competitive', label: 'Competitive' },
-                  { value: 'learn_to_swim', label: 'Learn to Swim' },
-                  { value: 'fitness', label: 'Fitness' },
+                  ...squadList.map((s) => ({ value: s.id, label: s.name })),
                 ]}
               />
               <Button
@@ -355,6 +405,23 @@ export default function SwimmersManagementPage() {
           </div>
         }
       >
+        {/* Under-6 waiver notice */}
+        {editForm.date_of_birth && calculateAge(editForm.date_of_birth) < 6 && (
+          <div className="mb-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg p-4 flex items-start gap-3">
+            <svg className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            <div>
+              <p className="text-sm font-semibold text-green-800 dark:text-green-200">
+                Registration fee waived — swimmer is under 6 years old
+              </p>
+              <p className="text-xs text-green-700 dark:text-green-300 mt-0.5">
+                Squad auto-assigned to Pups. The onboarding invoice will reflect KES 0 for the annual registration line item.
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-4">
           <Input
             label="First Name"
@@ -387,14 +454,13 @@ export default function SwimmersManagementPage() {
           />
           <Select
             label="Squad"
-            required
-            value={editForm.squad || ''}
-            onChange={(e) => setEditForm({ ...editForm, squad: e.target.value })}
+            value={editForm.squad_id || ''}
+            onChange={(e) => setEditForm({ ...editForm, squad_id: e.target.value })}
             options={[
-              { value: 'competitive', label: 'Competitive' },
-              { value: 'learn_to_swim', label: 'Learn to Swim' },
-              { value: 'fitness', label: 'Fitness' },
+              { value: '', label: 'Not assigned yet' },
+              ...squadList.map((s) => ({ value: s.id, label: s.name })),
             ]}
+            helperText="Required before you can set status to Approved"
           />
           <Select
             label="Assigned Coach"
@@ -402,10 +468,13 @@ export default function SwimmersManagementPage() {
             onChange={(e) => setEditForm({ ...editForm, coach_id: e.target.value })}
             options={[
               { value: '', label: 'No Coach Assigned' },
-              ...coaches.map(c => ({ 
-                value: c.id, 
-                label: `${c.full_name}${c.coach_squad ? ` (${c.coach_squad.replace('_', ' ').toUpperCase()})` : ''}`
-              }))
+              ...coaches.map((c) => {
+                const sn = c.squads?.name
+                return {
+                  value: c.id,
+                  label: `${c.full_name}${sn ? ` (${sn})` : ''}`,
+                }
+              }),
             ]}
             helperText="Manually assign coach based on availability"
           />
@@ -424,20 +493,26 @@ export default function SwimmersManagementPage() {
 
         {/* Gala Events Opt-In */}
         <div className="mt-4">
-          <label className="flex items-start gap-3 cursor-pointer p-4 border-2 border-gray-200 dark:border-gray-700 rounded-lg hover:border-primary dark:hover:border-primary-light transition-colors">
-            <input
-              type="checkbox"
-              checked={editForm.gala_events_opt_in || false}
-              onChange={(e) => setEditForm({ ...editForm, gala_events_opt_in: e.target.checked })}
-              className="w-5 h-5 mt-0.5 text-primary rounded focus:ring-2 focus:ring-primary"
-            />
-            <div>
-              <span className="font-medium text-gray-900 dark:text-gray-100">Opt in for Gala Events</span>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                Enable this option if the swimmer will participate in competitive gala events.
-              </p>
-            </div>
-          </label>
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+            Do you wish for this swimmer to participate in competitive swimming events?
+          </p>
+          <div className="flex gap-6">
+            {[
+              { value: true,  label: 'Yes' },
+              { value: false, label: 'No' },
+            ].map(({ value, label }) => (
+              <label key={label} className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="editGalaEvents"
+                  checked={editForm.gala_events_opt_in === value}
+                  onChange={() => setEditForm({ ...editForm, gala_events_opt_in: value })}
+                  className="w-4 h-4 text-primary focus:ring-primary"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">{label}</span>
+              </label>
+            ))}
+          </div>
         </div>
       </Modal>
 
