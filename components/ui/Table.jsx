@@ -43,7 +43,12 @@ export default function Table({
             data.map((row, rowIndex) => (
               <tr key={rowIndex} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                 {columns.map((column, colIndex) => (
-                  <td key={colIndex} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
+                  <td
+                    key={colIndex}
+                    className={`px-6 py-4 text-sm text-gray-900 dark:text-gray-100 ${
+                      column.noWrap === false ? '' : 'whitespace-nowrap'
+                    }`}
+                  >
                     {column.render ? column.render(row) : row[column.accessor]}
                   </td>
                 ))}

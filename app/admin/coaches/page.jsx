@@ -14,7 +14,6 @@ import Modal from '@/components/ui/Modal'
 import Select from '@/components/ui/Select'
 import Badge from '@/components/ui/Badge'
 import Input from '@/components/ui/Input'
-import DropdownMenu, { DropdownMenuItem } from '@/components/ui/DropdownMenu'
 import toast from 'react-hot-toast'
 
 export default function CoachManagementPage() {
@@ -40,6 +39,7 @@ export default function CoachManagementPage() {
     full_name: '',
     email: '',
     coach_squad_id: '',
+    per_session_rate_kes: '',
   })
   const [saving, setSaving] = useState(false)
 
@@ -99,11 +99,6 @@ export default function CoachManagementPage() {
       setSwimmers(swimmersRes.data || [])
       setAssignments(assignmentsRes.data || [])
       setSquadList(squadsRes.data || [])
-
-      // Debug log to help troubleshoot
-      console.log('Loaded coaches:', coachesRes.data?.length || 0)
-      console.log('Loaded swimmers:', swimmersRes.data?.length || 0)
-      console.log('Loaded assignments:', assignmentsRes.data?.length || 0)
     } catch (error) {
       console.error('Error loading data:', error)
       toast.error('Failed to load coach data')
@@ -214,6 +209,10 @@ export default function CoachManagementPage() {
       full_name: coach.full_name || '',
       email: coach.email || '',
       coach_squad_id: coach.coach_squad_id || '',
+      per_session_rate_kes:
+        coach.per_session_rate_kes != null && coach.per_session_rate_kes !== ''
+          ? String(coach.per_session_rate_kes)
+          : '',
     })
     setShowEditCoachModal(true)
   }
@@ -226,6 +225,17 @@ export default function CoachManagementPage() {
       return
     }
 
+    let perSessionRateKes = null
+    const rateRaw = editCoachForm.per_session_rate_kes?.trim() ?? ''
+    if (rateRaw !== '') {
+      const n = parseFloat(rateRaw)
+      if (Number.isNaN(n) || n < 0) {
+        toast.error('Per session rate must be a number ≥ 0 or empty')
+        return
+      }
+      perSessionRateKes = n
+    }
+
     setSaving(true)
     const supabase = createClient()
 
@@ -236,11 +246,19 @@ export default function CoachManagementPage() {
           full_name: editCoachForm.full_name,
           email: editCoachForm.email,
           coach_squad_id: editCoachForm.coach_squad_id || null,
+          per_session_rate_kes: perSessionRateKes,
         })
         .eq('id', selectedCoach.id)
 
       if (error) {
-        console.error('Update error:', error)
+        console.error(
+          'Update error:',
+          error?.message,
+          error?.code,
+          error?.details,
+          error?.hint,
+          error
+        )
         throw error
       }
 
@@ -251,12 +269,14 @@ export default function CoachManagementPage() {
       // Reload data after successful update
       await loadAllData()
     } catch (error) {
-      console.error('Error updating coach:', error)
-      if (error?.message) {
-        toast.error(`Failed: ${error.message}`)
-      } else {
-        toast.error('Failed to update coach details')
-      }
+      console.error('Error updating coach:', error?.message, error?.code, error)
+      const msg =
+        error?.message ||
+        error?.details ||
+        (typeof error === 'object' && error !== null
+          ? JSON.stringify(error)
+          : String(error))
+      toast.error(msg ? `Failed: ${msg}` : 'Failed to update coach details')
     } finally {
       setSaving(false)
     }
@@ -354,6 +374,20 @@ export default function CoachManagementPage() {
         </div>
       )
     },
+    {
+      header: 'Pay / session',
+      accessor: 'per_session_rate_kes',
+      render: (row) => (
+        <span className="text-sm tabular-nums">
+          {row.per_session_rate_kes != null && row.per_session_rate_kes !== ''
+            ? `KES ${Number(row.per_session_rate_kes).toLocaleString(undefined, {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2,
+              })}`
+            : '—'}
+        </span>
+      ),
+    },
     { 
       header: 'Assignments', 
       accessor: 'assignments',
@@ -385,8 +419,9 @@ export default function CoachManagementPage() {
     {
       header: 'Actions',
       accessor: 'actions',
+      noWrap: false,
       render: (row) => (
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-1.5 max-w-[22rem]">
           <Button
             size="sm"
             variant="secondary"
@@ -398,23 +433,15 @@ export default function CoachManagementPage() {
           >
             Assign
           </Button>
-          <DropdownMenu
-            trigger={
-              <Button size="sm" variant="ghost">
-                •••
-              </Button>
-            }
-          >
-            <DropdownMenuItem onClick={() => openEditCoachModal(row)}>
-              Edit Details
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => openViewAssignmentsModal(row)}>
-              View Assignments
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleRemoveCoach(row)} variant="danger">
-              Remove Coach
-            </DropdownMenuItem>
-          </DropdownMenu>
+          <Button size="sm" variant="secondary" onClick={() => openEditCoachModal(row)}>
+            Edit
+          </Button>
+          <Button size="sm" variant="secondary" onClick={() => openViewAssignmentsModal(row)}>
+            Assignments
+          </Button>
+          <Button size="sm" variant="danger" onClick={() => handleRemoveCoach(row)}>
+            Remove
+          </Button>
         </div>
       ),
     },
@@ -629,6 +656,17 @@ export default function CoachManagementPage() {
               ...squadList.map(s => ({ value: s.id, label: s.name }))
             ]}
             helperText="Primary squad for this coach"
+          />
+          <Input
+            label="Per session rate (KES)"
+            type="text"
+            inputMode="decimal"
+            value={editCoachForm.per_session_rate_kes}
+            onChange={(e) =>
+              setEditCoachForm({ ...editCoachForm, per_session_rate_kes: e.target.value })
+            }
+            placeholder="e.g. 2500"
+            helperText="Used for automated session pay notifications. Leave empty to disable."
           />
         </div>
       </Modal>
