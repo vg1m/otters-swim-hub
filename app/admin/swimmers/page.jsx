@@ -16,6 +16,10 @@ import Table from '@/components/ui/Table'
 import Badge from '@/components/ui/Badge'
 import Modal from '@/components/ui/Modal'
 import { calculateAge, formatDate } from '@/lib/utils/date-helpers'
+import {
+  formatSessionsPerWeekLabel,
+  formatPreferredPaymentTypeLabel,
+} from '@/lib/utils/currency'
 import { createSwimmerOnboardingInvoice } from '@/lib/invoices/create-swimmer-onboarding-invoice'
 import toast from 'react-hot-toast'
 
@@ -238,6 +242,20 @@ export default function SwimmersManagementPage() {
       render: (row) => calculateAge(row.date_of_birth),
     },
     {
+      header: 'Parent choice',
+      accessor: 'sessions_per_week',
+      render: (row) => (
+        <div className="text-sm text-gray-900 dark:text-gray-100 max-w-[12rem]">
+          <span>{formatSessionsPerWeekLabel(row.sessions_per_week)}</span>
+          {row.sessions_per_week && row.sessions_per_week !== 'drop-in' && row.preferred_payment_type && (
+            <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              {formatPreferredPaymentTypeLabel(row.preferred_payment_type)}
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
       header: 'Squad',
       accessor: 'squad',
       render: (row) => {
@@ -452,6 +470,26 @@ export default function SwimmersManagementPage() {
               { value: 'female', label: 'Female' },
             ]}
           />
+          <div className="col-span-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 px-4 py-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+              Parent registration — training frequency
+            </p>
+            <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
+              {formatSessionsPerWeekLabel(selectedSwimmer?.sessions_per_week)}
+            </p>
+            {selectedSwimmer?.sessions_per_week &&
+              selectedSwimmer.sessions_per_week !== 'drop-in' &&
+              selectedSwimmer.preferred_payment_type && (
+                <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                  Billing: {formatPreferredPaymentTypeLabel(selectedSwimmer.preferred_payment_type)}
+                </p>
+              )}
+            {selectedSwimmer?.sessions_per_week === 'drop-in' && (
+              <p className="mt-1 text-xs text-blue-700 dark:text-blue-300">
+                Drop-in: align squad with occasional / per-session billing.
+              </p>
+            )}
+          </div>
           <Select
             label="Squad"
             value={editForm.squad_id || ''}

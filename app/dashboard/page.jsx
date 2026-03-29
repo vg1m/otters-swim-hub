@@ -387,7 +387,7 @@ const SwimmerCard = memo(function SwimmerCard({ swimmer, sessions, attendance })
               {swimmer.status}
             </Badge>
             <Badge variant={swimmer.gala_events_opt_in ? 'success' : 'default'} size="sm">
-              {swimmer.gala_events_opt_in ? '🎉 Gala: Opted In' : 'Gala: Not Opted In'}
+              {swimmer.gala_events_opt_in ? '🎉 Events: Opted In' : 'Events: Not Opted In'}
             </Badge>
           </div>
         </div>

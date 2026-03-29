@@ -13,7 +13,29 @@ import Table from '@/components/ui/Table'
 import Badge from '@/components/ui/Badge'
 import Modal from '@/components/ui/Modal'
 import { calculateAge, formatDate } from '@/lib/utils/date-helpers'
+import { createSwimmerOnboardingInvoice } from '@/lib/invoices/create-swimmer-onboarding-invoice'
+import {
+  formatSessionsPerWeekLabel,
+  formatPreferredPaymentTypeLabel,
+} from '@/lib/utils/currency'
 import toast from 'react-hot-toast'
+
+/** Squad label after 054: `squads` join (object or array embed) + legacy `squad` text. */
+function formatSquadLabel(swimmer) {
+  if (!swimmer) return 'Unassigned'
+  let rel = swimmer.squads
+  if (Array.isArray(rel)) rel = rel[0]
+  if (rel && typeof rel === 'object') {
+    const name = rel.name
+    if (name != null && String(name).trim() !== '') return String(name)
+    const slug = rel.slug
+    if (typeof slug === 'string') return slug.replace(/_/g, ' ')
+  }
+  if (typeof swimmer.squad === 'string' && swimmer.squad.length > 0) {
+    return swimmer.squad.replace(/_/g, ' ')
+  }
+  return 'Unassigned'
+}
 
 export default function PendingRegistrationsPage() {
   const router = useRouter()
@@ -49,31 +71,31 @@ export default function PendingRegistrationsPage() {
       // Get pending swimmers
       const { data: swimmersData, error: swimmersError } = await supabase
         .from('swimmers')
-        .select('*')
+        .select('*, squads(id, name)')
         .eq('status', 'pending')
         .order('created_at', { ascending: false })
 
       if (swimmersError) throw swimmersError
 
-      // For each swimmer, find their invoice through parent_id or payment callback_data
+      // For each swimmer, find their own invoice via swimmer_id (not parent_id, which
+      // would incorrectly pick up paid invoices from a parent's other swimmers).
       const swimmersWithInvoices = await Promise.all(
         (swimmersData || []).map(async (swimmer) => {
-          // Try to find invoice by parent_id
           let invoice = null
-          
-          if (swimmer.parent_id) {
-            // For linked swimmers, find by parent_id
-            const { data: invoiceData } = await supabase
-              .from('invoices')
-              .select('id, status, total_amount, paid_at')
-              .eq('parent_id', swimmer.parent_id)
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .single()
-            
-            invoice = invoiceData
-          } else {
-            // For orphaned swimmers, find through payments callback_data
+
+          // Primary: invoice tied to this specific swimmer
+          const { data: swimmerInvoice } = await supabase
+            .from('invoices')
+            .select('id, status, total_amount, paid_at')
+            .eq('swimmer_id', swimmer.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single()
+
+          invoice = swimmerInvoice
+
+          // Fallback for older orphaned records: payment callback_data contains swimmer id
+          if (!invoice && !swimmer.parent_id) {
             const { data: paymentData } = await supabase
               .from('payments')
               .select('invoice_id, invoices(id, status, total_amount, paid_at)')
@@ -81,8 +103,8 @@ export default function PendingRegistrationsPage() {
               .order('created_at', { ascending: false })
               .limit(1)
               .single()
-            
-            invoice = paymentData?.invoices
+
+            invoice = paymentData?.invoices ?? null
           }
 
           return {
@@ -110,7 +132,6 @@ export default function PendingRegistrationsPage() {
     const supabase = createClient()
 
     try {
-      // Update swimmer status to approved
       const { error: swimmerError } = await supabase
         .from('swimmers')
         .update({ status: 'approved' })
@@ -118,7 +139,16 @@ export default function PendingRegistrationsPage() {
 
       if (swimmerError) throw swimmerError
 
-      toast.success('Swimmer approved successfully!')
+      const inv = await createSwimmerOnboardingInvoice(supabase, {
+        swimmerId: swimmer.id,
+      })
+
+      if (inv.error) {
+        toast.error(`Approved, but invoice failed: ${inv.error}`)
+      } else {
+        toast.success('Swimmer approved and invoice created — parent can pay from the dashboard')
+      }
+
       loadPendingSwimmers()
       setShowDetailsModal(false)
     } catch (error) {
@@ -193,7 +223,7 @@ export default function PendingRegistrationsPage() {
       accessor: 'squad',
       render: (row) => (
         <Badge variant="info">
-          {row.squad.replace('_', ' ').toUpperCase()}
+          {formatSquadLabel(row)}
         </Badge>
       ),
     },
@@ -201,8 +231,11 @@ export default function PendingRegistrationsPage() {
       header: 'Payment Status',
       accessor: 'payment',
       render: (row) => {
+        if (row.payment_deferred && !row.squad_id) {
+          return <Badge variant="default">Awaiting Squad Assignment</Badge>
+        }
         const invoice = row.invoices?.[0]
-        if (!invoice) return <Badge variant="warning">No Invoice</Badge>
+        if (!invoice) return <Badge variant="warning">No Invoice Yet</Badge>
         if (invoice.status === 'paid') return <Badge variant="success">Paid</Badge>
         return <Badge variant="warning">{invoice.status}</Badge>
       },
@@ -228,6 +261,8 @@ export default function PendingRegistrationsPage() {
             size="sm"
             variant="success"
             onClick={() => handleApprove(row)}
+            disabled={!row.squad_id}
+            title={!row.squad_id ? 'Assign a squad first (via Swimmer Management)' : undefined}
           >
             Approve
           </Button>
@@ -289,28 +324,46 @@ export default function PendingRegistrationsPage() {
         title="Swimmer Details"
         size="lg"
         footer={
-          <div className="flex gap-3 justify-end">
-            <Button
-              variant="secondary"
-              onClick={() => setShowDetailsModal(false)}
-              disabled={actionLoading}
-            >
-              Close
-            </Button>
-            <Button
-              variant="danger"
-              onClick={() => handleReject(selectedSwimmer)}
-              loading={actionLoading}
-            >
-              Reject
-            </Button>
-            <Button
-              variant="success"
-              onClick={() => handleApprove(selectedSwimmer)}
-              loading={actionLoading}
-            >
-              Approve
-            </Button>
+          <div className="flex flex-col gap-3">
+            {!selectedSwimmer?.squad_id && (
+              <p className="text-xs text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-lg px-3 py-2">
+                Assign a squad in{' '}
+                <a
+                  href="/admin/swimmers"
+                  className="font-semibold underline hover:no-underline"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  Swimmer Management
+                </a>{' '}
+                before approving.
+              </p>
+            )}
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="secondary"
+                onClick={() => setShowDetailsModal(false)}
+                disabled={actionLoading}
+              >
+                Close
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => handleReject(selectedSwimmer)}
+                loading={actionLoading}
+              >
+                Reject
+              </Button>
+              <Button
+                variant="success"
+                onClick={() => handleApprove(selectedSwimmer)}
+                loading={actionLoading}
+                disabled={actionLoading || !selectedSwimmer?.squad_id}
+                title={!selectedSwimmer?.squad_id ? 'Assign a squad first (via Swimmer Management)' : undefined}
+              >
+                Approve
+              </Button>
+            </div>
           </div>
         }
       >
@@ -336,8 +389,29 @@ export default function PendingRegistrationsPage() {
                 <p className="mt-1 text-sm text-gray-900 dark:text-gray-100 capitalize">{selectedSwimmer.gender}</p>
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Parent: training sessions / week
+                </label>
+                <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                  {formatSessionsPerWeekLabel(selectedSwimmer.sessions_per_week)}
+                </p>
+                {selectedSwimmer.sessions_per_week &&
+                  selectedSwimmer.sessions_per_week !== 'drop-in' &&
+                  selectedSwimmer.preferred_payment_type && (
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      Billing preference:{' '}
+                      {formatPreferredPaymentTypeLabel(selectedSwimmer.preferred_payment_type)}
+                    </p>
+                  )}
+                {selectedSwimmer.sessions_per_week === 'drop-in' && (
+                  <p className="mt-1 text-xs text-blue-700 dark:text-blue-300">
+                    Drop-in: per-session billing (no monthly commitment)
+                  </p>
+                )}
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Squad</label>
-                <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">{selectedSwimmer.squad.replace('_', ' ').toUpperCase()}</p>
+                <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">{formatSquadLabel(selectedSwimmer)}</p>
               </div>
               {selectedSwimmer.sub_squad && (
                 <div>
@@ -352,12 +426,14 @@ export default function PendingRegistrationsPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Payment Status</label>
                 <div className="mt-1">
-                  {selectedSwimmer.invoices?.[0] ? (
+                  {selectedSwimmer.payment_deferred && !selectedSwimmer.squad_id ? (
+                    <Badge variant="default">Awaiting Squad Assignment</Badge>
+                  ) : selectedSwimmer.invoices?.[0] ? (
                     <Badge variant={selectedSwimmer.invoices[0].status === 'paid' ? 'success' : 'warning'}>
                       {selectedSwimmer.invoices[0].status.toUpperCase()}
                     </Badge>
                   ) : (
-                    <Badge variant="danger">No Invoice</Badge>
+                    <Badge variant="warning">No Invoice Yet</Badge>
                   )}
                 </div>
               </div>

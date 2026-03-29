@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { initializePaystackTransaction, generatePaymentReference } from '@/lib/paystack/client'
 import { EARLY_BIRD_DISCOUNT } from '@/lib/utils/currency'
 
@@ -65,6 +66,10 @@ export async function POST(request) {
       )
     }
 
+    // Payments INSERT is restricted to admin/service_role in RLS — use service role
+    // after we have verified the authenticated user owns this invoice.
+    const supabaseAdmin = createServiceRoleClient()
+
     // ── Early bird discount ───────────────────────────────────────────────────
     // Applies when ALL conditions are met (checked server-side):
     //   1. Today is on or before the 3rd of the month
@@ -85,7 +90,7 @@ export async function POST(request) {
     const paymentReference = generatePaymentReference('INV', invoice.id)
 
     // Create payment record — store the actual charged amount (may differ from invoice total)
-    const { data: payment, error: paymentError } = await supabase
+    const { data: payment, error: paymentError } = await supabaseAdmin
       .from('payments')
       .insert({
         invoice_id: invoice.id,
@@ -100,7 +105,7 @@ export async function POST(request) {
     if (paymentError) {
       console.error('Payment record error:', paymentError)
       return NextResponse.json(
-        { error: 'Failed to create payment record' },
+        { error: paymentError.message || 'Failed to create payment record' },
         { status: 500 }
       )
     }
@@ -132,7 +137,7 @@ export async function POST(request) {
     })
 
     // Store Paystack access code in payment callback data
-    await supabase
+    await supabaseAdmin
       .from('payments')
       .update({
         callback_data: {

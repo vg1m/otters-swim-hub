@@ -33,6 +33,18 @@ const NOTE_TYPE_CLASSES = {
   concern: 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300',
 }
 
+/** After migration 054: `squads` join; legacy `squad` text only on old DBs. */
+function formatSquadLabel(swimmer) {
+  if (!swimmer) return '—'
+  const rel = swimmer.squads
+  const row = Array.isArray(rel) ? rel[0] : rel
+  if (row?.name) return row.name
+  if (typeof swimmer.squad === 'string' && swimmer.squad) {
+    return swimmer.squad.replace(/_/g, ' ')
+  }
+  return '—'
+}
+
 export default function SwimmerPerformancePage() {
   const router = useRouter()
   const params = useParams()
@@ -89,7 +101,7 @@ export default function SwimmerPerformancePage() {
       // Load swimmer details
       const { data: swimmerData, error: swimmerError } = await supabase
         .from('swimmers')
-        .select('id, first_name, last_name, date_of_birth, gender, squad, status, parent_id, coach_id')
+        .select('id, first_name, last_name, date_of_birth, gender, squad_id, status, parent_id, coach_id, squads(name)')
         .eq('id', swimmerId)
         .single()
 
@@ -113,8 +125,8 @@ export default function SwimmerPerformancePage() {
       if (perfError) throw perfError
       setPerformances(perfData || [])
 
-      // Load notes (parents only get non-private)
-      const notesQuery = supabase
+      // Coach name via profiles embed; RLS allows parents to read coach rows when linked by non-private notes (058).
+      const { data: notesData, error: notesError } = await supabase
         .from('coach_notes')
         .select(`
           *,
@@ -123,18 +135,18 @@ export default function SwimmerPerformancePage() {
         .eq('swimmer_id', swimmerId)
         .order('created_at', { ascending: false })
 
-      const { data: notesData, error: notesError } = await notesQuery
       if (notesError) throw notesError
       setNotes(notesData || [])
 
       setDataLoaded(true)
     } catch (err) {
-      console.error('Error loading performance data:', err)
-      toast.error('Failed to load performance data')
+      const msg = err?.message || err?.error_description || String(err)
+      console.error('Error loading performance data:', msg, err)
+      toast.error(msg || 'Failed to load performance data')
     } finally {
       setLoading(false)
     }
-  }, [swimmerId, user, userRole, dataLoaded])
+  }, [swimmerId, user, userRole, dataLoaded, router])
 
   // ── PERFORMANCE CRUD ─────────────────────────────────────
   async function handleSavePerformance(data) {
@@ -281,7 +293,7 @@ export default function SwimmerPerformancePage() {
     )
   }
 
-  const squadLabel = swimmer.squad?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || '—'
+  const squadLabel = formatSquadLabel(swimmer)
 
   return (
     <>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
@@ -13,6 +13,17 @@ import { formatKES } from '@/lib/utils/currency'
 import { formatDate } from '@/lib/utils/date-helpers'
 import toast from 'react-hot-toast'
 
+function formatSwimmerNameFromPayment(payment) {
+  const inv = payment.invoices
+  if (!inv) return '—'
+  const sw = inv.swimmers
+  if (!sw) return '—'
+  const row = Array.isArray(sw) ? sw[0] : sw
+  if (!row) return '—'
+  const name = `${row.first_name || ''} ${row.last_name || ''}`.trim()
+  return name || '—'
+}
+
 export default function ReportsPage() {
   const router = useRouter()
   const { user, profile, loading: authLoading } = useAuth()
@@ -21,6 +32,7 @@ export default function ReportsPage() {
   const [stats, setStats] = useState({
     totalRevenue: 0,
     outstandingAmount: 0,
+    outstandingInvoiceCount: 0,
     paidInvoices: 0,
     unpaidInvoices: 0,
     totalSwimmers: 0,
@@ -76,6 +88,7 @@ export default function ReportsPage() {
       // Fetch all data in parallel
       const [
         invoicesResult,
+        outstandingInvoicesResult,
         paymentsResult,
         swimmersResult,
         sessionsResult,
@@ -85,10 +98,23 @@ export default function ReportsPage() {
           .from('invoices')
           .select('*')
           .gte('created_at', startDate.toISOString()),
+
+        // Match /admin dashboard: all open amounts (issued + due), not scoped to report date range
+        supabase
+          .from('invoices')
+          .select('total_amount')
+          .in('status', ['issued', 'due']),
         
         supabase
           .from('payments')
-          .select('*, invoices(id, total_amount)')
+          .select(`
+            *,
+            invoices (
+              id,
+              total_amount,
+              swimmers ( first_name, last_name )
+            )
+          `)
           .eq('status', 'completed')
           .gte('paid_at', startDate.toISOString())
           .order('paid_at', { ascending: false })
@@ -109,7 +135,10 @@ export default function ReportsPage() {
           .gte('created_at', startDate.toISOString())
       ])
 
-      // Process invoices
+      if (invoicesResult.error) throw invoicesResult.error
+      if (outstandingInvoicesResult.error) throw outstandingInvoicesResult.error
+
+      // Process invoices (date range — for revenue & period summary only)
       const invoices = invoicesResult.data || []
       const paidInvoices = invoices.filter(inv => inv.status === 'paid')
       const unpaidInvoices = invoices.filter(inv => inv.status !== 'paid')
@@ -117,9 +146,11 @@ export default function ReportsPage() {
       const totalRevenue = paidInvoices.reduce((sum, inv) => 
         sum + parseFloat(inv.total_amount || 0), 0
       )
-      
-      const outstandingAmount = unpaidInvoices.reduce((sum, inv) => 
-        sum + parseFloat(inv.total_amount || 0), 0
+
+      const outstandingRows = outstandingInvoicesResult.data || []
+      const outstandingAmount = outstandingRows.reduce(
+        (sum, inv) => sum + parseFloat(inv.total_amount || 0),
+        0
       )
 
       // Process swimmers
@@ -136,6 +167,7 @@ export default function ReportsPage() {
       setStats({
         totalRevenue,
         outstandingAmount,
+        outstandingInvoiceCount: outstandingRows.length,
         paidInvoices: paidInvoices.length,
         unpaidInvoices: unpaidInvoices.length,
         totalSwimmers: swimmers.length,
@@ -219,7 +251,7 @@ export default function ReportsPage() {
                       {formatKES(stats.outstandingAmount)}
                     </p>
                     <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
-                      {stats.unpaidInvoices} unpaid invoices
+                      {stats.outstandingInvoiceCount} invoice{stats.outstandingInvoiceCount !== 1 ? 's' : ''} (issued or due), all time
                     </p>
                   </div>
                 </Card>
@@ -264,6 +296,9 @@ export default function ReportsPage() {
                             Payment ID
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                            Swimmer
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                             Amount
                           </th>
                           <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -285,6 +320,9 @@ export default function ReportsPage() {
                           <tr key={payment.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100 font-mono">
                               #{payment.id.slice(0, 8)}
+                            </td>
+                            <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
+                              {formatSwimmerNameFromPayment(payment)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-gray-100">
                               {formatKES(payment.amount || payment.invoices?.total_amount)}

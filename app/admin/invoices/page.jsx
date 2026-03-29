@@ -18,6 +18,27 @@ import { formatKES } from '@/lib/utils/currency'
 import { formatDate } from '@/lib/utils/date-helpers'
 import toast from 'react-hot-toast'
 
+/** Matches `invoice_line_items.fee_type` CHECK (migrations 041 + 055). */
+const LINE_ITEM_FEE_TYPES = [
+  { value: 'monthly_training', label: 'Monthly training' },
+  { value: 'quarterly_training', label: 'Quarterly training' },
+  { value: 'registration', label: 'Registration' },
+  { value: 'drop_in', label: 'Drop-in' },
+  { value: 'early_bird_discount', label: 'Early bird discount' },
+]
+
+function invoiceErrorMessage(error) {
+  if (!error) return 'Unknown error'
+  if (typeof error === 'string') return error
+  if (error.message) return error.message
+  if (error.error_description) return error.error_description
+  try {
+    return JSON.stringify(error)
+  } catch {
+    return 'Unknown error'
+  }
+}
+
 export default function InvoicesPage() {
   const router = useRouter()
   const { user, profile, loading: authLoading } = useAuth()
@@ -32,7 +53,7 @@ export default function InvoicesPage() {
   const [invoiceForm, setInvoiceForm] = useState({
     swimmer_id: '',
     due_date: '',
-    line_items: [{ description: '', amount: '', quantity: 1 }],
+    line_items: [{ description: '', amount: '', quantity: 1, fee_type: 'monthly_training' }],
   })
 
   useEffect(() => {
@@ -103,7 +124,10 @@ export default function InvoicesPage() {
   function addLineItem() {
     setInvoiceForm({
       ...invoiceForm,
-      line_items: [...invoiceForm.line_items, { description: '', amount: '', quantity: 1 }]
+      line_items: [
+        ...invoiceForm.line_items,
+        { description: '', amount: '', quantity: 1, fee_type: 'monthly_training' },
+      ],
     })
   }
 
@@ -135,6 +159,19 @@ export default function InvoicesPage() {
       return
     }
 
+    for (const item of invoiceForm.line_items) {
+      const amt = parseFloat(item.amount)
+      const qty = parseInt(item.quantity, 10)
+      if (!Number.isFinite(amt) || amt < 0) {
+        toast.error('Each line item needs a valid amount')
+        return
+      }
+      if (!Number.isFinite(qty) || qty < 1) {
+        toast.error('Each line item needs a quantity of at least 1')
+        return
+      }
+    }
+
     setSaving(true)
     const supabase = createClient()
 
@@ -158,12 +195,14 @@ export default function InvoicesPage() {
 
       if (invoiceError) throw invoiceError
 
-      // Create line items
-      const lineItemsToInsert = invoiceForm.line_items.map(item => ({
+      // Create line items (fee_type is NOT NULL in DB — required for PostgREST insert)
+      const lineItemsToInsert = invoiceForm.line_items.map((item) => ({
         invoice_id: invoice.id,
-        description: item.description,
+        description: item.description.trim(),
         amount: parseFloat(item.amount),
-        quantity: parseInt(item.quantity),
+        quantity: parseInt(item.quantity, 10),
+        fee_type: item.fee_type || 'monthly_training',
+        payment_period: null,
       }))
 
       const { error: itemsError } = await supabase
@@ -177,12 +216,13 @@ export default function InvoicesPage() {
       setInvoiceForm({
         swimmer_id: '',
         due_date: '',
-        line_items: [{ description: '', amount: '', quantity: 1 }],
+        line_items: [{ description: '', amount: '', quantity: 1, fee_type: 'monthly_training' }],
       })
       loadInvoices()
     } catch (error) {
-      console.error('Error creating invoice:', error)
-      toast.error('Failed to create invoice')
+      const msg = invoiceErrorMessage(error)
+      console.error('Error creating invoice:', msg, error)
+      toast.error(msg || 'Failed to create invoice')
     } finally {
       setSaving(false)
     }
@@ -422,35 +462,49 @@ export default function InvoicesPage() {
           <div className="border-t pt-4">
             <h3 className="font-semibold mb-3">Line Items</h3>
             {invoiceForm.line_items.map((item, index) => (
-              <div key={index} className="grid grid-cols-12 gap-2 mb-2">
-                <Input
-                  placeholder="Description"
-                  className="col-span-6"
-                  value={item.description}
-                  onChange={(e) => updateLineItem(index, 'description', e.target.value)}
-                />
-                <Input
-                  placeholder="Amount"
-                  type="number"
-                  className="col-span-2"
-                  value={item.amount}
-                  onChange={(e) => updateLineItem(index, 'amount', e.target.value)}
-                />
-                <Input
-                  placeholder="Qty"
-                  type="number"
-                  className="col-span-2"
-                  value={item.quantity}
-                  onChange={(e) => updateLineItem(index, 'quantity', e.target.value)}
-                />
-                <div className="col-span-2 flex items-center gap-2">
-                  <span className="text-sm font-medium">
-                    {formatKES((item.amount || 0) * (item.quantity || 0))}
+              <div key={index} className="grid grid-cols-12 gap-2 mb-3 items-end">
+                <div className="col-span-12 md:col-span-5">
+                  <Input
+                    placeholder="Description"
+                    value={item.description}
+                    onChange={(e) => updateLineItem(index, 'description', e.target.value)}
+                  />
+                </div>
+                <div className="col-span-12 md:col-span-3">
+                  <Select
+                    label="Fee type"
+                    value={item.fee_type || 'monthly_training'}
+                    onChange={(e) => updateLineItem(index, 'fee_type', e.target.value)}
+                    options={LINE_ITEM_FEE_TYPES}
+                    placeholder=""
+                  />
+                </div>
+                <div className="col-span-6 md:col-span-2">
+                  <Input
+                    label="Amount"
+                    type="number"
+                    value={item.amount}
+                    onChange={(e) => updateLineItem(index, 'amount', e.target.value)}
+                  />
+                </div>
+                <div className="col-span-4 md:col-span-1">
+                  <Input
+                    label="Qty"
+                    type="number"
+                    value={item.quantity}
+                    onChange={(e) => updateLineItem(index, 'quantity', e.target.value)}
+                  />
+                </div>
+                <div className="col-span-2 md:col-span-1 flex items-center gap-2 pb-2">
+                  <span className="text-sm font-medium whitespace-nowrap">
+                    {formatKES((parseFloat(item.amount) || 0) * (parseInt(item.quantity, 10) || 0))}
                   </span>
                   {invoiceForm.line_items.length > 1 && (
                     <button
+                      type="button"
                       onClick={() => removeLineItem(index)}
                       className="text-red-600 hover:text-red-700"
+                      aria-label="Remove line"
                     >
                       ×
                     </button>
