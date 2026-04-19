@@ -85,6 +85,7 @@ End-to-end club management:
 - **RLS** on Supabase tables (review policies when adding features)  
 - Service role only on server routes that require it  
 - HTTPS in production; secrets in environment variables only  
+- **Hosting incident response:** If your provider (e.g. Vercel) reports a breach affecting customer credentials, follow [docs/VERCEL_INCIDENT_RESPONSE.md](docs/VERCEL_INCIDENT_RESPONSE.md) — review activity, rotate Supabase/Paystack/cron secrets, redeploy, verify webhooks.
 
 ## Installation
 

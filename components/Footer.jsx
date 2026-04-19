@@ -28,8 +28,8 @@ export default function Footer() {
             <Link href="/register" className="text-stone-400 hover:text-white transition-colors">
               Register
             </Link>
-            <Link href="/login" className="text-stone-400 hover:text-white transition-colors">
-              Login
+            <Link href="/privacy" className="text-stone-400 hover:text-white transition-colors">
+              Privacy
             </Link>
           </div>
 

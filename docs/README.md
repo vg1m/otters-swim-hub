@@ -15,6 +15,7 @@
 - **[Project Structure](PROJECT_STRUCTURE.md)** - Codebase organization
 - **[Database Setup](DATABASE_SETUP.md)** - Supabase configuration
 - **[RLS Security](RLS_FIX.md)** - Row-level security policies
+- **[Vercel / hosting incident response](VERCEL_INCIDENT_RESPONSE.md)** - Secret rotation & verification after provider incidents
 
 ### Important Fixes
 - **[Session Code Migration](RUN_SESSION_CODE_MIGRATION.md)** - ⚠️ Run this SQL migration
