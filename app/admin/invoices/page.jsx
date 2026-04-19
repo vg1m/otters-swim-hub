@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo, useCallback } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
@@ -39,6 +39,51 @@ function invoiceErrorMessage(error) {
   }
 }
 
+const INVOICE_STATUS_VARIANTS = {
+  draft: 'default',
+  issued: 'info',
+  due: 'warning',
+  paid: 'success',
+}
+
+/** Lowercased concatenation of all fields admins might type in the search bar (client-side only; not Elasticsearch). */
+function invoiceSearchHaystack(row) {
+  const swimmer = `${row.swimmers?.first_name || ''} ${row.swimmers?.last_name || ''}`.trim()
+  const payment = row.payments?.[0]
+  const lineBits =
+    row.invoice_line_items?.flatMap((item) => [
+      item.description,
+      item.fee_type,
+      item.amount != null ? String(item.amount) : '',
+    ]) ?? []
+  const parts = [
+    row.id,
+    row.id?.replace(/-/g, ''),
+    swimmer,
+    row.status,
+    row.total_amount != null ? String(row.total_amount) : '',
+    row.due_date,
+    row.created_at,
+    payment?.paystack_reference,
+    payment?.payment_channel,
+    payment?.status,
+    ...lineBits,
+    row.due_date ? formatDate(row.due_date) : '',
+    row.created_at ? formatDate(row.created_at) : '',
+  ]
+  return parts.filter(Boolean).join(' ').toLowerCase()
+}
+
+function filterInvoicesBySearch(invoices, query) {
+  const q = query.trim().toLowerCase()
+  if (!q) return invoices
+  const tokens = q.split(/\s+/).filter(Boolean)
+  return invoices.filter((row) => {
+    const haystack = invoiceSearchHaystack(row)
+    return tokens.every((t) => haystack.includes(t))
+  })
+}
+
 export default function InvoicesPage() {
   const router = useRouter()
   const { user, profile, loading: authLoading } = useAuth()
@@ -55,6 +100,12 @@ export default function InvoicesPage() {
     due_date: '',
     line_items: [{ description: '', amount: '', quantity: 1, fee_type: 'monthly_training' }],
   })
+  const [invoiceSearch, setInvoiceSearch] = useState('')
+
+  const filteredInvoices = useMemo(
+    () => filterInvoicesBySearch(invoices, invoiceSearch),
+    [invoices, invoiceSearch]
+  )
 
   useEffect(() => {
     // Optimistic auth check - use cached profile if available
@@ -258,6 +309,25 @@ export default function InvoicesPage() {
     setShowDetailsModal(true)
   }
 
+  function renderPaymentInfo(row) {
+    const payment = row.payments?.[0]
+    if (!payment) {
+      return <span className="text-sm text-gray-500 dark:text-gray-400">No payment</span>
+    }
+    return (
+      <div className="text-sm">
+        <div className="font-medium capitalize text-gray-900 dark:text-gray-100">
+          {payment.payment_channel || 'Card'}
+        </div>
+        {payment.paystack_reference && (
+          <div className="text-xs text-gray-500 dark:text-gray-400 font-mono break-all">
+            {payment.paystack_reference.substring(0, 16)}…
+          </div>
+        )}
+      </div>
+    )
+  }
+
   async function downloadReceipt(invoiceId) {
     try {
       toast.loading('Generating receipt...')
@@ -315,37 +385,14 @@ export default function InvoicesPage() {
     {
       header: 'Status',
       accessor: 'status',
-      render: (row) => {
-        const variants = {
-          draft: 'default',
-          issued: 'info',
-          due: 'warning',
-          paid: 'success',
-        }
-        return <Badge variant={variants[row.status]}>{row.status.toUpperCase()}</Badge>
-      },
+      render: (row) => (
+        <Badge variant={INVOICE_STATUS_VARIANTS[row.status]}>{row.status.toUpperCase()}</Badge>
+      ),
     },
     {
       header: 'Payment Info',
       accessor: 'payment_info',
-      render: (row) => {
-        const payment = row.payments?.[0]
-        if (!payment) {
-          return <span className="text-sm text-gray-500 dark:text-gray-400">No payment</span>
-        }
-        return (
-          <div className="text-sm">
-            <div className="font-medium capitalize text-gray-900 dark:text-gray-100">
-              {payment.payment_channel || 'Card'}
-            </div>
-            {payment.paystack_reference && (
-              <div className="text-xs text-gray-500 dark:text-gray-400 font-mono">
-                {payment.paystack_reference.substring(0, 16)}...
-              </div>
-            )}
-          </div>
-        )
-      },
+      render: (row) => renderPaymentInfo(row),
     },
     {
       header: 'Due Date',
@@ -401,18 +448,193 @@ export default function InvoicesPage() {
       
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-8 flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Invoice Management</h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-2">Generate and track invoices</p>
+          <div className="mb-8 space-y-4">
+            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between md:gap-6">
+              <div className="min-w-0">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
+                  Invoice Management
+                </h1>
+                <p className="text-gray-600 dark:text-gray-400 mt-2 text-sm sm:text-base">
+                  Generate and track invoices
+                </p>
+              </div>
+              <Button
+                fullWidth
+                className="md:w-auto md:shrink-0 md:min-w-[12rem]"
+                onClick={() => setShowCreateModal(true)}
+              >
+                Create invoice
+              </Button>
             </div>
-            <Button onClick={() => setShowCreateModal(true)}>
-              + Create Invoice
-            </Button>
           </div>
 
+          <Card padding="normal" className="mb-4 md:mb-6">
+            <label htmlFor="admin-invoice-search" className="sr-only">
+              Search invoices
+            </label>
+            <div className="relative">
+              <span
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500"
+                aria-hidden
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+              </span>
+              <input
+                id="admin-invoice-search"
+                type="search"
+                enterKeyHint="search"
+                autoComplete="off"
+                autoCorrect="off"
+                spellCheck={false}
+                value={invoiceSearch}
+                onChange={(e) => setInvoiceSearch(e.target.value)}
+                placeholder="Search swimmer, invoice ID, status, amount, Paystack ref…"
+                className="w-full rounded-xl border border-gray-300 bg-white py-3 pl-10 pr-11 text-base text-gray-900 placeholder-gray-400 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-500 sm:py-2.5 sm:text-sm min-h-[48px] sm:min-h-0"
+              />
+              {invoiceSearch ? (
+                <button
+                  type="button"
+                  onClick={() => setInvoiceSearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-600 dark:hover:text-gray-200"
+                  aria-label="Clear search"
+                >
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              ) : null}
+            </div>
+            {invoiceSearch.trim() && invoices.length > 0 ? (
+              <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                Showing {filteredInvoices.length} of {invoices.length} invoice
+                {invoices.length !== 1 ? 's' : ''}
+              </p>
+            ) : null}
+          </Card>
+
           <Card padding="none">
-            <Table columns={columns} data={invoices} emptyMessage="No invoices found" />
+            <div className="md:hidden">
+              {invoices.length === 0 ? (
+                <div className="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+                  No invoices found
+                </div>
+              ) : filteredInvoices.length === 0 ? (
+                <div className="px-4 py-12 text-center space-y-3">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    No invoices match your search.
+                  </p>
+                  <Button variant="secondary" size="sm" onClick={() => setInvoiceSearch('')}>
+                    Clear search
+                  </Button>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {filteredInvoices.map((row) => {
+                    const payment = row.payments?.[0]
+                    return (
+                      <div key={row.id} className="p-4 space-y-3">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                              Invoice
+                            </p>
+                            <p className="font-mono text-sm font-semibold text-gray-900 dark:text-gray-100">
+                              {row.id.substring(0, 8)}
+                            </p>
+                            <p className="mt-1 text-sm text-gray-800 dark:text-gray-200">
+                              {row.swimmers?.first_name} {row.swimmers?.last_name}
+                            </p>
+                          </div>
+                          <Badge variant={INVOICE_STATUS_VARIANTS[row.status]} className="shrink-0">
+                            {row.status.toUpperCase()}
+                          </Badge>
+                        </div>
+
+                        <div className="space-y-2 text-sm">
+                          <div className="flex flex-wrap items-baseline justify-between gap-2">
+                            <span className="text-gray-500 dark:text-gray-400">Amount</span>
+                            <span className="font-semibold text-gray-900 dark:text-gray-100">
+                              {formatKES(row.total_amount)}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap items-baseline justify-between gap-2">
+                            <span className="text-gray-500 dark:text-gray-400">Due</span>
+                            <span className="text-gray-900 dark:text-gray-100">
+                              {formatDate(row.due_date)}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+                              Payment
+                            </p>
+                            {payment ? (
+                              <div className="text-sm text-gray-800 dark:text-gray-200">
+                                <span className="capitalize">{payment.payment_channel || 'Card'}</span>
+                                {payment.paystack_reference && (
+                                  <p className="text-xs font-mono text-gray-500 dark:text-gray-400 break-all mt-0.5">
+                                    {payment.paystack_reference}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-sm text-gray-500 dark:text-gray-400">No payment</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col gap-2 pt-1">
+                          <Button
+                            fullWidth
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => viewInvoiceDetails(row)}
+                          >
+                            View details
+                          </Button>
+                          {row.status === 'paid' && (
+                            <Button
+                              fullWidth
+                              variant="success"
+                              size="sm"
+                              onClick={() => downloadReceipt(row.id)}
+                            >
+                              Download receipt
+                            </Button>
+                          )}
+                          {row.status !== 'paid' && (
+                            <Button
+                              fullWidth
+                              size="sm"
+                              onClick={() => updateInvoiceStatus(row.id, 'paid')}
+                            >
+                              Mark as paid
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="hidden md:block">
+              <Table
+                columns={columns}
+                data={filteredInvoices}
+                emptyMessage={
+                  invoices.length === 0
+                    ? 'No invoices found'
+                    : 'No invoices match your search'
+                }
+              />
+            </div>
           </Card>
         </div>
       </div>
@@ -424,22 +646,29 @@ export default function InvoicesPage() {
         title="Create Invoice"
         size="xl"
         footer={
-          <div className="flex gap-3 justify-end">
+          <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
             <Button
+              fullWidth
+              className="sm:w-auto"
               variant="secondary"
               onClick={() => setShowCreateModal(false)}
               disabled={saving}
             >
               Cancel
             </Button>
-            <Button onClick={handleCreateInvoice} loading={saving}>
-              Create Invoice
+            <Button
+              fullWidth
+              className="sm:w-auto"
+              onClick={handleCreateInvoice}
+              loading={saving}
+            >
+              Create invoice
             </Button>
           </div>
         }
       >
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Select
               label="Swimmer"
               required
@@ -512,8 +741,8 @@ export default function InvoicesPage() {
                 </div>
               </div>
             ))}
-            <Button size="sm" variant="secondary" onClick={addLineItem}>
-              + Add Line Item
+            <Button fullWidth className="sm:w-auto" size="sm" variant="secondary" onClick={addLineItem}>
+              Add line item
             </Button>
           </div>
 
@@ -534,8 +763,10 @@ export default function InvoicesPage() {
         size="lg"
         footer={
           selectedInvoice && selectedInvoice.status !== 'paid' && (
-            <div className="flex gap-3 justify-end">
+            <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-3">
               <Button
+                fullWidth
+                className="sm:w-auto"
                 variant="secondary"
                 onClick={() => setShowDetailsModal(false)}
               >
@@ -543,16 +774,20 @@ export default function InvoicesPage() {
               </Button>
               {selectedInvoice.status === 'draft' && (
                 <Button
+                  fullWidth
+                  className="sm:w-auto"
                   onClick={() => updateInvoiceStatus(selectedInvoice.id, 'issued')}
                 >
-                  Issue Invoice
+                  Issue invoice
                 </Button>
               )}
               <Button
+                fullWidth
+                className="sm:w-auto"
                 variant="success"
                 onClick={() => updateInvoiceStatus(selectedInvoice.id, 'paid')}
               >
-                Mark as Paid
+                Mark as paid
               </Button>
             </div>
           )
@@ -560,7 +795,7 @@ export default function InvoicesPage() {
       >
         {selectedInvoice && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Swimmer</label>
                 <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
@@ -596,7 +831,7 @@ export default function InvoicesPage() {
                 </div>
               )}
               {selectedInvoice.payments?.[0]?.paystack_reference && (
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Paystack Reference</label>
                   <p className="mt-1 text-sm text-gray-900 dark:text-gray-100 font-mono break-all">
                     {selectedInvoice.payments[0].paystack_reference}
@@ -607,6 +842,7 @@ export default function InvoicesPage() {
 
             <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
               <h3 className="font-semibold mb-3 text-gray-900 dark:text-gray-100">Line Items</h3>
+              <div className="overflow-x-auto -mx-2 px-2 sm:mx-0 sm:px-0">
               <table className="min-w-full">
                 <thead>
                   <tr className="border-b border-gray-200 dark:border-gray-700">
@@ -629,6 +865,7 @@ export default function InvoicesPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
               <div className="flex justify-between items-center pt-4 border-t-2 border-gray-300 dark:border-gray-600">
                 <span className="font-bold text-gray-900 dark:text-gray-100">Total:</span>
                 <span className="text-2xl font-bold text-primary">

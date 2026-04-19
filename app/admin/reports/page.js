@@ -202,22 +202,30 @@ export default function ReportsPage() {
       
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header */}
-          <div className="mb-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          {/* Header — full-width period on mobile */}
+          <div className="mb-8 space-y-4">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Financial Reports</h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-2">View payment summaries and analytics</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
+                Financial Reports
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400 mt-2 text-sm sm:text-base">
+                View payment summaries and analytics
+              </p>
             </div>
-            <div>
+            <div className="w-full sm:w-auto sm:max-w-xs">
+              <label htmlFor="reports-date-range" className="sr-only">
+                Report period
+              </label>
               <select
+                id="reports-date-range"
                 value={dateRange}
                 onChange={(e) => setDateRange(e.target.value)}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary"
+                className="w-full px-4 py-3 sm:py-2 text-base sm:text-sm border border-gray-300 dark:border-gray-600 rounded-xl sm:rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary min-h-[48px] sm:min-h-0"
               >
-                <option value="this_week">Last 7 Days</option>
-                <option value="this_month">Last 30 Days</option>
-                <option value="this_quarter">Last 3 Months</option>
-                <option value="this_year">Last Year</option>
+                <option value="this_week">Last 7 days</option>
+                <option value="this_month">Last 30 days</option>
+                <option value="this_quarter">Last 3 months</option>
+                <option value="this_year">Last year</option>
               </select>
             </div>
           </div>
@@ -231,7 +239,7 @@ export default function ReportsPage() {
           ) : (
             <>
               {/* Financial Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
                 <Card padding="normal" className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
                   <div>
                     <p className="text-sm text-green-600 dark:text-green-400 font-medium">Total Revenue</p>
@@ -288,69 +296,116 @@ export default function ReportsPage() {
                     <p className="text-gray-500 dark:text-gray-400">No payments recorded in this period</p>
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                      <thead className="bg-gray-50 dark:bg-gray-800">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Payment ID
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Swimmer
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Amount
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Payment Date
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Channel
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Reference
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                            Status
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
-                        {recentPayments.map((payment) => (
-                          <tr key={payment.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100 font-mono">
-                              #{payment.id.slice(0, 8)}
-                            </td>
-                            <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
-                              {formatSwimmerNameFromPayment(payment)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-gray-100">
-                              {formatKES(payment.amount || payment.invoices?.total_amount)}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                              {payment.paid_at ? formatDate(payment.paid_at) : 'N/A'}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 capitalize">
-                              {payment.payment_channel || 'Card'}
-                            </td>
-                            <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 font-mono max-w-xs truncate">
-                              {payment.paystack_reference || 'N/A'}
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <Badge variant="success">
-                                {payment.status === 'completed' ? 'Paid' : payment.status}
-                              </Badge>
-                            </td>
+                  <>
+                    <div className="md:hidden divide-y divide-gray-200 dark:divide-gray-700 -mx-1">
+                      {recentPayments.map((payment) => (
+                        <div key={payment.id} className="px-1 py-4 space-y-3 first:pt-0">
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                Payment
+                              </p>
+                              <p className="font-mono text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                #{payment.id.slice(0, 8)}
+                              </p>
+                              <p className="mt-1 text-sm text-gray-800 dark:text-gray-200">
+                                {formatSwimmerNameFromPayment(payment)}
+                              </p>
+                            </div>
+                            <Badge variant="success" className="shrink-0">
+                              {payment.status === 'completed' ? 'Paid' : payment.status}
+                            </Badge>
+                          </div>
+                          <p className="text-lg font-bold text-gray-900 dark:text-gray-100">
+                            {formatKES(payment.amount || payment.invoices?.total_amount)}
+                          </p>
+                          <div className="space-y-1.5 text-sm">
+                            <div className="flex flex-wrap justify-between gap-2">
+                              <span className="text-gray-500 dark:text-gray-400">Date</span>
+                              <span className="text-gray-900 dark:text-gray-100">
+                                {payment.paid_at ? formatDate(payment.paid_at) : 'N/A'}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap justify-between gap-2">
+                              <span className="text-gray-500 dark:text-gray-400">Channel</span>
+                              <span className="capitalize text-gray-900 dark:text-gray-100">
+                                {payment.payment_channel || 'Card'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500 dark:text-gray-400 text-sm">Reference</span>
+                              <p className="font-mono text-xs text-gray-700 dark:text-gray-300 break-all mt-0.5">
+                                {payment.paystack_reference || 'N/A'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="hidden md:block overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                        <thead className="bg-gray-50 dark:bg-gray-800">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                              Payment ID
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                              Swimmer
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                              Amount
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                              Payment Date
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                              Channel
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                              Reference
+                            </th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                              Status
+                            </th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                        </thead>
+                        <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-700">
+                          {recentPayments.map((payment) => (
+                            <tr key={payment.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100 font-mono">
+                                #{payment.id.slice(0, 8)}
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-900 dark:text-gray-100">
+                                {formatSwimmerNameFromPayment(payment)}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-gray-100">
+                                {formatKES(payment.amount || payment.invoices?.total_amount)}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                                {payment.paid_at ? formatDate(payment.paid_at) : 'N/A'}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400 capitalize">
+                                {payment.payment_channel || 'Card'}
+                              </td>
+                              <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400 font-mono max-w-xs truncate">
+                                {payment.paystack_reference || 'N/A'}
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <Badge variant="success">
+                                  {payment.status === 'completed' ? 'Paid' : payment.status}
+                                </Badge>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
                 )}
               </Card>
 
               {/* Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mt-8">
                 <Card title="Payment Summary">
                   <div className="space-y-4">
                     <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
