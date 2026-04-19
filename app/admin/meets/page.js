@@ -32,8 +32,7 @@ export default function MeetsPage() {
       }
     }
     
-    // Load data immediately if we have user (even if profile still loading)
-    if (user && !meets.length) {
+    if (user) {
       loadMeets()
     }
   }, [user, profile, authLoading])
@@ -43,6 +42,7 @@ export default function MeetsPage() {
     setLoading(true)
 
     try {
+      // Schema (001_initial_schema): name, venue, date, course (SCM|LCM), entry_*, etc.
       const { data, error } = await supabase
         .from('meets')
         .select(`
@@ -52,17 +52,21 @@ export default function MeetsPage() {
             swimmer_id
           )
         `)
-        .order('meet_date', { ascending: false })
+        .order('date', { ascending: false })
 
       if (error) {
-        console.error('Error loading meets:', error)
-        // If table doesn't exist yet, just show empty state
+        const detail =
+          [error.message, error.details, error.hint].filter(Boolean).join(' — ') ||
+          JSON.stringify(error)
+        console.error('Error loading meets:', detail, error)
+        toast.error(detail || 'Could not load meets')
         setMeets([])
       } else {
         setMeets(data || [])
       }
     } catch (error) {
       console.error('Error loading meets:', error)
+      toast.error(error?.message || 'Could not load meets')
       setMeets([])
     } finally {
       setLoading(false)
@@ -76,21 +80,21 @@ export default function MeetsPage() {
       render: (meet) => (
         <div>
           <p className="font-medium text-gray-900 dark:text-gray-100">{meet.name}</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{meet.location}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{meet.venue || '—'}</p>
         </div>
       ),
     },
     {
       header: 'Date',
-      accessor: 'meet_date',
-      render: (meet) => formatDate(meet.meet_date),
+      accessor: 'date',
+      render: (meet) => formatDate(meet.date),
     },
     {
-      header: 'Type',
-      accessor: 'meet_type',
+      header: 'Course',
+      accessor: 'course',
       render: (meet) => (
-        <Badge variant={meet.meet_type === 'championship' ? 'primary' : 'default'}>
-          {meet.meet_type?.toUpperCase()}
+        <Badge variant={meet.course === 'LCM' ? 'primary' : 'default'}>
+          {meet.course || '—'}
         </Badge>
       ),
     },
@@ -108,7 +112,12 @@ export default function MeetsPage() {
       accessor: 'status',
       render: (meet) => {
         const today = new Date()
-        const meetDate = new Date(meet.meet_date)
+        today.setHours(0, 0, 0, 0)
+        const meetDate = meet.date ? new Date(meet.date) : null
+        if (!meetDate || Number.isNaN(meetDate.getTime())) {
+          return <Badge variant="default">Unknown</Badge>
+        }
+        meetDate.setHours(0, 0, 0, 0)
         const isUpcoming = meetDate >= today
         
         return (

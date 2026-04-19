@@ -1,6 +1,6 @@
 # Parent/Guardian User Journey
 
-A simple guide to using the Otters Kenya Swim Club platform as a parent or guardian.
+A simple guide to using the Otters Kenya Academy of Swimming Limited platform as a parent or guardian.
 
 ## 🏁 Two Ways to Get Started
 
@@ -345,7 +345,7 @@ Your data is protected under Kenya's Data Protection Act:
 
 **Have an account?** → Login → Check for pending payments → Check-in at next session
 
-Welcome to Otters Kenya Swim Club! 🏊‍♂️💙
+Welcome to Otters Kenya Academy of Swimming Limited! 🏊‍♂️💙
 
 ---
 

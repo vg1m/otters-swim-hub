@@ -1,4 +1,4 @@
-# Otters Kenya Swim Club - Setup Complete ✅
+# Otters Kenya Academy of Swimming Limited - Setup Complete ✅
 
 ## What Was Fixed
 

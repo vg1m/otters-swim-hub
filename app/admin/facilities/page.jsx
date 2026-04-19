@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { profileCache } from '@/lib/cache/profile-cache'
+import { buildDirectionsUrl } from '@/lib/facilities/directions'
 import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer'
 import Card from '@/components/ui/Card'
@@ -50,6 +51,10 @@ export default function FacilityManagementPage() {
     sub_squad: '',
     swimmers_per_lane: '',
   })
+
+  const [facilitiesListExpanded, setFacilitiesListExpanded] = useState(true)
+  const [schedulesListExpanded, setSchedulesListExpanded] = useState(true)
+  const [capacityListExpanded, setCapacityListExpanded] = useState(true)
 
   useEffect(() => {
     const cachedProfile = user ? profileCache.get(user.id) : null
@@ -336,7 +341,30 @@ export default function FacilityManagementPage() {
       accessor: 'pool_size',
       render: (row) => `${row.lanes} lanes, ${row.pool_length}M`
     },
-    { header: 'Address', accessor: 'address' },
+    {
+      header: 'Address',
+      accessor: 'address',
+      render: (row) => {
+        const url = buildDirectionsUrl(row)
+        return (
+          <div className="flex flex-col gap-1">
+            <span className="text-gray-900 dark:text-gray-100">
+              {row.address || '—'}
+            </span>
+            {url && (
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-medium text-primary hover:underline dark:text-primary-light"
+              >
+                Get directions →
+              </a>
+            )}
+          </div>
+        )
+      },
+    },
     {
       header: 'Actions',
       accessor: 'actions',
@@ -475,17 +503,57 @@ export default function FacilityManagementPage() {
     <>
       <Navigation />
       
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Facility Management</h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-2">Manage swimming pools, schedules, and capacity rules</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
+              Facility Management
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-2 text-sm sm:text-base">
+              Manage swimming pools, schedules, and capacity rules
+            </p>
           </div>
 
           {/* Facilities Section */}
-          <Card title="Swimming Pools" padding="normal" className="mb-6">
+          <Card
+            title="Swimming Pools"
+            padding="normal"
+            className="mb-6"
+            action={
+              <button
+                type="button"
+                onClick={() => setFacilitiesListExpanded((v) => !v)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
+                aria-expanded={facilitiesListExpanded}
+                aria-label={
+                  facilitiesListExpanded
+                    ? 'Collapse swimming pools list'
+                    : 'Expand swimming pools list'
+                }
+              >
+                <svg
+                  className={`h-5 w-5 transition-transform duration-200 ${
+                    facilitiesListExpanded ? 'rotate-180' : ''
+                  }`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  aria-hidden
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </button>
+            }
+          >
             <div className="mb-4">
               <Button
+                fullWidth
+                className="md:w-auto md:shrink-0"
                 onClick={() => {
                   setSelectedFacility(null)
                   setFacilityForm({ name: '', lanes: '', pool_length: '', address: '' })
@@ -495,17 +563,135 @@ export default function FacilityManagementPage() {
                 + Add Facility
               </Button>
             </div>
-            <Table
-              columns={facilityColumns}
-              data={facilities}
-              emptyMessage="No facilities found"
-            />
+            {facilitiesListExpanded && (
+              <>
+                <div className="md:hidden -mx-6">
+                  {facilities.length === 0 ? (
+                    <div className="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+                      No facilities found
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-gray-200 dark:divide-gray-700 border-t border-gray-200 dark:border-gray-700">
+                      {facilities.map((row) => {
+                        const directionsUrl = buildDirectionsUrl(row)
+                        return (
+                          <div key={row.id} className="p-4 space-y-3">
+                            <div className="min-w-0">
+                              <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                Pool
+                              </p>
+                              <p className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                                {row.name}
+                              </p>
+                            </div>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex flex-wrap items-baseline justify-between gap-2">
+                                <span className="text-gray-500 dark:text-gray-400">Pool size</span>
+                                <span className="text-gray-900 dark:text-gray-100">
+                                  {row.lanes} lanes, {row.pool_length}M
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500 dark:text-gray-400">Address</span>
+                                <p className="mt-0.5 text-gray-900 dark:text-gray-100 break-words">
+                                  {row.address || '—'}
+                                </p>
+                                {directionsUrl && (
+                                  <a
+                                    href={directionsUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="mt-1 inline-block text-xs font-medium text-primary hover:underline dark:text-primary-light"
+                                  >
+                                    Get directions →
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex flex-col gap-2 pt-1">
+                              <Button
+                                fullWidth
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedFacility(row)
+                                  setFacilityForm({
+                                    name: row.name,
+                                    lanes: row.lanes.toString(),
+                                    pool_length: row.pool_length.toString(),
+                                    address: row.address || '',
+                                  })
+                                  setShowFacilityModal(true)
+                                }}
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                fullWidth
+                                variant="danger"
+                                size="sm"
+                                onClick={() => handleDeleteFacility(row)}
+                              >
+                                Delete
+                              </Button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+                <div className="hidden md:block">
+                  <Table
+                    columns={facilityColumns}
+                    data={facilities}
+                    emptyMessage="No facilities found"
+                  />
+                </div>
+              </>
+            )}
           </Card>
 
           {/* Schedules Section */}
-          <Card title="Pool Schedules" padding="normal" className="mb-6">
-            <div className="mb-4">
+          <Card
+            title="Pool Schedules"
+            padding="normal"
+            className="mb-6"
+            action={
+              <button
+                type="button"
+                onClick={() => setSchedulesListExpanded((v) => !v)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
+                aria-expanded={schedulesListExpanded}
+                aria-label={
+                  schedulesListExpanded
+                    ? 'Collapse pool schedules list'
+                    : 'Expand pool schedules list'
+                }
+              >
+                <svg
+                  className={`h-5 w-5 transition-transform duration-200 ${
+                    schedulesListExpanded ? 'rotate-180' : ''
+                  }`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  aria-hidden
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </button>
+            }
+          >
+            <div className="mb-4 space-y-2">
               <Button
+                fullWidth
+                className="md:w-auto md:shrink-0"
                 onClick={() => {
                   setSelectedSchedule(null)
                   setScheduleForm({
@@ -522,20 +708,133 @@ export default function FacilityManagementPage() {
                 + Add Schedule
               </Button>
               {facilities.length === 0 && (
-                <p className="text-sm text-gray-500 mt-2">Add a facility first before creating schedules</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Add a facility first before creating schedules
+                </p>
               )}
             </div>
-            <Table
-              columns={scheduleColumns}
-              data={schedules}
-              emptyMessage="No schedules configured"
-            />
+            {schedulesListExpanded && (
+              <>
+                <div className="md:hidden -mx-6">
+                  {schedules.length === 0 ? (
+                    <div className="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+                      No schedules configured
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-gray-200 dark:divide-gray-700 border-t border-gray-200 dark:border-gray-700">
+                      {schedules.map((row) => (
+                        <div key={row.id} className="p-4 space-y-3">
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                              Schedule
+                            </p>
+                            <p className="text-base font-semibold text-gray-900 dark:text-gray-100">
+                              {row.facilities?.name || 'Unknown facility'}
+                            </p>
+                          </div>
+                          <div className="space-y-2 text-sm">
+                            <div className="flex flex-wrap items-baseline justify-between gap-2">
+                              <span className="text-gray-500 dark:text-gray-400">Day</span>
+                              <span className="text-gray-900 dark:text-gray-100">
+                                {dayNames[row.day_of_week] ?? '—'}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap items-baseline justify-between gap-2">
+                              <span className="text-gray-500 dark:text-gray-400">Time</span>
+                              <span className="text-gray-900 dark:text-gray-100">
+                                {row.start_time} – {row.end_time}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500 dark:text-gray-400">Squads</span>
+                              <p className="mt-0.5 text-gray-800 dark:text-gray-200 break-words">
+                                {scheduleSquadLabel(row)}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex flex-col gap-2 pt-1">
+                            <Button
+                              fullWidth
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedSchedule(row)
+                                setScheduleForm({
+                                  facility_id: row.facility_id,
+                                  day_of_week: row.day_of_week.toString(),
+                                  start_time: row.start_time,
+                                  end_time: row.end_time,
+                                  squad_ids: (row.facility_schedule_squads || []).map((l) => l.squad_id),
+                                })
+                                setShowScheduleModal(true)
+                              }}
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              fullWidth
+                              variant="danger"
+                              size="sm"
+                              onClick={() => handleDeleteSchedule(row)}
+                            >
+                              Delete
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="hidden md:block">
+                  <Table
+                    columns={scheduleColumns}
+                    data={schedules}
+                    emptyMessage="No schedules configured"
+                  />
+                </div>
+              </>
+            )}
           </Card>
 
           {/* Capacity Rules Section */}
-          <Card title="Lane Capacity Rules" padding="normal">
+          <Card
+            title="Lane Capacity Rules"
+            padding="normal"
+            action={
+              <button
+                type="button"
+                onClick={() => setCapacityListExpanded((v) => !v)}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
+                aria-expanded={capacityListExpanded}
+                aria-label={
+                  capacityListExpanded
+                    ? 'Collapse lane capacity rules list'
+                    : 'Expand lane capacity rules list'
+                }
+              >
+                <svg
+                  className={`h-5 w-5 transition-transform duration-200 ${
+                    capacityListExpanded ? 'rotate-180' : ''
+                  }`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  aria-hidden
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </button>
+            }
+          >
             <div className="mb-4">
               <Button
+                fullWidth
+                className="md:w-auto md:shrink-0"
                 onClick={() => {
                   setSelectedCapacity(null)
                   setCapacityForm({ sub_squad: '', swimmers_per_lane: '' })
@@ -545,11 +844,60 @@ export default function FacilityManagementPage() {
                 + Add Rule
               </Button>
             </div>
-            <Table
-              columns={capacityColumns}
-              data={capacityRules}
-              emptyMessage="No capacity rules defined"
-            />
+            {capacityListExpanded && (
+              <>
+                <div className="md:hidden -mx-6">
+                  {capacityRules.length === 0 ? (
+                    <div className="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+                      No capacity rules defined
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-gray-200 dark:divide-gray-700 border-t border-gray-200 dark:border-gray-700">
+                      {capacityRules.map((row) => (
+                        <div key={row.id} className="p-4 space-y-3">
+                          <div className="space-y-2 text-sm">
+                            <div className="flex flex-wrap items-baseline justify-between gap-2">
+                              <span className="text-gray-500 dark:text-gray-400">Level</span>
+                              <span className="font-medium text-gray-900 dark:text-gray-100">
+                                {row.sub_squad.toUpperCase()}
+                              </span>
+                            </div>
+                            <div className="flex flex-wrap items-baseline justify-between gap-2">
+                              <span className="text-gray-500 dark:text-gray-400">Swimmers per lane</span>
+                              <span className="text-gray-900 dark:text-gray-100">{row.swimmers_per_lane}</span>
+                            </div>
+                          </div>
+                          <div className="pt-1">
+                            <Button
+                              fullWidth
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => {
+                                setSelectedCapacity(row)
+                                setCapacityForm({
+                                  sub_squad: row.sub_squad,
+                                  swimmers_per_lane: row.swimmers_per_lane.toString(),
+                                })
+                                setShowCapacityModal(true)
+                              }}
+                            >
+                              Edit
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="hidden md:block">
+                  <Table
+                    columns={capacityColumns}
+                    data={capacityRules}
+                    emptyMessage="No capacity rules defined"
+                  />
+                </div>
+              </>
+            )}
           </Card>
         </div>
       </div>
@@ -564,8 +912,10 @@ export default function FacilityManagementPage() {
         title={selectedFacility ? 'Edit Facility' : 'Add Facility'}
         size="md"
         footer={
-          <div className="flex gap-3 justify-end">
+          <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
             <Button
+              fullWidth
+              className="sm:w-auto"
               variant="secondary"
               onClick={() => {
                 setShowFacilityModal(false)
@@ -575,7 +925,12 @@ export default function FacilityManagementPage() {
             >
               Cancel
             </Button>
-            <Button onClick={handleSaveFacility} loading={saving}>
+            <Button
+              fullWidth
+              className="sm:w-auto"
+              onClick={handleSaveFacility}
+              loading={saving}
+            >
               {selectedFacility ? 'Update' : 'Create'}
             </Button>
           </div>
@@ -589,7 +944,7 @@ export default function FacilityManagementPage() {
             onChange={(e) => setFacilityForm({ ...facilityForm, name: e.target.value })}
             placeholder="e.g., Aga Khan Sports Club"
           />
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               label="Number of Lanes"
               type="number"
@@ -626,8 +981,10 @@ export default function FacilityManagementPage() {
         title={selectedSchedule ? 'Edit Schedule' : 'Add Schedule'}
         size="md"
         footer={
-          <div className="flex gap-3 justify-end">
+          <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
             <Button
+              fullWidth
+              className="sm:w-auto"
               variant="secondary"
               onClick={() => {
                 setShowScheduleModal(false)
@@ -637,7 +994,12 @@ export default function FacilityManagementPage() {
             >
               Cancel
             </Button>
-            <Button onClick={handleSaveSchedule} loading={saving}>
+            <Button
+              fullWidth
+              className="sm:w-auto"
+              onClick={handleSaveSchedule}
+              loading={saving}
+            >
               {selectedSchedule ? 'Update' : 'Create'}
             </Button>
           </div>
@@ -707,8 +1069,10 @@ export default function FacilityManagementPage() {
         title={selectedCapacity ? 'Edit Capacity Rule' : 'Add Capacity Rule'}
         size="sm"
         footer={
-          <div className="flex gap-3 justify-end">
+          <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-3">
             <Button
+              fullWidth
+              className="sm:w-auto"
               variant="secondary"
               onClick={() => {
                 setShowCapacityModal(false)
@@ -718,7 +1082,12 @@ export default function FacilityManagementPage() {
             >
               Cancel
             </Button>
-            <Button onClick={handleSaveCapacity} loading={saving}>
+            <Button
+              fullWidth
+              className="sm:w-auto"
+              onClick={handleSaveCapacity}
+              loading={saving}
+            >
               {selectedCapacity ? 'Update' : 'Create'}
             </Button>
           </div>

@@ -1,4 +1,4 @@
-# Quick Start Guide - Otters Kenya Swim Club
+# Quick Start Guide - Otters Kenya Academy of Swimming Limited
 
 ## ✅ Status: All 7 Pending Features Complete!
 
@@ -237,4 +237,4 @@ For questions about the codebase:
 
 ---
 
-Built for Otters Kenya Swim Club 🏊‍♂️
+Built for Otters Kenya Academy of Swimming Limited 🏊‍♂️

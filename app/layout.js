@@ -4,7 +4,7 @@ import { ThemeProvider } from '@/contexts/ThemeContext'
 import SessionTimeoutWatcher from '@/components/SessionTimeoutWatcher'
 
 export const metadata = {
-  title: 'Otters Kenya Swim Club',
+  title: 'Otters Kenya Academy of Swimming Limited',
   description: 'Swim club management platform for Otters Kenya',
   manifest: '/manifest.json',
 }

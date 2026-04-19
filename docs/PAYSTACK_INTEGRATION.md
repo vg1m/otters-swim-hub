@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document outlines the complete Paystack payment integration for the Otters Kenya Swim Club management system. Paystack replaces the previous M-Pesa integration, providing support for multiple payment methods including cards, mobile money, and bank transfers.
+This document outlines the complete Paystack payment integration for the Otters Kenya Academy of Swimming Limited management system. Paystack replaces the previous M-Pesa integration, providing support for multiple payment methods including cards, mobile money, and bank transfers.
 
 ## Features Implemented
 

@@ -318,7 +318,7 @@ export default function SwimmerPerformancePage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center flex-shrink-0">
-                  <span className="text-xl font-bold text-primary">
+                  <span className="text-xl font-bold text-primary dark:text-primary-light">
                     {swimmer.first_name?.[0]}{swimmer.last_name?.[0]}
                   </span>
                 </div>
@@ -368,7 +368,7 @@ export default function SwimmerPerformancePage() {
             >
               Race Times
               {performances.length > 0 && (
-                <span className="ml-2 bg-primary/10 text-primary text-xs px-1.5 py-0.5 rounded-full">
+                <span className="ml-2 bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary-light text-xs px-1.5 py-0.5 rounded-full">
                   {performances.length}
                 </span>
               )}
@@ -440,7 +440,7 @@ export default function SwimmerPerformancePage() {
                             </div>
                           </td>
                           <td className="py-3 px-3">
-                            <span className="font-mono font-bold text-primary text-base">
+                            <span className="font-mono font-bold text-primary dark:text-primary-light text-base">
                               {perf.time_formatted}
                             </span>
                           </td>

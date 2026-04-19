@@ -1,4 +1,4 @@
-# Otters Kenya Swim Club - Phase 1 Feature Tracker
+# Otters Kenya Academy of Swimming Limited - Phase 1 Feature Tracker
 
 ## 🎯 Phase 1 Scope Agreement
 

@@ -273,14 +273,18 @@ function InvoicesPageContent() {
       header: 'Invoice ID',
       accessor: 'id',
       render: (row) => (
-        <span className="font-mono text-sm">{row.id.substring(0, 8)}</span>
+        <span className="font-mono text-sm text-gray-900 dark:text-gray-100">
+          {row.id.substring(0, 8)}
+        </span>
       ),
     },
     {
       header: 'Swimmer',
       accessor: 'swimmer',
       render: (row) => (
-        <span>{row.swimmers?.first_name} {row.swimmers?.last_name}</span>
+        <span className="text-gray-900 dark:text-gray-100">
+          {row.swimmers?.first_name} {row.swimmers?.last_name}
+        </span>
       ),
     },
     {
@@ -299,7 +303,9 @@ function InvoicesPageContent() {
                 <span className="ml-1 text-xs text-green-600 dark:text-green-400 font-medium">Early bird</span>
               </>
             ) : (
-              <span className="font-semibold">{formatKES(row.total_amount)}</span>
+              <span className="font-semibold text-gray-900 dark:text-gray-100">
+                {formatKES(row.total_amount)}
+              </span>
             )}
           </div>
         )
@@ -319,7 +325,13 @@ function InvoicesPageContent() {
         const dueDate = new Date(row.due_date)
         const isOverdue = dueDate < new Date() && row.status !== 'paid'
         return (
-          <span className={isOverdue ? 'text-red-600 font-medium' : ''}>
+          <span
+            className={
+              isOverdue
+                ? 'text-red-600 dark:text-red-400 font-medium'
+                : 'text-gray-900 dark:text-gray-100'
+            }
+          >
             {formatDate(row.due_date)}
           </span>
         )
@@ -328,7 +340,9 @@ function InvoicesPageContent() {
     {
       header: 'Created',
       accessor: 'created_at',
-      render: (row) => formatDate(row.created_at),
+      render: (row) => (
+        <span className="text-gray-900 dark:text-gray-100">{formatDate(row.created_at)}</span>
+      ),
     },
     {
       header: 'Actions',
@@ -336,7 +350,8 @@ function InvoicesPageContent() {
       render: (row) => (
         <div className="flex items-center gap-2">
           <button
-            className="text-primary hover:text-primary-dark font-medium text-sm"
+            type="button"
+            className="text-primary dark:text-primary-light hover:text-primary-dark dark:hover:text-primary font-medium text-sm"
             onClick={() => viewInvoiceDetails(row)}
           >
             View
@@ -375,7 +390,7 @@ function InvoicesPageContent() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors">
         <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
       </div>
     )
@@ -389,7 +404,7 @@ function InvoicesPageContent() {
     <>
       <Navigation />
       
-      <div className="min-h-screen bg-gray-50 py-8">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">My Invoices</h1>
@@ -437,21 +452,23 @@ function InvoicesPageContent() {
             <Card padding="normal">
               <div className="text-center">
                 <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Outstanding</p>
-                <p className="text-2xl font-bold text-primary">{formatKES(outstandingTotal)}</p>
+                <p className="text-2xl font-bold text-primary dark:text-primary-light">
+                  {formatKES(outstandingTotal)}
+                </p>
               </div>
             </Card>
             <Card padding="normal">
               <div className="text-center">
-                <p className="text-sm text-gray-600 mb-1">Unpaid Invoices</p>
-                <p className="text-2xl font-bold text-yellow-600">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Unpaid Invoices</p>
+                <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
                   {invoices.filter(inv => inv.status !== 'paid').length}
                 </p>
               </div>
             </Card>
             <Card padding="normal">
               <div className="text-center">
-                <p className="text-sm text-gray-600 mb-1">Paid Invoices</p>
-                <p className="text-2xl font-bold text-secondary">
+                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Paid Invoices</p>
+                <p className="text-2xl font-bold text-secondary dark:text-secondary-light">
                   {invoices.filter(inv => inv.status === 'paid').length}
                 </p>
               </div>
@@ -501,7 +518,7 @@ function InvoicesPageContent() {
                                   <span className="font-semibold text-green-700 dark:text-green-400">
                                     {formatKES(payAmount)}
                                   </span>
-                                  <span className="text-xs line-through text-gray-400">
+                                  <span className="text-xs line-through text-gray-400 dark:text-gray-500">
                                     {formatKES(row.total_amount)}
                                   </span>
                                   <span className="text-xs font-medium text-green-600 dark:text-green-400">
@@ -593,13 +610,15 @@ function InvoicesPageContent() {
       >
         {selectedInvoice && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Invoice ID</label>
-                <p className="mt-1 text-sm text-gray-900 font-mono">{selectedInvoice.id.substring(0, 8)}</p>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Invoice ID</label>
+                <p className="mt-1 text-sm text-gray-900 dark:text-gray-100 font-mono">
+                  {selectedInvoice.id.substring(0, 8)}
+                </p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Status</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Status</label>
                 <div className="mt-1">
                   <Badge variant={
                     { draft: 'default', issued: 'info', due: 'warning', paid: 'success' }[selectedInvoice.status]
@@ -609,58 +628,76 @@ function InvoicesPageContent() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Swimmer</label>
-                <p className="mt-1 text-sm text-gray-900">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Swimmer</label>
+                <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
                   {selectedInvoice.swimmers?.first_name} {selectedInvoice.swimmers?.last_name}
                 </p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700">Due Date</label>
-                <p className="mt-1 text-sm text-gray-900">{formatDate(selectedInvoice.due_date)}</p>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Due Date</label>
+                <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                  {formatDate(selectedInvoice.due_date)}
+                </p>
               </div>
               {selectedInvoice.paid_at && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700">Paid At</label>
-                  <p className="mt-1 text-sm text-gray-900">{formatDate(selectedInvoice.paid_at)}</p>
+                <div className="sm:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Paid At</label>
+                  <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
+                    {formatDate(selectedInvoice.paid_at)}
+                  </p>
                 </div>
               )}
             </div>
 
-            <div className="border-t pt-4">
-              <h3 className="font-semibold mb-3">Line Items</h3>
-              <table className="min-w-full">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left text-sm font-medium text-gray-700 py-2">Description</th>
-                    <th className="text-right text-sm font-medium text-gray-700 py-2">Amount</th>
-                    <th className="text-right text-sm font-medium text-gray-700 py-2">Qty</th>
-                    <th className="text-right text-sm font-medium text-gray-700 py-2">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {selectedInvoice.invoice_line_items?.map((item, index) => (
-                    <tr key={index} className="border-b">
-                      <td className="text-sm text-gray-900 py-2">{item.description}</td>
-                      <td className="text-sm text-gray-900 py-2 text-right">{formatKES(item.amount)}</td>
-                      <td className="text-sm text-gray-900 py-2 text-right">{item.quantity}</td>
-                      <td className="text-sm text-gray-900 py-2 text-right font-semibold">
-                        {formatKES(item.amount * item.quantity)}
-                      </td>
+            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
+              <h3 className="font-semibold mb-3 text-gray-900 dark:text-gray-100">Line Items</h3>
+              <div className="overflow-x-auto -mx-1 px-1 sm:mx-0 sm:px-0">
+                <table className="min-w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <th className="text-left text-sm font-medium text-gray-700 dark:text-gray-300 py-2">
+                        Description
+                      </th>
+                      <th className="text-right text-sm font-medium text-gray-700 dark:text-gray-300 py-2">
+                        Amount
+                      </th>
+                      <th className="text-right text-sm font-medium text-gray-700 dark:text-gray-300 py-2">
+                        Qty
+                      </th>
+                      <th className="text-right text-sm font-medium text-gray-700 dark:text-gray-300 py-2">
+                        Total
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="flex justify-between items-center pt-4 border-t-2">
-                <span className="font-bold">Total:</span>
-                <span className="text-2xl font-bold text-primary">
+                  </thead>
+                  <tbody>
+                    {selectedInvoice.invoice_line_items?.map((item, index) => (
+                      <tr key={index} className="border-b border-gray-200 dark:border-gray-700">
+                        <td className="text-sm text-gray-900 dark:text-gray-100 py-2">{item.description}</td>
+                        <td className="text-sm text-gray-900 dark:text-gray-100 py-2 text-right">
+                          {formatKES(item.amount)}
+                        </td>
+                        <td className="text-sm text-gray-900 dark:text-gray-100 py-2 text-right">
+                          {item.quantity}
+                        </td>
+                        <td className="text-sm text-gray-900 dark:text-gray-100 py-2 text-right font-semibold">
+                          {formatKES(item.amount * item.quantity)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex justify-between items-center pt-4 border-t-2 border-gray-300 dark:border-gray-600">
+                <span className="font-bold text-gray-900 dark:text-gray-100">Total:</span>
+                <span className="text-2xl font-bold text-primary dark:text-primary-light">
                   {formatKES(selectedInvoice.total_amount)}
                 </span>
               </div>
             </div>
 
             {selectedInvoice.status !== 'paid' && (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <p className="text-sm text-yellow-800">
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                <p className="text-sm text-yellow-800 dark:text-yellow-200">
                   <strong>Note:</strong> Payment with Paystack will be available soon. 
                   Please contact the club administrator for alternative payment methods.
                 </p>
@@ -678,7 +715,7 @@ function InvoicesPageContent() {
 export default function ParentInvoicesPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors">
         <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full"></div>
       </div>
     }>

@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
+import { buildDirectionsUrl } from '@/lib/facilities/directions'
 
 const WEEKDAY_OPTIONS = [
   { value: '0', label: 'Sunday' },
@@ -218,6 +219,34 @@ export default function SessionFormFields({
             />
           </div>
         )}
+        {(() => {
+          if (showCustomPool) return null
+          const selected = facilities.find((f) => f.id === sessionForm.facility_id)
+          const url = selected ? buildDirectionsUrl(selected) : null
+          if (!selected || !url) return null
+          return (
+            <div className="mt-2 flex items-start justify-between gap-3 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm dark:border-gray-700 dark:bg-gray-800/60">
+              <div className="min-w-0">
+                <p className="font-medium text-gray-900 dark:text-gray-100">
+                  {selected.name}
+                </p>
+                {selected.address && (
+                  <p className="truncate text-gray-600 dark:text-gray-400">
+                    {selected.address}
+                  </p>
+                )}
+              </div>
+              <a
+                href={url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="shrink-0 text-xs font-semibold text-primary hover:underline dark:text-primary-light"
+              >
+                Open in Maps →
+              </a>
+            </div>
+          )
+        })()}
       </div>
 
       {/* Recurring toggle */}

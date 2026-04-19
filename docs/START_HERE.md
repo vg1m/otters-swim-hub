@@ -1,4 +1,4 @@
-# 🏊 START HERE - Otters Kenya Swim Club Platform
+# 🏊 START HERE - Otters Kenya Academy of Swimming Limited Platform
 
 ## 📍 Where Are You?
 
@@ -10,7 +10,7 @@ Choose your path:
 Quick overview:
 1. Sign up with email
 2. Register your swimmer(s)
-3. Pay KES 3,000 registration fee
+3. Pay KES 3,500 registration fee
 4. Check-in at training with 6-character codes
 
 ### 👨‍💼 I'm an Administrator
@@ -32,21 +32,6 @@ Quick overview:
 3. Run SQL migrations (001-035)
 4. Start dev server
 5. Deploy to Vercel
-
-## ⚠️ IMPORTANT: First Time Setup
-
-### If You Haven't Run the Database Migrations:
-
-**CRITICAL STEP**: You must run this SQL migration to fix session codes:
-
-```sql
--- See: docs/RUN_SESSION_CODE_MIGRATION.md
--- Or: supabase/migrations/035_short_session_codes.sql
-
--- Copy and run in Supabase SQL Editor
-```
-
-This converts session codes from 36-character UUIDs to 6-character codes (e.g., `K4M8N2`), fixing the "invalid session code" error.
 
 ## 📚 Documentation Quick Reference
 
@@ -165,20 +150,4 @@ All previous issues have been resolved. The codebase is clean and production-rea
 - Consent storage guaranteed
 - No exposed credentials
 
-## 🏊‍♂️ Welcome!
-
-This platform is ready for use by Otters Kenya Swim Club.
-
-**Parents**: Register your swimmers and start checking in!
-**Admins**: Manage the club efficiently with powerful tools!
-**Developers**: Everything is clean, documented, and production-ready!
-
----
-
-**Need to dive deeper?** → [docs/README.md](docs/README.md)
-
-**Ready to code?** → [docs/QUICK_START.md](docs/QUICK_START.md)
-
-**Just want to use the app?** → [Parent](docs/PARENT_USER_JOURNEY.md) or [Admin](docs/ADMIN_USER_JOURNEY.md) guide
-
-**🏊‍♂️ Made with 💙 for Otters Kenya Swim Club**
+**🏊‍♂️ Made with 💙 for Otters Kenya Academy of Swimming Limited**

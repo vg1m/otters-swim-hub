@@ -1,4 +1,4 @@
-# Otters Kenya Swim Club - Documentation
+# Otters Kenya Academy of Swimming Limited - Documentation
 
 ## 📚 Quick Navigation
 

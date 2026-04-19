@@ -38,7 +38,7 @@ export default function Footer() {
 
           {/* Copyright */}
             <p className="text-sm text-stone-600 dark:text-gray-400">
-            © {new Date().getFullYear()} Otters Kenya Swim Club
+            © {new Date().getFullYear()} Otters Kenya Academy of Swimming Limited
           </p>
         </div>
       </div>

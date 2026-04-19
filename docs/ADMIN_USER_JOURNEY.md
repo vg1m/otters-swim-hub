@@ -1,6 +1,6 @@
 # Admin User Journey
 
-A comprehensive guide for Otters Kenya Swim Club administrators and coaches.
+A comprehensive guide for Otters Kenya Academy of Swimming Limited administrators and coaches.
 
 ## 🔐 Getting Started
 

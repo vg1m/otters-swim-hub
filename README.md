@@ -1,99 +1,112 @@
-# Otters Kenya Swim Club Management Platform
+# Otters Kenya Academy of Swimming Limited Management Platform
 
-A modern, mobile-first Progressive Web App for complete swim club management.
+A modern, mobile-first web app for swim club operations: registration, billing, training sessions, attendance, and reporting.
 
-## 🏊 What It Does
+## What it does
 
-Complete swim club management solution with:
-- ✅ **Online Registration** - Parents register swimmers digitally
-- ✅ **Secure Payments** - Paystack integration (Card/M-Pesa/Bank)
-- ✅ **Check-In System** - Simple 6-character code entry
-- ✅ **Admin Dashboard** - Manage registrations, payments, sessions
-- ✅ **Attendance Tracking** - Real-time check-in monitoring
-- ✅ **Mobile-First** - Works perfectly on phones and tablets
+End-to-end club management:
 
-## 🚀 Quick Start
+- **Online registration** — Multi-step parent flow; squad and fee logic aligned with club rules
+- **Secure payments** — Paystack (card, M-Pesa, bank) for registration and invoices
+- **Training sessions** — Admin calendar with recurrence, facilities, and squad assignment
+- **Attendance** — Recorded by admins (and coaches) per session; parents see context on the dashboard
+- **Admin & coach areas** — Role-based dashboards, registrations, swimmers, invoices, meets, reports, facilities
+- **Mobile-first UI** — Responsive layouts, touch-friendly controls, dark mode
 
-### For Parents/Guardians
-📖 **[Read the Parent User Journey →](docs/PARENT_USER_JOURNEY.md)**
+**Note:** The legacy parent **self-service check-in code** flow has been **removed**. Attendance is handled through **session attendance** in the admin (and coach) tools. See [docs/CHECK_IN_CODE_DEPRECATION.md](docs/CHECK_IN_CODE_DEPRECATION.md) for background.
 
-Quick steps:
-1. Sign up and verify email
-2. Register your swimmer(s)
-3. Pay registration fee (KES 3,000)
-4. Check-in at training sessions using 6-character codes
+## Quick start
 
-### For Administrators
-📖 **[Read the Admin User Journey →](docs/ADMIN_USER_JOURNEY.md)**
+### Parents / guardians
 
-Quick steps:
-1. Login with admin credentials
-2. Approve pending registrations
-3. Create training sessions
-4. Print/display session check-in codes
-5. Monitor attendance in real-time
+📖 **[Parent user journey →](docs/PARENT_USER_JOURNEY.md)**
 
-### For Developers
-📖 **[Read the Technical Quick Start →](docs/QUICK_START.md)**
+1. Sign up and verify email  
+2. Register swimmer(s)  
+3. Pay fees via Paystack when invoiced  
+4. Use **Dashboard** for schedule context, invoices, and swimmer profiles  
 
-## 🛠️ Tech Stack
+### Administrators
 
-- **Frontend**: Next.js 16, React 18, Tailwind CSS v3.4
-- **Backend**: Supabase (PostgreSQL, Auth, RLS, Storage)
-- **Payments**: Paystack (KES - Card/M-Pesa/Bank)
-- **Hosting**: Vercel
-- **PWA**: @ducanh2912/next-pwa
+📖 **[Admin user journey →](docs/ADMIN_USER_JOURNEY.md)**
 
-## ✨ Key Features
+1. Sign in (email/password uses server-side login for reliable session cookies)  
+2. Review **Pending registrations**  
+3. Create **Training sessions** and assign pools via **Facilities**  
+4. Mark **Attendance** from **Sessions → session detail**  
+5. Manage **Invoices**, **Meets**, and **Reports** as needed  
 
-### Registration & Payments
-- 📝 Digital swimmer registration with parent/guardian details
-- 💳 Paystack integration (Card, M-Pesa, Bank Transfer)
-- 💰 Pay now or pay later options
-- 🧾 Automatic PDF receipts with branding
-- 📊 Invoice management dashboard
+### Coaches
 
-### Check-In System
-- 🔢 Simple 6-character session codes (e.g., `K4M8N2`)
-- 📱 Mobile-friendly manual code entry
-- ⚡ Instant check-in confirmation
-- 📍 Poolside code display (print/digital)
-- 🕐 Timestamped attendance records
+- **Coach dashboard:** `/coach` — club-defined coach workflows (sessions, notes, etc., per RLS)
 
-### Admin Tools
-- ✅ Automated approval on payment
-- 📅 Training session scheduling
-- 👥 Swimmer & parent management
-- 💵 Payment tracking & reporting
-- 📈 Attendance analytics
-- 🏊 Multi-squad support (Competitive/Learn to Swim/Fitness)
+### Developers
 
-### Security & Compliance
-- 🔐 Row-Level Security (RLS) on all database tables
-- 🔒 Supabase Auth with email verification
-- 📜 GDPR-compliant consent recording with metadata
-- 🛡️ HTTPS-only, encrypted payment processing
-- 🔑 Secure environment variable management
-- ✅ All security warnings resolved
+📖 **[Technical quick start →](docs/QUICK_START.md)**
 
-## 🚀 Installation
+## Tech stack
 
-### 1. Clone & Install
+| Layer | Choice |
+|--------|--------|
+| App | **Next.js** (App Router), **React 18** |
+| Styling | **Tailwind CSS** 3.4 |
+| Data & auth | **Supabase** (PostgreSQL, Auth, RLS) |
+| Payments | **Paystack** (KES) |
+| PWA | **@ducanh2912/next-pwa** |
+| Notable libs | **date-fns**, **react-big-calendar**, **react-hot-toast**, **jspdf**, **zustand** |
+
+**Auth routing:** [`proxy.js`](proxy.js) runs Supabase session refresh (Next.js “proxy” convention; replaces deprecated `middleware` file name). Email/password sign-in posts to [`app/auth/login/route.js`](app/auth/login/route.js) so cookies are set via HTTP headers (better on mobile).
+
+## Key features
+
+### Registration & payments
+
+- Digital registration with guardian details and consents  
+- Paystack checkout and webhooks  
+- Invoice creation, status, and parent **Invoices** view  
+- PDF receipts (branding via app configuration)  
+
+### Sessions & attendance
+
+- Admin **Sessions** calendar with recurrence patterns  
+- Facilities / pool locations linked to sessions; optional **directions** links (Google Maps) from facility addresses  
+- Per-session **Attendance** UI (`/admin/sessions/[id]/attendance`)  
+- Training data model evolves with migrations (squads, facilities, coach pay cron, etc.)  
+
+### Admin tools
+
+- Dashboard KPIs and quick links  
+- **Registrations**, **Swimmers**, **Squads**, **Coaches**, **Facilities** (pools, schedules, lane capacity)  
+- **Invoices**, **Reports**, **Meets** (including meet upload where configured)  
+- Client-side search and mobile-friendly tables on several admin lists  
+
+### Security
+
+- **RLS** on Supabase tables (review policies when adding features)  
+- Service role only on server routes that require it  
+- HTTPS in production; secrets in environment variables only  
+
+## Installation
+
+### 1. Clone and install
+
 ```bash
 git clone <repository-url>
 cd otters-swim-hub
 npm install
 ```
 
-### 2. Configure Environment
+### 2. Environment
+
 Create `.env.local`:
+
 ```env
-# Supabase (from dashboard.supabase.com)
+# Supabase (dashboard.supabase.com)
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
-# Paystack (from paystack.com/dashboard)
+# Paystack
 PAYSTACK_SECRET_KEY=sk_test_your_key
 PAYSTACK_PUBLIC_KEY=pk_test_your_key
 NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY=pk_test_your_key
@@ -102,150 +115,97 @@ NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY=pk_test_your_key
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-### 3. Database Setup
-Run ALL migrations in Supabase SQL Editor (order matters!):
-```bash
-# Navigate to: dashboard.supabase.com → SQL Editor
-# Run each file in supabase/migrations/ from 001 to 035
-```
+Add any other keys your deployment uses (e.g. cron secrets, Twilio, if enabled).
 
-⚠️ **CRITICAL**: Run `035_short_session_codes.sql` for 6-character codes!
+### 3. Database
 
-### 4. Run Development Server
+Apply **all** migrations in `supabase/migrations/` **in numeric order** (e.g. `001_…` through the latest `06x_…`). Use the Supabase SQL Editor or your migration workflow.
+
+- New environments must include historical fixes and feature migrations, not only an early subset.  
+- If you rely on short session codes in the schema, keep migration **`035_short_session_codes.sql`** and [docs/RUN_SESSION_CODE_MIGRATION.md](docs/RUN_SESSION_CODE_MIGRATION.md) in mind.  
+
+Optional **maintenance scripts** (e.g. purging training data for test resets) live under `supabase/scripts/` — read each file’s comments before running.
+
+### 4. Run locally
+
 ```bash
 npm run dev
-# Open http://localhost:3000
+# http://localhost:3000
 ```
 
-📖 **Detailed Setup**: [docs/QUICK_START.md](docs/QUICK_START.md)
+More detail: [docs/QUICK_START.md](docs/QUICK_START.md), [docs/DATABASE_SETUP.md](docs/DATABASE_SETUP.md)
 
-## 📁 Project Structure
+## Project structure (high level)
 
 ```
 otters-swim-hub/
-├── app/                          # Next.js App Router
-│   ├── admin/                    # Admin dashboard
-│   │   ├── registrations/        # Approve swimmers
-│   │   ├── swimmers/             # Manage all swimmers
-│   │   ├── sessions/             # Create & manage training
-│   │   ├── invoices/             # Payment tracking
-│   │   ├── reports/              # Analytics
-│   │   └── meets/                # Swimming meet results
-│   ├── api/                      # Backend API routes
-│   │   ├── paystack/             # Payment processing
-│   │   ├── receipts/             # PDF generation
-│   │   └── link-registrations/   # Orphaned data linking
-│   ├── register/                 # Multi-step registration
-│   ├── check-in/                 # Session check-in
-│   ├── dashboard/                # Parent dashboard
-│   ├── invoices/                 # View & pay invoices
-│   └── settings/                 # Profile management
-├── components/                   # React components
-│   ├── ui/                       # Button, Card, Input, etc.
-│   └── Navigation.jsx            # Responsive nav with dark mode
-├── lib/                          # Core utilities
-│   ├── supabase/                 # DB client (SSR-aware)
-│   ├── paystack/                 # Payment client
-│   ├── cache/                    # Profile caching
-│   └── utils/                    # Helpers
-├── supabase/migrations/          # Database schema & fixes
-│   ├── 001_initial_schema.sql    # Base tables
-│   ├── 008_paystack_integration.sql  # Payment tables
-│   ├── 035_short_session_codes.sql   # 6-char codes ⚠️
-│   └── archive/                  # Diagnostic queries
-├── docs/                         # Documentation
-│   ├── PARENT_USER_JOURNEY.md    # Parent guide
-│   ├── ADMIN_USER_JOURNEY.md     # Admin guide
-│   └── ARCHIVE/                  # Resolved fixes
-└── public/                       # Static assets
+├── app/
+│   ├── admin/           # Dashboard, registrations, swimmers, squads, sessions,
+│   │                    # attendance, invoices, reports, meets, facilities, coaches
+│   ├── api/             # paystack, receipts, registration, link-registrations, cron, …
+│   ├── auth/            # login (server sign-in), OAuth callback
+│   ├── coach/           # Coach dashboard
+│   ├── dashboard/       # Parent dashboard
+│   ├── invoices/        # Parent invoices
+│   ├── login/, signup/, forgot-password/, reset-password/
+│   ├── register/        # Multi-step registration
+│   ├── settings/
+│   ├── swimmers/        # Parent swimmer profiles & performance
+│   └── page.js          # Marketing / landing
+├── components/          # UI, layout, domain components (e.g. admin session fields)
+├── lib/                 # supabase clients, paystack, utils, facilities helpers, cache
+├── proxy.js             # Session refresh + route protection wiring
+├── supabase/
+│   ├── migrations/      # Numbered SQL migrations (run in order)
+│   └── scripts/       # Optional SQL utilities
+├── docs/                # User and technical documentation
+└── public/              # Static assets, PWA icons
 ```
 
-## 🌐 Deployment
+## Deployment
 
-### Vercel (Recommended)
+See **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** for Vercel, env vars, Supabase redirect URLs, and Paystack webhooks (`/api/paystack/webhook`).
 
-1. **Push to GitHub**
-   ```bash
-   git add .
-   git commit -m "Ready for deployment"
-   git push
-   ```
+Production checklist (short):
 
-2. **Import to Vercel**
-   - Go to vercel.com/new
-   - Select your GitHub repo
-   - Vercel auto-detects Next.js
+- Live Paystack keys and matching `NEXT_PUBLIC_APP_URL`  
+- Supabase Auth URL + redirect allow list  
+- Cron or external scheduler if you use scheduled API routes (e.g. coach session pay)  
 
-3. **Add Environment Variables**
-   Copy from `.env.local` to Vercel dashboard:
-   - All `NEXT_PUBLIC_*` variables
-   - `SUPABASE_SERVICE_ROLE_KEY`
-   - `PAYSTACK_SECRET_KEY`
-   - Update `NEXT_PUBLIC_APP_URL` to: `https://your-app.vercel.app`
+## Documentation index
 
-4. **Configure Supabase**
-   - Dashboard → Auth → URL Configuration
-   - Site URL: `https://your-app.vercel.app`
-   - Redirect URLs: `https://your-app.vercel.app/**`
+| Audience | Doc |
+|----------|-----|
+| Parents | [docs/PARENT_USER_JOURNEY.md](docs/PARENT_USER_JOURNEY.md) |
+| Admins | [docs/ADMIN_USER_JOURNEY.md](docs/ADMIN_USER_JOURNEY.md) |
+| Check-in history | [docs/CHECK_IN_SYSTEM.md](docs/CHECK_IN_SYSTEM.md), [docs/CHECK_IN_CODE_DEPRECATION.md](docs/CHECK_IN_CODE_DEPRECATION.md) |
+| Developers | [docs/QUICK_START.md](docs/QUICK_START.md), [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md) |
+| Database | [docs/DATABASE_SETUP.md](docs/DATABASE_SETUP.md) |
+| Paystack | [docs/PAYSTACK_QUICK_START.md](docs/PAYSTACK_QUICK_START.md), [docs/PAYSTACK_INTEGRATION.md](docs/PAYSTACK_INTEGRATION.md) |
+| Index | [docs/README.md](docs/README.md) |
 
-5. **Deploy!** 🚀
+## Current status (snapshot)
 
-⚠️ **Production Checklist:**
-- [ ] Use **LIVE** Paystack keys (not test!)
-- [ ] Update Supabase redirect URLs
-- [ ] Test payment flow end-to-end
-- [ ] Enable Paystack webhook: `https://your-app.vercel.app/api/paystack/webhook`
+- **Registration, invoices, Paystack** — Core flows in production use  
+- **Sessions & attendance** — Admin/coach-led attendance; calendar and recurrence supported  
+- **Facilities** — Pools, schedules, capacity rules; maps directions from addresses  
+- **Mobile UX** — Dashboards and many admin tables optimized for small screens  
+- **Auth** — Server-side email login route + `proxy.js` session handling  
 
-📖 **Detailed Guide**: [DEPLOYMENT.md](DEPLOYMENT.md)
+Roadmap items (e.g. richer email notifications) may be tracked in internal planning docs — see `docs/` and project boards.
 
-## 📖 Documentation
+## Known issues
 
-### User Guides
-- **[Parent User Journey](docs/PARENT_USER_JOURNEY.md)** - For parents/guardians
-- **[Admin User Journey](docs/ADMIN_USER_JOURNEY.md)** - For administrators
-- **[Check-In System](docs/CHECK_IN_SYSTEM.md)** - How check-in works
+No single “master” issue list in-repo; treat **GitHub/issues** or your internal tracker as source of truth. For historical fixes, see **docs/ARCHIVE/**.
 
-### Technical Guides
-- **[Quick Start](docs/QUICK_START.md)** - Developer setup
-- **[Database Setup](docs/DATABASE_SETUP.md)** - Supabase configuration
-- **[Paystack Integration](docs/PAYSTACK_QUICK_START.md)** - Payment gateway
-- **[Project Structure](docs/PROJECT_STRUCTURE.md)** - Codebase organization
-- **[Deployment Guide](DEPLOYMENT.md)** - Going to production
+## Contributing
 
-### Important Migrations
-- **[Session Code Migration](docs/RUN_SESSION_CODE_MIGRATION.md)** - ⚠️ Must run!
-- **[Security Fixes](docs/SECURITY_FIXES.md)** - Database security patches
+Private project for **Otters Kenya Academy of Swimming Limited**. Contact the development team for access or changes.
 
-**📂 All Docs**: [docs/README.md](docs/README.md)
+## License
 
-## 📊 Current Status
-
-✅ **Registration & Payments** - Fully operational
-✅ **Check-In System** - Simplified 6-character codes
-✅ **Admin Dashboard** - Complete management tools
-✅ **Security** - All patches applied, RLS configured
-✅ **Mobile Responsive** - Works perfectly on all devices
-⏳ **Email Notifications** - Pending (SMTP2GO integration)
-
-## 🐛 Known Issues
-
-None currently! 🎉
-
-Report issues to the development team.
-
-## 🤝 Contributing
-
-Private project for Otters Kenya Swim Club.
-For contributions or issues, contact the development team.
-
-## 📝 License
-
-Proprietary - Otters Kenya Swim Club
+Proprietary — Otters Kenya Academy of Swimming Limited
 
 ---
 
-**Questions?** Check the [User Journey docs](docs/) or contact club administration.
-
-**Developers?** See [Technical Quick Start](docs/QUICK_START.md)
-
-🏊‍♂️ **Made with 💙 for Otters Kenya Swim Club**
+**Questions?** Start with [docs/](docs/). **Developers?** [docs/QUICK_START.md](docs/QUICK_START.md)

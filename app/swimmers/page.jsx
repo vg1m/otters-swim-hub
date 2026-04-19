@@ -61,7 +61,7 @@ export default function SwimmersPage() {
     <>
       <Navigation />
       
-      <div className="min-h-screen bg-gray-50 py-8">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">My Swimmers</h1>
@@ -72,10 +72,11 @@ export default function SwimmersPage() {
             <Card>
               <div className="text-center py-12">
                 <p className="text-gray-600 dark:text-gray-400 mb-4">You don't have any registered swimmers yet.</p>
-                <Link href="/register">
-                  <button className="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors">
-                    Register a Swimmer
-                  </button>
+                <Link
+                  href="/register"
+                  className="inline-flex items-center justify-center px-6 py-3 rounded-lg font-semibold bg-primary text-white hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-colors"
+                >
+                  Register a swimmer
                 </Link>
               </div>
             </Card>
@@ -102,16 +103,18 @@ export default function SwimmersPage() {
                     </div>
 
                     <div className="space-y-2 text-sm">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-gray-600 dark:text-gray-400 font-medium">Gender:</span>
-                        <span className="capitalize">{swimmer.gender}</span>
+                        <span className="capitalize text-gray-900 dark:text-gray-100">{swimmer.gender}</span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-gray-600 font-medium">Date of Birth:</span>
-                        <span>{formatDate(swimmer.date_of_birth)}</span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-gray-600 dark:text-gray-400 font-medium">Date of birth:</span>
+                        <span className="text-gray-900 dark:text-gray-100">
+                          {formatDate(swimmer.date_of_birth)}
+                        </span>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-gray-600 font-medium">Squad:</span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-gray-600 dark:text-gray-400 font-medium">Squad:</span>
                         <Badge variant="info">
                           {swimmer.squads?.name
                             ? swimmer.squads.name
