@@ -23,6 +23,50 @@ import {
 import { createSwimmerOnboardingInvoice } from '@/lib/invoices/create-swimmer-onboarding-invoice'
 import toast from 'react-hot-toast'
 
+function renderParentChoiceCell(row) {
+  return (
+    <div className="text-sm text-gray-900 dark:text-gray-100 md:max-w-[12rem]">
+      <span>{formatSessionsPerWeekLabel(row.sessions_per_week)}</span>
+      {row.preferred_payment_type && (
+        <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+          {formatPreferredPaymentTypeLabel(row.preferred_payment_type)}
+        </span>
+      )}
+    </div>
+  )
+}
+
+function renderSquadCell(row) {
+  const isUnderSix = row.date_of_birth && calculateAge(row.date_of_birth) < 6
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      <Badge variant={row.squads?.name ? 'info' : 'default'}>
+        {row.squads?.name || 'Pending assignment'}
+      </Badge>
+      {isUnderSix && (
+        <Badge variant="success" size="sm">Under 6</Badge>
+      )}
+    </div>
+  )
+}
+
+function renderStatusCell(row) {
+  const variant = {
+    approved: 'success',
+    pending: 'warning',
+    inactive: 'default',
+  }[row.status]
+  return <Badge variant={variant}>{row.status.toUpperCase()}</Badge>
+}
+
+function renderGalaCell(row) {
+  return (
+    <Badge variant={row.gala_events_opt_in ? 'success' : 'default'} size="sm">
+      {row.gala_events_opt_in ? 'Opted In' : 'Not Opted In'}
+    </Badge>
+  )
+}
+
 export default function SwimmersManagementPage() {
   const router = useRouter()
   const { user, profile, loading: authLoading } = useAuth()
@@ -244,54 +288,22 @@ export default function SwimmersManagementPage() {
     {
       header: 'Parent choice',
       accessor: 'sessions_per_week',
-      render: (row) => (
-        <div className="text-sm text-gray-900 dark:text-gray-100 max-w-[12rem]">
-          <span>{formatSessionsPerWeekLabel(row.sessions_per_week)}</span>
-          {row.preferred_payment_type && (
-            <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-              {formatPreferredPaymentTypeLabel(row.preferred_payment_type)}
-            </span>
-          )}
-        </div>
-      ),
+      render: (row) => renderParentChoiceCell(row),
     },
     {
       header: 'Squad',
       accessor: 'squad',
-      render: (row) => {
-        const isUnderSix = row.date_of_birth && calculateAge(row.date_of_birth) < 6
-        return (
-          <div className="flex flex-wrap items-center gap-1">
-            <Badge variant={row.squads?.name ? 'info' : 'default'}>
-              {row.squads?.name || 'Pending assignment'}
-            </Badge>
-            {isUnderSix && (
-              <Badge variant="success" size="sm">Under 6</Badge>
-            )}
-          </div>
-        )
-      },
+      render: (row) => renderSquadCell(row),
     },
     {
       header: 'Status',
       accessor: 'status',
-      render: (row) => {
-        const variant = {
-          approved: 'success',
-          pending: 'warning',
-          inactive: 'default',
-        }[row.status]
-        return <Badge variant={variant}>{row.status.toUpperCase()}</Badge>
-      },
+      render: (row) => renderStatusCell(row),
     },
     {
       header: 'Gala Events',
       accessor: 'gala_events_opt_in',
-      render: (row) => (
-        <Badge variant={row.gala_events_opt_in ? 'success' : 'default'} size="sm">
-          {row.gala_events_opt_in ? 'Opted In' : 'Not Opted In'}
-        </Badge>
-      ),
+      render: (row) => renderGalaCell(row),
     },
     {
       header: 'Actions',
@@ -386,11 +398,91 @@ export default function SwimmersManagementPage() {
 
           {/* Results */}
           <Card padding="none">
-            <Table
-              columns={columns}
-              data={filteredSwimmers}
-              emptyMessage="No swimmers found matching your filters"
-            />
+            {filteredSwimmers.length === 0 ? (
+              <div className="px-6 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+                No swimmers found matching your filters
+              </div>
+            ) : (
+              <>
+                <div className="md:hidden divide-y divide-gray-200 dark:divide-gray-700">
+                  {filteredSwimmers.map((row) => (
+                    <div key={row.id} className="p-4 space-y-3">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-base text-gray-900 dark:text-gray-100 leading-snug">
+                            {row.first_name} {row.last_name}
+                          </p>
+                          {row.license_number && (
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                              License {row.license_number}
+                            </p>
+                          )}
+                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 capitalize">
+                            {row.gender} · Age {calculateAge(row.date_of_birth)}
+                          </p>
+                        </div>
+                        <div className="shrink-0">{renderStatusCell(row)}</div>
+                      </div>
+
+                      <div className="space-y-3 text-sm">
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                            Parent choice
+                          </p>
+                          <div className="mt-1">{renderParentChoiceCell(row)}</div>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                            Squad
+                          </p>
+                          <div className="mt-1">{renderSquadCell(row)}</div>
+                        </div>
+                        <div>
+                          <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                            Gala events
+                          </p>
+                          <div className="mt-1">{renderGalaCell(row)}</div>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col gap-2 pt-1">
+                        <Button
+                          fullWidth
+                          variant="secondary"
+                          onClick={() => openEditModal(row)}
+                        >
+                          Edit swimmer
+                        </Button>
+                        <Link
+                          href={`/swimmers/${row.id}/performance`}
+                          className="block w-full"
+                        >
+                          <Button fullWidth variant="outline" className="w-full">
+                            View progress
+                          </Button>
+                        </Link>
+                        {row.status === 'approved' && (
+                          <Button
+                            fullWidth
+                            variant="danger"
+                            onClick={() => handleDeactivate(row)}
+                          >
+                            Deactivate
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="hidden md:block">
+                  <Table
+                    columns={columns}
+                    data={filteredSwimmers}
+                    emptyMessage="No swimmers found matching your filters"
+                  />
+                </div>
+              </>
+            )}
           </Card>
 
           <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
@@ -406,8 +498,9 @@ export default function SwimmersManagementPage() {
         title="Edit Swimmer Details"
         size="lg"
         footer={
-          <div className="flex gap-3 justify-end">
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 w-full">
             <Button
+              className="w-full sm:w-auto"
               variant="secondary"
               onClick={() => setShowEditModal(false)}
               disabled={saving}
@@ -415,6 +508,7 @@ export default function SwimmersManagementPage() {
               Cancel
             </Button>
             <Button
+              className="w-full sm:w-auto"
               onClick={handleSaveEdit}
               loading={saving}
             >
@@ -440,7 +534,7 @@ export default function SwimmersManagementPage() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Input
             label="First Name"
             required
@@ -470,7 +564,7 @@ export default function SwimmersManagementPage() {
               { value: 'female', label: 'Female' },
             ]}
           />
-          <div className="col-span-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 px-4 py-3">
+          <div className="sm:col-span-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
               Parent registration — training frequency
             </p>
@@ -532,12 +626,12 @@ export default function SwimmersManagementPage() {
           <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
             Do you wish for this swimmer to participate in competitive swimming events?
           </p>
-          <div className="flex gap-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:gap-6">
             {[
               { value: true,  label: 'Yes' },
               { value: false, label: 'No' },
             ].map(({ value, label }) => (
-              <label key={label} className="flex items-center gap-2 cursor-pointer">
+              <label key={label} className="flex items-center gap-2 cursor-pointer min-h-[44px] sm:min-h-0">
                 <input
                   type="radio"
                   name="editGalaEvents"

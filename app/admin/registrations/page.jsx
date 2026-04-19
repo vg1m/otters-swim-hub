@@ -37,6 +37,16 @@ function formatSquadLabel(swimmer) {
   return 'Unassigned'
 }
 
+function renderPaymentStatusBadge(row) {
+  if (row.payment_deferred && !row.squad_id) {
+    return <Badge variant="default">Awaiting Squad Assignment</Badge>
+  }
+  const invoice = row.invoices?.[0]
+  if (!invoice) return <Badge variant="warning">No Invoice Yet</Badge>
+  if (invoice.status === 'paid') return <Badge variant="success">Paid</Badge>
+  return <Badge variant="warning">{invoice.status}</Badge>
+}
+
 export default function PendingRegistrationsPage() {
   const router = useRouter()
   const { user, profile, loading: authLoading } = useAuth()
@@ -230,15 +240,7 @@ export default function PendingRegistrationsPage() {
     {
       header: 'Payment Status',
       accessor: 'payment',
-      render: (row) => {
-        if (row.payment_deferred && !row.squad_id) {
-          return <Badge variant="default">Awaiting Squad Assignment</Badge>
-        }
-        const invoice = row.invoices?.[0]
-        if (!invoice) return <Badge variant="warning">No Invoice Yet</Badge>
-        if (invoice.status === 'paid') return <Badge variant="success">Paid</Badge>
-        return <Badge variant="warning">{invoice.status}</Badge>
-      },
+      render: (row) => renderPaymentStatusBadge(row),
     },
     {
       header: 'Registered',
@@ -311,7 +313,76 @@ export default function PendingRegistrationsPage() {
                 </p>
               </div>
             ) : (
-              <Table columns={columns} data={swimmers} />
+              <>
+                <div className="md:hidden divide-y divide-gray-200 dark:divide-gray-700">
+                  {swimmers.map((row) => (
+                    <div key={row.id} className="p-4 space-y-3">
+                      <div>
+                        <p className="font-semibold text-base text-gray-900 dark:text-gray-100">
+                          {row.first_name} {row.last_name}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          Registered {formatDate(row.created_at)}
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                        <div>
+                          <p className="text-gray-500 dark:text-gray-400 text-xs">Age</p>
+                          <p className="font-medium text-gray-900 dark:text-gray-100">
+                            {calculateAge(row.date_of_birth)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500 dark:text-gray-400 text-xs">Gender</p>
+                          <p className="font-medium text-gray-900 dark:text-gray-100 capitalize">
+                            {row.gender}
+                          </p>
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-gray-500 dark:text-gray-400 text-xs">Squad</p>
+                          <div className="mt-1">
+                            <Badge variant="info">{formatSquadLabel(row)}</Badge>
+                          </div>
+                        </div>
+                        <div className="col-span-2">
+                          <p className="text-gray-500 dark:text-gray-400 text-xs">Payment</p>
+                          <div className="mt-1 flex flex-wrap gap-1">{renderPaymentStatusBadge(row)}</div>
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-2 pt-1">
+                        <Button
+                          fullWidth
+                          variant="secondary"
+                          onClick={() => viewDetails(row)}
+                        >
+                          View details
+                        </Button>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Button
+                            fullWidth
+                            variant="success"
+                            onClick={() => handleApprove(row)}
+                            disabled={!row.squad_id}
+                            title={
+                              !row.squad_id
+                                ? 'Assign a squad first (via Swimmer Management)'
+                                : undefined
+                            }
+                          >
+                            Approve
+                          </Button>
+                          <Button fullWidth variant="danger" onClick={() => handleReject(row)}>
+                            Reject
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="hidden md:block">
+                  <Table columns={columns} data={swimmers} />
+                </div>
+              </>
             )}
           </Card>
         </div>
@@ -339,8 +410,9 @@ export default function PendingRegistrationsPage() {
                 before approving.
               </p>
             )}
-            <div className="flex gap-3 justify-end">
+            <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 w-full">
               <Button
+                className="w-full sm:w-auto"
                 variant="secondary"
                 onClick={() => setShowDetailsModal(false)}
                 disabled={actionLoading}
@@ -348,6 +420,7 @@ export default function PendingRegistrationsPage() {
                 Close
               </Button>
               <Button
+                className="w-full sm:w-auto"
                 variant="danger"
                 onClick={() => handleReject(selectedSwimmer)}
                 loading={actionLoading}
@@ -355,6 +428,7 @@ export default function PendingRegistrationsPage() {
                 Reject
               </Button>
               <Button
+                className="w-full sm:w-auto"
                 variant="success"
                 onClick={() => handleApprove(selectedSwimmer)}
                 loading={actionLoading}
@@ -369,7 +443,7 @@ export default function PendingRegistrationsPage() {
       >
         {selectedSwimmer && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">First Name</label>
                 <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">{selectedSwimmer.first_name}</p>
@@ -423,17 +497,7 @@ export default function PendingRegistrationsPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Payment Status</label>
-                <div className="mt-1">
-                  {selectedSwimmer.payment_deferred && !selectedSwimmer.squad_id ? (
-                    <Badge variant="default">Awaiting Squad Assignment</Badge>
-                  ) : selectedSwimmer.invoices?.[0] ? (
-                    <Badge variant={selectedSwimmer.invoices[0].status === 'paid' ? 'success' : 'warning'}>
-                      {selectedSwimmer.invoices[0].status.toUpperCase()}
-                    </Badge>
-                  ) : (
-                    <Badge variant="warning">No Invoice Yet</Badge>
-                  )}
-                </div>
+                <div className="mt-1">{renderPaymentStatusBadge(selectedSwimmer)}</div>
               </div>
             </div>
           </div>

@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth'
 import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer'
 import Card from '@/components/ui/Card'
+import Button from '@/components/ui/Button'
 import Table from '@/components/ui/Table'
 import Badge from '@/components/ui/Badge'
 import Modal from '@/components/ui/Modal'
@@ -260,6 +261,13 @@ function InvoicesPageContent() {
     }
   }
 
+  const statusVariants = {
+    draft: 'default',
+    issued: 'info',
+    due: 'warning',
+    paid: 'success',
+  }
+
   const columns = [
     {
       header: 'Invoice ID',
@@ -300,15 +308,9 @@ function InvoicesPageContent() {
     {
       header: 'Status',
       accessor: 'status',
-      render: (row) => {
-        const variants = {
-          draft: 'default',
-          issued: 'info',
-          due: 'warning',
-          paid: 'success',
-        }
-        return <Badge variant={variants[row.status]}>{row.status.toUpperCase()}</Badge>
-      },
+      render: (row) => (
+        <Badge variant={statusVariants[row.status]}>{row.status.toUpperCase()}</Badge>
+      ),
     },
     {
       header: 'Due Date',
@@ -456,13 +458,128 @@ function InvoicesPageContent() {
             </Card>
           </div>
 
-          {/* Invoices Table */}
+          {/* Invoices: mobile cards + desktop table */}
           <Card padding="none">
-            <Table
-              columns={columns}
-              data={invoices}
-              emptyMessage="No invoices found"
-            />
+            <div className="md:hidden">
+              {invoices.length === 0 ? (
+                <div className="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+                  No invoices found
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {invoices.map((row) => {
+                    const discount = getEarlyBirdDiscount(row)
+                    const payAmount = Number(row.total_amount) - discount
+                    const dueDate = new Date(row.due_date)
+                    const isOverdue = dueDate < new Date() && row.status !== 'paid'
+                    const canPay = row.status === 'issued' || row.status === 'due'
+                    return (
+                      <div key={row.id} className="p-4 space-y-3">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                              Invoice
+                            </p>
+                            <p className="font-mono text-sm font-semibold text-gray-900 dark:text-gray-100">
+                              {row.id.substring(0, 8)}
+                            </p>
+                            <p className="mt-1 text-sm text-gray-800 dark:text-gray-200">
+                              {row.swimmers?.first_name} {row.swimmers?.last_name}
+                            </p>
+                          </div>
+                          <Badge variant={statusVariants[row.status]} className="shrink-0">
+                            {row.status.toUpperCase()}
+                          </Badge>
+                        </div>
+
+                        <div className="space-y-2 text-sm">
+                          <div className="flex flex-wrap items-baseline justify-between gap-2">
+                            <span className="text-gray-500 dark:text-gray-400">Amount</span>
+                            <div className="text-right">
+                              {discount > 0 ? (
+                                <div className="flex flex-col items-end gap-0.5">
+                                  <span className="font-semibold text-green-700 dark:text-green-400">
+                                    {formatKES(payAmount)}
+                                  </span>
+                                  <span className="text-xs line-through text-gray-400">
+                                    {formatKES(row.total_amount)}
+                                  </span>
+                                  <span className="text-xs font-medium text-green-600 dark:text-green-400">
+                                    Early bird
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="font-semibold text-gray-900 dark:text-gray-100">
+                                  {formatKES(row.total_amount)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap items-baseline justify-between gap-2">
+                            <span className="text-gray-500 dark:text-gray-400">Due</span>
+                            <span
+                              className={
+                                isOverdue
+                                  ? 'font-medium text-red-600 dark:text-red-400'
+                                  : 'text-gray-900 dark:text-gray-100'
+                              }
+                            >
+                              {formatDate(row.due_date)}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap items-baseline justify-between gap-2">
+                            <span className="text-gray-500 dark:text-gray-400">Created</span>
+                            <span className="text-gray-900 dark:text-gray-100">
+                              {formatDate(row.created_at)}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col gap-2 pt-1">
+                          <Button
+                            fullWidth
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => viewInvoiceDetails(row)}
+                          >
+                            View details
+                          </Button>
+                          {canPay && (
+                            <>
+                              <Button fullWidth size="sm" onClick={() => handlePayNow(row.id)}>
+                                Pay {formatKES(payAmount)}
+                              </Button>
+                              {discount > 0 && (
+                                <p className="text-center text-xs text-green-600 dark:text-green-400">
+                                  Early bird discount valid until the 3rd
+                                </p>
+                              )}
+                            </>
+                          )}
+                          {row.status === 'paid' && (
+                            <Button
+                              fullWidth
+                              variant="success"
+                              size="sm"
+                              onClick={() => downloadReceipt(row.id)}
+                            >
+                              Download receipt
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+            <div className="hidden md:block">
+              <Table
+                columns={columns}
+                data={invoices}
+                emptyMessage="No invoices found"
+              />
+            </div>
           </Card>
         </div>
       </div>

@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
@@ -17,7 +16,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [oauthLoading, setOauthLoading] = useState(false)
   const [signOutReason, setSignOutReason] = useState(null)
-  const router = useRouter()
   const supabase = createClient()
 
   useEffect(() => {
@@ -88,29 +86,42 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      // Sign in via a server route so auth cookies are returned as HTTP
+      // Set-Cookie headers. This fixes a mobile bug where client-side
+      // signInWithPassword writes to document.cookie and the subsequent
+      // navigation could race the write, landing at the proxy with no
+      // session and bouncing the user back to /login.
+      const res = await fetch('/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+        credentials: 'include',
       })
 
-      if (error) throw error
+      let payload = null
+      try {
+        payload = await res.json()
+      } catch {
+        // non-JSON response — fall through to generic error below
+      }
+
+      if (!res.ok || !payload?.ok) {
+        const message = payload?.error || 'Invalid email or password'
+        throw new Error(message)
+      }
 
       toast.success('Login successful!')
-      
-      // Redirect immediately - let useAuth and target page handle profile fetching
-      // This provides instant feedback and eliminates waiting for profile query
-      
-      // Try to get cached profile for smart redirect, but don't wait for DB
-      const cachedProfile = JSON.parse(localStorage.getItem(`otters_profile_cache_${data.user.id}`) || 'null')
-      
-      if (cachedProfile?.data?.role === 'admin') {
-        router.push('/admin')
-      } else {
-        // Default to dashboard, will auto-redirect if admin after profile loads
-        router.push('/dashboard')
-      }
+
+      const target = payload.next || '/dashboard'
+      window.location.assign(target)
     } catch (error) {
-      toast.error(error.message || 'Login failed')
+      const msg = error?.message || ''
+      if (error?.name === 'AbortError' || msg.includes('signal aborted')) {
+        // Benign abort from a background request during navigation — ignore
+        // so it doesn't surface as a scary toast.
+        return
+      }
+      toast.error(msg || 'Login failed')
       setLoading(false)
     }
     // Note: Don't set loading to false on success - let redirect happen
