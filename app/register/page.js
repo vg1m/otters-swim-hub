@@ -1,7 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { useAuth } from '@/hooks/useAuth'
 import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer'
 import Button from '@/components/ui/Button'
@@ -9,15 +10,22 @@ import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import Card from '@/components/ui/Card'
 import ConsentPolicy from '@/components/ConsentPolicy'
-import { formatKES, REGISTRATION_FEE, OCCASIONAL_SWIMMER_RATE, EARLY_BIRD_DISCOUNT, SESSION_TIER_PRICING } from '@/lib/utils/currency'
+import {
+  formatKES,
+  REGISTRATION_FEE,
+  EARLY_BIRD_DISCOUNT,
+  OCCASIONAL_SWIMMER_RATE,
+  SESSION_TIER_PRICING,
+  buildRegistrationFeeLines,
+  sumRegistrationFeesFromLines,
+} from '@/lib/utils/currency'
 import { calculateAge } from '@/lib/utils/date-helpers'
 import toast from 'react-hot-toast'
 
-export default function RegisterPage() {
-  const router = useRouter()
-  const [loading, setLoading] = useState(false)
+const REGISTER_PARENT_STORAGE_KEY = 'otters_register_parent_prefill'
 
-  const [parentInfo, setParentInfo] = useState({
+function emptyParentInfo() {
+  return {
     fullName: '',
     email: '',
     phone: '',
@@ -25,7 +33,45 @@ export default function RegisterPage() {
     emergencyContactName: '',
     emergencyContactRelationship: '',
     emergencyContactPhone: '',
-  })
+  }
+}
+
+function mapProfileToParentInfo(profile) {
+  return {
+    fullName: profile?.full_name || '',
+    email: profile?.email || '',
+    phone: profile?.phone_number || '',
+    relationship: profile?.relationship || '',
+    emergencyContactName: profile?.emergency_contact_name || '',
+    emergencyContactRelationship: profile?.emergency_contact_relationship || '',
+    emergencyContactPhone: profile?.emergency_contact_phone || '',
+  }
+}
+
+function mergeParentFromProfileAndStorage(profile, stored) {
+  const m = profile ? mapProfileToParentInfo(profile) : emptyParentInfo()
+  const s = stored && typeof stored === 'object' ? stored : {}
+  return {
+    fullName: m.fullName || s.fullName || '',
+    email: m.email || s.email || '',
+    phone: m.phone || s.phone || '',
+    relationship: m.relationship || s.relationship || '',
+    emergencyContactName: m.emergencyContactName || s.emergencyContactName || '',
+    emergencyContactRelationship: m.emergencyContactRelationship || s.emergencyContactRelationship || '',
+    emergencyContactPhone: m.emergencyContactPhone || s.emergencyContactPhone || '',
+  }
+}
+
+export default function RegisterPage() {
+  const router = useRouter()
+  const { user, profile, loading: authLoading } = useAuth()
+  const [loading, setLoading] = useState(false)
+  const prefillAppliedRef = useRef(false)
+  const [prefillSource, setPrefillSource] = useState(null)
+  const [contactsExpanded, setContactsExpanded] = useState(true)
+  const prevSwimmerCountRef = useRef(1)
+
+  const [parentInfo, setParentInfo] = useState(() => emptyParentInfo())
 
   const [consents, setConsents] = useState({
     dataAccuracy: false,
@@ -74,9 +120,74 @@ export default function RegisterPage() {
     setSwimmers(next)
   }
 
+  const feeLines = useMemo(() => buildRegistrationFeeLines(swimmers), [swimmers])
+  const registrationOneTimeTotal = useMemo(
+    () => sumRegistrationFeesFromLines(feeLines),
+    [feeLines]
+  )
+
   const updateParentInfo = (field, value) => {
-    setParentInfo({ ...parentInfo, [field]: value })
+    setParentInfo((prev) => ({ ...prev, [field]: value }))
   }
+
+  useEffect(() => {
+    if (authLoading) return
+    if (user) return
+
+    let stored = null
+    try {
+      if (typeof window !== 'undefined') {
+        const raw = localStorage.getItem(REGISTER_PARENT_STORAGE_KEY)
+        if (raw) stored = JSON.parse(raw)
+      }
+    } catch (_) {}
+
+    if (!stored || typeof stored !== 'object') return
+    const merged = mergeParentFromProfileAndStorage(null, stored)
+    const hasAny =
+      merged.fullName ||
+      merged.email ||
+      merged.phone ||
+      merged.emergencyContactName
+    if (!hasAny) return
+    setParentInfo(merged)
+    setPrefillSource('saved')
+  }, [authLoading, user])
+
+  useEffect(() => {
+    if (authLoading) return
+    if (!user || !profile) return
+
+    let stored = null
+    try {
+      if (typeof window !== 'undefined') {
+        const raw = localStorage.getItem(REGISTER_PARENT_STORAGE_KEY)
+        if (raw) stored = JSON.parse(raw)
+      }
+    } catch (_) {}
+
+    const merged = mergeParentFromProfileAndStorage(profile, stored)
+    const hasAny =
+      merged.fullName ||
+      merged.email ||
+      merged.phone ||
+      merged.emergencyContactName
+    if (!hasAny) return
+    setParentInfo(merged)
+    setPrefillSource(profile.full_name || profile.email ? 'account' : 'saved')
+  }, [authLoading, user, profile])
+
+  useEffect(() => {
+    if (swimmers.length === 1) {
+      setContactsExpanded(true)
+      prevSwimmerCountRef.current = 1
+      return
+    }
+    if (swimmers.length > 1 && prevSwimmerCountRef.current === 1) {
+      setContactsExpanded(false)
+    }
+    prevSwimmerCountRef.current = swimmers.length
+  }, [swimmers.length])
 
   const onConsentChange = (field, value) => {
     setConsents({ ...consents, [field]: value })
@@ -112,11 +223,14 @@ export default function RegisterPage() {
         toast.error(`Please complete all fields for ${name}`)
         return false
       }
-      if (!swimmer.sessionsPerWeek) {
+      const age = calculateAge(swimmer.dateOfBirth)
+      // Under-6 swimmers are auto-assigned Pups (1–2); training tier is not user-selected.
+      if (age >= 6 && !swimmer.sessionsPerWeek) {
         toast.error(`Please select a training frequency for ${name}`)
         return false
       }
-      if (swimmer.galaEventsOptIn === null) {
+      // Competitive gala opt-in does not apply to Pups (under 6).
+      if (age >= 6 && swimmer.galaEventsOptIn === null) {
         toast.error(`Please answer the competitive events question for ${name}`)
         return false
       }
@@ -159,6 +273,12 @@ export default function RegisterPage() {
       if (!response.ok) {
         throw new Error(data.error || 'Registration failed')
       }
+      try {
+        if (typeof window !== 'undefined') {
+          localStorage.setItem(REGISTER_PARENT_STORAGE_KEY, JSON.stringify(parentInfo))
+        }
+      } catch (_) {}
+
       toast.success('Application submitted!')
       router.push('/register/success?application=true')
     } catch (error) {
@@ -197,68 +317,113 @@ export default function RegisterPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            <Card title="Parent / Guardian Information" padding="normal">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input
-                  label="Full Name"
-                  required
-                  value={parentInfo.fullName}
-                  onChange={(e) => updateParentInfo('fullName', e.target.value)}
-                  placeholder="John Doe"
-                />
-                <Select
-                  label="Relationship to Swimmer"
-                  required
-                  value={parentInfo.relationship}
-                  onChange={(e) => updateParentInfo('relationship', e.target.value)}
-                  options={relationshipOptions}
-                />
-                <Input
-                  label="Email Address"
-                  type="email"
-                  required
-                  value={parentInfo.email}
-                  onChange={(e) => updateParentInfo('email', e.target.value)}
-                  placeholder="john@example.com"
-                />
-                <Input
-                  label="Phone Number"
-                  type="tel"
-                  required
-                  value={parentInfo.phone}
-                  onChange={(e) => updateParentInfo('phone', e.target.value)}
-                  placeholder="0712345678"
-                  helperText="Use the same email if you already have an account — we will link your swimmers."
-                />
+            {prefillSource && (
+              <div
+                className="rounded-lg border border-primary/30 bg-primary/5 dark:bg-primary/10 px-4 py-3 text-sm text-stone-800 dark:text-stone-200"
+                role="status"
+              >
+                We&apos;ve filled in your contact details
+                {prefillSource === 'account'
+                  ? ' from your account'
+                  : ' from your last visit on this device'}
+                — please review before submitting.
               </div>
-            </Card>
+            )}
 
-            <Card title="Emergency Contact" padding="normal" subtitle="Alternative contact in case of emergency">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <Input
-                  label="Full Name"
-                  required
-                  value={parentInfo.emergencyContactName}
-                  onChange={(e) => updateParentInfo('emergencyContactName', e.target.value)}
-                  placeholder="Jane Doe"
-                />
-                <Select
-                  label="Relationship"
-                  required
-                  value={parentInfo.emergencyContactRelationship}
-                  onChange={(e) => updateParentInfo('emergencyContactRelationship', e.target.value)}
-                  options={relationshipOptions}
-                />
-                <Input
-                  label="Phone Number"
-                  type="tel"
-                  required
-                  value={parentInfo.emergencyContactPhone}
-                  onChange={(e) => updateParentInfo('emergencyContactPhone', e.target.value)}
-                  placeholder="0712345678"
-                />
-              </div>
-            </Card>
+            {swimmers.length > 1 && !contactsExpanded ? (
+              <Card
+                title="Your contact details"
+                padding="normal"
+                subtitle="Saved for this application — expand to edit"
+              >
+                <div className="space-y-4">
+                  <div className="text-sm text-stone-700 dark:text-stone-300 space-y-2">
+                    <p>
+                      <span className="font-medium text-stone-900 dark:text-stone-100">
+                        Parent/guardian:
+                      </span>{' '}
+                      {parentInfo.fullName || '—'} · {parentInfo.email || '—'} · {parentInfo.phone || '—'}
+                    </p>
+                    <p>
+                      <span className="font-medium text-stone-900 dark:text-stone-100">Emergency:</span>{' '}
+                      {parentInfo.emergencyContactName || '—'} · {parentInfo.emergencyContactPhone || '—'}
+                    </p>
+                  </div>
+                  <Button type="button" variant="outline" onClick={() => setContactsExpanded(true)}>
+                    Edit parent and emergency contact
+                  </Button>
+                </div>
+              </Card>
+            ) : (
+              <>
+                <Card title="Parent / Guardian Information" padding="normal">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Input
+                      label="Full Name"
+                      required
+                      value={parentInfo.fullName}
+                      onChange={(e) => updateParentInfo('fullName', e.target.value)}
+                      placeholder="John Doe"
+                    />
+                    <Select
+                      label="Relationship to Swimmer"
+                      required
+                      value={parentInfo.relationship}
+                      onChange={(e) => updateParentInfo('relationship', e.target.value)}
+                      options={relationshipOptions}
+                    />
+                    <Input
+                      label="Email Address"
+                      type="email"
+                      required
+                      value={parentInfo.email}
+                      onChange={(e) => updateParentInfo('email', e.target.value)}
+                      placeholder="john@example.com"
+                    />
+                    <Input
+                      label="Phone Number"
+                      type="tel"
+                      required
+                      value={parentInfo.phone}
+                      onChange={(e) => updateParentInfo('phone', e.target.value)}
+                      placeholder="0712345678"
+                      helperText="Use the same email if you already have an account — we will link your swimmers."
+                    />
+                  </div>
+                </Card>
+
+                <Card
+                  title="Emergency Contact"
+                  padding="normal"
+                  subtitle="Alternative contact in case of emergency"
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <Input
+                      label="Full Name"
+                      required
+                      value={parentInfo.emergencyContactName}
+                      onChange={(e) => updateParentInfo('emergencyContactName', e.target.value)}
+                      placeholder="Jane Doe"
+                    />
+                    <Select
+                      label="Relationship"
+                      required
+                      value={parentInfo.emergencyContactRelationship}
+                      onChange={(e) => updateParentInfo('emergencyContactRelationship', e.target.value)}
+                      options={relationshipOptions}
+                    />
+                    <Input
+                      label="Phone Number"
+                      type="tel"
+                      required
+                      value={parentInfo.emergencyContactPhone}
+                      onChange={(e) => updateParentInfo('emergencyContactPhone', e.target.value)}
+                      placeholder="0712345678"
+                    />
+                  </div>
+                </Card>
+              </>
+            )}
 
             {swimmers.map((swimmer, index) => (
               <Card
@@ -299,12 +464,26 @@ export default function RegisterPage() {
                     value={swimmer.dateOfBirth}
                     onChange={(e) => {
                       const dob = e.target.value
-                      updateSwimmer(index, 'dateOfBirth', dob)
-                      // Auto-set 1-2 sessions for under-6 swimmers
-                      if (dob && calculateAge(dob) < 6) {
-                        updateSwimmer(index, 'sessionsPerWeek', '1-2')
-                        updateSwimmer(index, 'preferredPaymentType', 'monthly')
-                      }
+                      setSwimmers((prev) => {
+                        const next = [...prev]
+                        const prevRow = prev[index]
+                        const prevAge =
+                          prevRow.dateOfBirth ? calculateAge(prevRow.dateOfBirth) : null
+                        const row = { ...prevRow, dateOfBirth: dob }
+                        if (dob) {
+                          const newAge = calculateAge(dob)
+                          if (newAge < 6) {
+                            row.sessionsPerWeek = '1-2'
+                            row.preferredPaymentType = 'monthly'
+                            row.galaEventsOptIn = false
+                          } else if (prevAge !== null && prevAge < 6) {
+                            // Was Pups; now 6+ — require a fresh gala answer.
+                            row.galaEventsOptIn = null
+                          }
+                        }
+                        next[index] = row
+                        return next
+                      })
                     }}
                   />
                   <Select
@@ -361,7 +540,8 @@ export default function RegisterPage() {
                       <div className="space-y-2">
                         {Object.entries(SESSION_TIER_PRICING).map(([key, tier]) => {
                           const isSelected = swimmer.sessionsPerWeek === key
-                          const hasQuarterly = !tier.dropIn && tier.quarterly !== null
+                          const hasQuarterly = tier.quarterly !== null
+                          const paymentType = swimmer.preferredPaymentType || 'monthly'
                           return (
                             <div key={key}>
                               <label className={`flex items-start gap-3 cursor-pointer p-4 border-2 rounded-lg transition-colors ${
@@ -382,42 +562,70 @@ export default function RegisterPage() {
                                 </div>
                               </label>
 
-                              {/* Quarterly toggle */}
-                              {isSelected && hasQuarterly && (
-                                <div className="ml-7 mt-2 flex gap-4">
-                                  {['monthly', 'quarterly'].map((pt) => (
-                                    <label key={pt} className="flex items-center gap-2 cursor-pointer">
+                              {/* Payment cadence for this tier (monthly / quarterly / per session) */}
+                              {isSelected && (
+                                <div className="ml-7 mt-3">
+                                  <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-2">
+                                    How would you like to pay?
+                                  </p>
+                                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-4">
+                                    <label className="flex items-center gap-2 cursor-pointer">
                                       <input
                                         type="radio"
                                         name={`paymentType-${index}`}
-                                        value={pt}
-                                        checked={swimmer.preferredPaymentType === pt}
-                                        onChange={() => updateSwimmer(index, 'preferredPaymentType', pt)}
+                                        value="monthly"
+                                        checked={paymentType === 'monthly'}
+                                        onChange={() => updateSwimmer(index, 'preferredPaymentType', 'monthly')}
                                         className="w-4 h-4 text-primary focus:ring-primary"
                                       />
-                                      <span className="text-sm text-gray-700 dark:text-gray-300 capitalize">
-                                        {pt === 'quarterly'
-                                          ? `Quarterly — ${formatKES(tier.quarterly)} (save ${formatKES(tier.monthly * 3 - tier.quarterly)})`
-                                          : 'Monthly'}
+                                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                                        Monthly — {formatKES(tier.monthly)}
                                       </span>
                                     </label>
-                                  ))}
-                                </div>
-                              )}
+                                    {hasQuarterly && (
+                                      <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                          type="radio"
+                                          name={`paymentType-${index}`}
+                                          value="quarterly"
+                                          checked={paymentType === 'quarterly'}
+                                          onChange={() => updateSwimmer(index, 'preferredPaymentType', 'quarterly')}
+                                          className="w-4 h-4 text-primary focus:ring-primary"
+                                        />
+                                        <span className="text-sm text-gray-700 dark:text-gray-300">
+                                          Quarterly — {formatKES(tier.quarterly)} (save {formatKES(tier.monthly * 3 - tier.quarterly)})
+                                        </span>
+                                      </label>
+                                    )}
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                      <input
+                                        type="radio"
+                                        name={`paymentType-${index}`}
+                                        value="per_session"
+                                        checked={paymentType === 'per_session'}
+                                        onChange={() => updateSwimmer(index, 'preferredPaymentType', 'per_session')}
+                                        className="w-4 h-4 text-primary focus:ring-primary"
+                                      />
+                                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                                        Pay per session — {formatKES(OCCASIONAL_SWIMMER_RATE)} each
+                                      </span>
+                                    </label>
+                                  </div>
 
-                              {/* Drop-in info note */}
-                              {isSelected && tier.dropIn && (
-                                <p className="ml-7 mt-2 text-sm text-blue-700 dark:text-blue-300">
-                                  Drop-in sessions are invoiced per attendance at {formatKES(tier.perSession)} each. No monthly commitment.
-                                </p>
+                                  {paymentType === 'per_session' && (
+                                    <p className="mt-2 text-sm text-blue-700 dark:text-blue-300">
+                                      Per-session billing: you will be invoiced per attended training at {formatKES(OCCASIONAL_SWIMMER_RATE)}. No monthly commitment.
+                                    </p>
+                                  )}
+                                </div>
                               )}
                             </div>
                           )
                         })}
                       </div>
 
-                      {/* Early bird note — only for non-drop-in */}
-                      {swimmer.sessionsPerWeek && swimmer.sessionsPerWeek !== 'drop-in' && (
+                      {/* Early bird note — only for monthly swimmers (skipped for quarterly and per-session) */}
+                      {swimmer.sessionsPerWeek && (swimmer.preferredPaymentType || 'monthly') === 'monthly' && (
                         <p className="mt-3 text-xs text-green-700 dark:text-green-400 flex items-start gap-1">
                           <span>✓</span>
                           <span>
@@ -429,32 +637,35 @@ export default function RegisterPage() {
                   )}
                 </div>
 
-                {/* Competitive events / gala opt-in */}
-                <div className="mt-5">
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                    Do you wish for this swimmer to participate in competitive swimming events? <span className="text-red-500">*</span>
-                  </p>
-                  <div className="flex gap-6">
-                    {[
-                      { value: true,  label: 'Yes' },
-                      { value: false, label: 'No' },
-                    ].map(({ value, label }) => (
-                      <label key={label} className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="radio"
-                          name={`galaEvents-${index}`}
-                          checked={swimmer.galaEventsOptIn === value}
-                          onChange={() => updateSwimmer(index, 'galaEventsOptIn', value)}
-                          className="w-4 h-4 text-primary focus:ring-primary"
-                        />
-                        <span className="text-sm text-gray-700 dark:text-gray-300">{label}</span>
-                      </label>
-                    ))}
+                {/* Competitive events / gala opt-in — not shown for Pups (under 6) */}
+                {swimmer.dateOfBirth && calculateAge(swimmer.dateOfBirth) >= 6 && (
+                  <div className="mt-5">
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+                      Do you wish for this swimmer to participate in competitive swimming events?{' '}
+                      <span className="text-red-500">*</span>
+                    </p>
+                    <div className="flex gap-6">
+                      {[
+                        { value: true, label: 'Yes' },
+                        { value: false, label: 'No' },
+                      ].map(({ value, label }) => (
+                        <label key={label} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            name={`galaEvents-${index}`}
+                            checked={swimmer.galaEventsOptIn === value}
+                            onChange={() => updateSwimmer(index, 'galaEventsOptIn', value)}
+                            className="w-4 h-4 text-primary focus:ring-primary"
+                          />
+                          <span className="text-sm text-gray-700 dark:text-gray-300">{label}</span>
+                        </label>
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      Additional fees may apply for swimming events. You can update this preference later.
+                    </p>
                   </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Additional fees may apply for swimming events. You can update this preference later.
-                  </p>
-                </div>
+                )}
               </Card>
             ))}
 
@@ -473,31 +684,54 @@ export default function RegisterPage() {
                 No payment is taken today. Once the club assigns a squad and approves your registration,
                 an invoice will appear on your dashboard.
               </p>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between py-2 border-b border-gray-100 dark:border-gray-700">
-                  <span className="text-gray-700 dark:text-gray-300">Annual registration fee (per swimmer)</span>
-                  <span className="font-semibold text-gray-900 dark:text-gray-100">{formatKES(REGISTRATION_FEE)}</span>
+              <p className="text-sm font-medium text-gray-800 dark:text-gray-200 mb-3">
+                This registration (based on your choices above)
+              </p>
+              <div className="space-y-4 text-sm">
+                {feeLines.map((line, idx) => (
+                  <div
+                    key={idx}
+                    className="rounded-lg border border-gray-200 dark:border-gray-600 p-4 bg-slate-50/80 dark:bg-gray-900/40"
+                  >
+                    <p className="font-semibold text-gray-900 dark:text-gray-100 mb-2">{line.displayName}</p>
+                    <div className="space-y-2">
+                      <div className="flex justify-between gap-4">
+                        <span className="text-gray-600 dark:text-gray-400">Annual registration (one-time)</span>
+                        <span className="font-medium text-gray-900 dark:text-gray-100 text-right">
+                          {line.registrationAmount === null
+                            ? '—'
+                            : line.isUnderSix
+                              ? `${formatKES(0)} (under 6 waived)`
+                              : formatKES(line.registrationAmount)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between gap-4 items-start">
+                        <span className="text-gray-600 dark:text-gray-400">Training</span>
+                        <span className="font-medium text-gray-900 dark:text-gray-100 text-right max-w-[min(100%,14rem)]">
+                          {line.isWaivedTraining
+                            ? line.trainingLabel
+                            : line.trainingIncomplete && line.trainingAmount == null
+                              ? line.trainingLabel
+                              : line.isDropIn
+                                ? `${formatKES(line.trainingAmount)} per session`
+                                : line.trainingPeriod === 'quarter'
+                                  ? `${formatKES(line.trainingAmount)} per quarter`
+                                  : line.trainingPeriod === 'month'
+                                    ? `${formatKES(line.trainingAmount)}/month`
+                                    : line.trainingLabel}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <div className="flex justify-between py-3 border-t border-gray-200 dark:border-gray-600 font-semibold text-gray-900 dark:text-gray-100">
+                  <span>Total annual registration (this application)</span>
+                  <span>{formatKES(registrationOneTimeTotal)}</span>
                 </div>
-                <div className="flex justify-between py-2 border-b border-gray-100 dark:border-gray-700">
-                  <span className="text-gray-700 dark:text-gray-300">1–2 days/week training</span>
-                  <span className="font-semibold text-gray-900 dark:text-gray-100">{formatKES(7000)}/month</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-gray-100 dark:border-gray-700">
-                  <span className="text-gray-700 dark:text-gray-300">1–4 days/week training</span>
-                  <span className="font-semibold text-gray-900 dark:text-gray-100">
-                    {formatKES(12000)}/month <span className="text-gray-400">or {formatKES(30000)}/quarter</span>
-                  </span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-gray-100 dark:border-gray-700">
-                  <span className="text-gray-700 dark:text-gray-300">6 days/week training</span>
-                  <span className="font-semibold text-gray-900 dark:text-gray-100">
-                    {formatKES(14000)}/month <span className="text-gray-400">or {formatKES(36000)}/quarter</span>
-                  </span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-gray-100 dark:border-gray-700">
-                  <span className="text-gray-700 dark:text-gray-300">Occasional drop-in</span>
-                  <span className="font-semibold text-gray-900 dark:text-gray-100">{formatKES(OCCASIONAL_SWIMMER_RATE)}/session</span>
-                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Recurring training fees are shown per swimmer; monthly and quarterly amounts are not combined into one
+                  total when they differ.
+                </p>
               </div>
               <div className="mt-4 space-y-2">
                 <p className="text-xs text-green-700 dark:text-green-400">

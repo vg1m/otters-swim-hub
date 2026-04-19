@@ -39,6 +39,7 @@ export default function Navigation() {
                 src="/otters-logo.png"
                 alt="Otters Swimming Logo"
                 fill
+                sizes="(max-width: 639px) 96px, (max-width: 767px) 112px, 128px"
                 className="object-contain"
                 priority
               />
@@ -48,19 +49,27 @@ export default function Navigation() {
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-6">
-            <Link href="/#features" className="text-stone-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary-light transition-colors font-medium text-sm">
-              Features
-            </Link>
+            {!loading && !user && (
+              <Link href="/#features" className="text-stone-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary-light transition-colors font-medium text-sm">
+                Features
+              </Link>
+            )}
             {!loading && (
               <>
                 {user ? (
                   <>
-                    <Link 
-                      href={profile?.role === 'admin' ? '/admin/registrations' : profile?.role === 'coach' ? '/coach' : '/dashboard'} 
-                      className="text-stone-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary-light transition-colors font-medium text-sm"
+                    <span
+                      className="text-sm font-medium text-stone-400 dark:text-gray-500 cursor-default"
+                      title="Coming soon"
                     >
-                      Registrations
-                    </Link>
+                      Notifications <span className="text-xs font-normal">(soon)</span>
+                    </span>
+                    <span
+                      className="text-sm font-medium text-stone-400 dark:text-gray-500 cursor-default"
+                      title="Coming soon"
+                    >
+                      Merch <span className="text-xs font-normal">(soon)</span>
+                    </span>
                     {profile?.role === 'admin' && (
                       <>
                         <Link 
@@ -167,24 +176,25 @@ export default function Navigation() {
         {/* Mobile menu */}
         {isMobileMenuOpen && (
           <div className="md:hidden py-4 space-y-2">
-            <Link 
-              href="/#features" 
-              className="block px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-              onClick={() => setIsMobileMenuOpen(false)}
-            >
-              Features
-            </Link>
+            {!loading && !user && (
+              <Link
+                href="/#features"
+                className="block px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Features
+              </Link>
+            )}
             {!loading && (
               <>
                 {user ? (
                   <>
-                    <Link 
-                      href={profile?.role === 'admin' ? '/admin/registrations' : profile?.role === 'coach' ? '/coach' : '/dashboard'} 
-                      className="block px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                    >
-                      Registrations
-                    </Link>
+                    <div className="px-4 py-2 text-sm text-stone-400 dark:text-gray-500" title="Coming soon">
+                      Notifications <span className="text-xs">(soon)</span>
+                    </div>
+                    <div className="px-4 py-2 text-sm text-stone-400 dark:text-gray-500" title="Coming soon">
+                      Merch <span className="text-xs">(soon)</span>
+                    </div>
                     {profile?.role === 'admin' && (
                       <>
                         <Link 

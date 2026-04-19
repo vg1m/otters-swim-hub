@@ -9,8 +9,6 @@ import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
-import Input from '@/components/ui/Input'
-import Select from '@/components/ui/Select'
 import Modal from '@/components/ui/Modal'
 import { formatDate, formatDateTime } from '@/lib/utils/date-helpers'
 import { buildRecurrencePattern, parseRecurrencePattern, formatRecurrencePattern, getWeekday, getOrdinalWeek, expandRecurringSessions } from '@/lib/utils/recurrence'
@@ -19,6 +17,17 @@ import { Calendar, dateFnsLocalizer } from 'react-big-calendar'
 import { format, parse, startOfWeek, getDay, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns'
 import { enUS } from 'date-fns/locale/en-US'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
+import { getSquadCalendarEventProps } from '@/lib/utils/squad-calendar'
+import SessionFormFields from '@/components/admin/SessionFormFields'
+
+/** One pill per squad colour family (calendar events still resolve slug → colour). */
+const SQUAD_LEGEND_CHIPS = [
+  { label: 'Elite', cls: 'rbc-squad-elite' },
+  { label: 'Pups', cls: 'rbc-squad-pups' },
+  { label: 'Development', cls: 'rbc-squad-development' },
+  { label: 'Masters', cls: 'rbc-squad-masters' },
+  { label: 'Other / unassigned', cls: 'rbc-squad-default' },
+]
 
 const localizer = dateFnsLocalizer({
   format,
@@ -28,21 +37,69 @@ const localizer = dateFnsLocalizer({
   locales: { 'en-US': enUS },
 })
 
-// Map squad slug (or lowercase name) → CSS class applied to the calendar event chip
-const SQUAD_COLOR_CLASS = {
-  elite:       'rbc-squad-elite',
-  pups:        'rbc-squad-pups',
-  development: 'rbc-squad-development',
-  masters:     'rbc-squad-masters',
+const CALENDAR_VIEWS = ['month', 'week', 'day', 'agenda']
+
+const VIEW_LABELS = { month: 'Month', week: 'Week', day: 'Day', agenda: 'Agenda' }
+
+/** View-aware height: month/week/day get more vertical space than agenda; cap by viewport. */
+function computeCalendarHeight(view, innerWidth, innerHeight) {
+  const wide = innerWidth >= 768
+  if (!wide) {
+    if (view === 'agenda') {
+      return Math.max(340, Math.round(Math.min(innerHeight * 0.52, 560)))
+    }
+    return Math.max(420, Math.round(Math.min(innerHeight * 0.75, 720)))
+  }
+  if (view === 'agenda') return 680
+  if (view === 'month') return Math.min(Math.round(innerHeight * 0.88), 900)
+  return Math.min(Math.round(innerHeight * 0.88), 880)
 }
 
-function squadColorClass(session) {
-  const squads = session.training_session_squads ?? []
-  if (squads.length === 0) return 'rbc-squad-default'
-  // Use the first squad's slug or fall back to lowercased name
-  const first = squads[0]?.squads
-  const key = (first?.slug || first?.name || '').toLowerCase().replace(/[^a-z]/g, '')
-  return SQUAD_COLOR_CLASS[key] || 'rbc-squad-default'
+function SessionsCalendarToolbar({ label, onNavigate, onView, view }) {
+  return (
+    <div className="rbc-toolbar admin-rbc-toolbar flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 order-2 sm:order-1">
+        <button
+          type="button"
+          className="rbc-btn px-3 py-2.5 min-h-[44px] rounded-lg text-sm font-medium"
+          onClick={() => onNavigate('PREV')}
+        >
+          Back
+        </button>
+        <button
+          type="button"
+          className="rbc-btn px-3 py-2.5 min-h-[44px] rounded-lg text-sm font-medium"
+          onClick={() => onNavigate('TODAY')}
+        >
+          Today
+        </button>
+        <button
+          type="button"
+          className="rbc-btn px-3 py-2.5 min-h-[44px] rounded-lg text-sm font-medium"
+          onClick={() => onNavigate('NEXT')}
+        >
+          Next
+        </button>
+      </div>
+      <span className="rbc-toolbar-label order-1 sm:order-2 text-center font-semibold text-base text-gray-900 dark:text-gray-100 sm:flex-1 sm:min-w-[12rem]">
+        {label}
+      </span>
+      <div className="rbc-btn-group flex flex-wrap gap-1 order-3 w-full sm:w-auto justify-stretch sm:justify-end">
+        {CALENDAR_VIEWS.map((name) => (
+          <button
+            key={name}
+            type="button"
+            className={`rbc-btn flex-1 sm:flex-none px-3 py-2.5 min-h-[44px] rounded-lg text-sm font-medium ${
+              view === name ? 'rbc-active' : ''
+            }`}
+            onClick={() => onView(name)}
+          >
+            {VIEW_LABELS[name] ?? name}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 
@@ -62,7 +119,14 @@ export default function SessionsPage() {
   const [customPoolName, setCustomPoolName] = useState('')
   const [calendarDate, setCalendarDate] = useState(new Date())
   const [calendarView, setCalendarView] = useState('week')
+  const [windowSize, setWindowSize] = useState(null)
   const [selectedEvent, setSelectedEvent] = useState(null)
+  const [moreEvents, setMoreEvents] = useState(null)
+
+  const calendarHeight = useMemo(() => {
+    if (!windowSize) return 680
+    return computeCalendarHeight(calendarView, windowSize.w, windowSize.h)
+  }, [calendarView, windowSize])
   
   const [sessionForm, setSessionForm] = useState({
     session_date: '',
@@ -102,11 +166,37 @@ export default function SessionsPage() {
     }
   }, [user, profile, authLoading])
 
-  // Default to agenda view on small screens
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.innerWidth < 768) {
-      setCalendarView('agenda')
+    if (typeof window === 'undefined') return
+    if (window.innerWidth < 768) setCalendarView('agenda')
+  }, [])
+
+  /** When opened from attendance (e.g. ?date=2026-04-19), focus the calendar on that day. */
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const d = new URLSearchParams(window.location.search).get('date')
+    if (!d || !/^\d{4}-\d{2}-\d{2}$/.test(d)) return
+    const parsed = parse(d, 'yyyy-MM-dd', new Date())
+    if (!Number.isNaN(parsed.getTime())) setCalendarDate(parsed)
+  }, [])
+
+  useEffect(() => {
+    let lastWide = typeof window !== 'undefined' && window.innerWidth >= 768
+
+    function onResize() {
+      const w = window.innerWidth
+      const h = window.innerHeight
+      setWindowSize({ w, h })
+      const wide = w >= 768
+      if (wide !== lastWide) {
+        lastWide = wide
+        setCalendarView(wide ? 'week' : 'agenda')
+      }
     }
+
+    onResize()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
   }, [])
 
   const calendarEvents = useMemo(() => {
@@ -128,7 +218,7 @@ export default function SessionsPage() {
     try {
       const { data, error } = await supabase
         .from('training_sessions')
-        .select('*, training_session_squads(squad_id, squads(id, name))')
+        .select('*, training_session_squads(squad_id, squads(id, name, slug))')
         .order('session_date', { ascending: false })
         .order('start_time', { ascending: false })
         .limit(50)
@@ -188,6 +278,16 @@ export default function SessionsPage() {
 
     if (!showCustomPool && !sessionForm.facility_id) {
       toast.error('Please select a pool location')
+      return
+    }
+
+    if (
+      sessionForm.is_recurring &&
+      sessionForm.recurrence_type === 'custom' &&
+      sessionForm.recurrence_custom_unit === 'week' &&
+      (!Array.isArray(sessionForm.recurrence_custom_weekdays) || sessionForm.recurrence_custom_weekdays.length === 0)
+    ) {
+      toast.error('Pick at least one day of the week')
       return
     }
 
@@ -321,6 +421,16 @@ export default function SessionsPage() {
 
     if (!showCustomPool && !sessionForm.facility_id) {
       toast.error('Please select a pool location')
+      return
+    }
+
+    if (
+      sessionForm.is_recurring &&
+      sessionForm.recurrence_type === 'custom' &&
+      sessionForm.recurrence_custom_unit === 'week' &&
+      (!Array.isArray(sessionForm.recurrence_custom_weekdays) || sessionForm.recurrence_custom_weekdays.length === 0)
+    ) {
+      toast.error('Pick at least one day of the week')
       return
     }
 
@@ -458,52 +568,71 @@ export default function SessionsPage() {
       
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-8 flex justify-between items-center">
+          <div className="mb-6 sm:mb-8 flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Training Sessions</h1>
-              <p className="text-gray-600 dark:text-gray-400 mt-2">Manage pool schedule and training sessions</p>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
+                Training Sessions
+              </h1>
+              <p className="text-gray-600 dark:text-gray-400 mt-2 text-sm sm:text-base">
+                Manage pool schedule and training sessions
+              </p>
             </div>
-            <Button onClick={() => setShowCreateModal(true)}>
+            <Button className="w-full sm:w-auto shrink-0 justify-center" onClick={() => setShowCreateModal(true)}>
               + Create Session
             </Button>
           </div>
 
-          {/* Squad colour legend */}
-          <div className="flex flex-wrap gap-3 mb-4">
-            {[
-              { label: 'Elite',       cls: 'rbc-squad-elite' },
-              { label: 'Pups',        cls: 'rbc-squad-pups' },
-              { label: 'Development', cls: 'rbc-squad-development' },
-              { label: 'Masters',     cls: 'rbc-squad-masters' },
-              { label: 'Other',       cls: 'rbc-squad-default' },
-            ].map(({ label, cls }) => (
-              <span key={label} className={`squad-legend-chip ${cls}`}>{label}</span>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 md:hidden">
+            Tap a session to view details, edit, or delete. Tap an empty slot or use Create Session to add one.
+          </p>
+          <p className="hidden md:block text-sm text-gray-500 dark:text-gray-400 mb-3">
+            Click a session to open details. Click a time slot to create a session for that date.
+          </p>
+
+          {/* Squad colour legend — one pill per family (not per DB squad row) */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            {SQUAD_LEGEND_CHIPS.map(({ label, cls }) => (
+              <span key={label} className={`squad-legend-chip py-1.5 px-3 text-sm ${cls}`}>
+                {label}
+              </span>
             ))}
           </div>
 
-          <div className="rbc-wrapper bg-white dark:bg-gray-800 rounded-xl shadow p-2 min-h-[500px]">
+          <div
+            className={`admin-sessions-calendar rbc-wrapper bg-white dark:bg-gray-800 rounded-xl shadow p-2 sm:p-3 min-h-[min(70dvh,32rem)] md:min-h-[500px]${
+              calendarView === 'week' || calendarView === 'day'
+                ? ' admin-sessions-calendar--week-scroll'
+                : ''
+            }`}
+          >
             <Calendar
               localizer={localizer}
               events={calendarEvents}
               startAccessor="start"
               endAccessor="end"
-              style={{ height: 680 }}
+              style={{ height: calendarHeight }}
               view={calendarView}
               onView={setCalendarView}
               date={calendarDate}
               onNavigate={setCalendarDate}
-              views={['month', 'week', 'day', 'agenda']}
+              views={CALENDAR_VIEWS}
+              dayLayoutAlgorithm="no-overlap"
               onSelectEvent={(event) => setSelectedEvent(event.resource)}
               onSelectSlot={(slotInfo) => {
                 setSessionForm((f) => ({ ...f, session_date: format(slotInfo.start, 'yyyy-MM-dd') }))
                 setShowCreateModal(true)
               }}
               selectable
-              popup
-              eventPropGetter={(event) => ({ className: `rbc-event-custom ${squadColorClass(event.resource)}` })}
+              popup={false}
+              onShowMore={(events, date) => setMoreEvents({ date, events })}
+              eventPropGetter={(event) => {
+                const props = getSquadCalendarEventProps(event.resource)
+                return { className: props.className, style: props.style }
+              }}
               components={{
+                toolbar: SessionsCalendarToolbar,
                 event: ({ event }) => (
-                  <span className="text-xs font-medium leading-tight">
+                  <span className="text-xs font-medium leading-tight block truncate">
                     {event.title}
                     {event.resource?.is_recurring && (
                       <span className="ml-1 opacity-70">↻</span>
@@ -515,6 +644,67 @@ export default function SessionsPage() {
           </div>
         </div>
       </div>
+
+      {/* More Events (for Month "+N more") */}
+      <Modal
+        isOpen={!!moreEvents}
+        onClose={() => setMoreEvents(null)}
+        title={moreEvents ? `Sessions on ${formatDate(moreEvents.date)}` : 'Sessions'}
+        size="md"
+        footer={
+          <div className="flex justify-end">
+            <Button variant="secondary" onClick={() => setMoreEvents(null)}>Close</Button>
+          </div>
+        }
+      >
+        {moreEvents && (
+          <div className="space-y-2">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+              Tap a session to view, edit, or delete.
+            </p>
+            <ul className="divide-y divide-gray-100 dark:divide-gray-700 -mx-2">
+              {moreEvents.events.map((event, idx) => {
+                const { style } = getSquadCalendarEventProps(event.resource)
+                const timeLabel =
+                  event.start instanceof Date && event.end instanceof Date
+                    ? `${format(event.start, 'p')} – ${format(event.end, 'p')}`
+                    : `${event.resource?.start_time ?? ''} – ${event.resource?.end_time ?? ''}`
+                return (
+                  <li key={event.id ?? idx}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const session = event.resource
+                        setMoreEvents(null)
+                        setSelectedEvent(session)
+                      }}
+                      className="w-full text-left flex items-stretch gap-3 px-2 py-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/40 focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <span
+                        aria-hidden="true"
+                        className="w-1.5 rounded-full shrink-0"
+                        style={{ backgroundColor: style?.backgroundColor }}
+                      />
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
+                          {event.title}
+                          {event.resource?.is_recurring && (
+                            <span className="ml-1 text-gray-400" aria-label="Recurring">↻</span>
+                          )}
+                        </span>
+                        <span className="block text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                          {timeLabel}
+                          {event.resource?.pool_location ? ` · ${event.resource.pool_location}` : ''}
+                        </span>
+                      </span>
+                    </button>
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        )}
+      </Modal>
 
       {/* Event Detail Modal */}
       <Modal
@@ -582,7 +772,13 @@ export default function SessionsPage() {
       >
         {selectedEvent && (
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400 rounded-lg bg-gray-50 dark:bg-gray-900/50 px-3 py-2 border border-gray-100 dark:border-gray-700">
+              <span className="font-medium text-gray-800 dark:text-gray-200">Edit</span> opens the full form to
+              change date, time, squads, pool, and recurrence. Use{' '}
+              <span className="font-medium text-gray-800 dark:text-gray-200">Manage attendance</span> for the
+              register.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Date</p>
                 <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100">{formatDate(selectedEvent.session_date)}</p>
@@ -653,303 +849,16 @@ export default function SessionsPage() {
           </div>
         }
       >
-        <div className="grid grid-cols-2 gap-4">
-          <Input
-            label="Session Date"
-            type="date"
-            required
-            value={sessionForm.session_date}
-            onChange={(e) => setSessionForm({ ...sessionForm, session_date: e.target.value })}
-          />
-          <div className="grid grid-cols-2 gap-2">
-            <Input
-              label="Start Time"
-              type="time"
-              required
-              value={sessionForm.start_time}
-              onChange={(e) => setSessionForm({ ...sessionForm, start_time: e.target.value })}
-            />
-            <Input
-              label="End Time"
-              type="time"
-              required
-              value={sessionForm.end_time}
-              onChange={(e) => setSessionForm({ ...sessionForm, end_time: e.target.value })}
-            />
-          </div>
-          <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Squads <span className="text-red-500">*</span>
-            </label>
-            <div className="flex flex-wrap gap-3">
-              {squadList.map(squad => (
-                <label key={squad.id} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    value={squad.id}
-                    checked={sessionForm.squad_ids.includes(squad.id)}
-                    onChange={(e) => {
-                      const id = e.target.value
-                      setSessionForm(prev => ({
-                        ...prev,
-                        squad_ids: e.target.checked
-                          ? [...prev.squad_ids, id]
-                          : prev.squad_ids.filter(s => s !== id)
-                      }))
-                    }}
-                    className="w-4 h-4 rounded text-primary focus:ring-primary"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">{squad.name}</span>
-                </label>
-              ))}
-            </div>
-            {squadList.length === 0 && (
-              <p className="text-sm text-gray-400 dark:text-gray-500">No active squads. Create squads under Admin &rsaquo; Squads.</p>
-            )}
-          </div>
-          <div className={showCustomPool ? 'col-span-2' : ''}>
-            <Select
-              label="Pool Location"
-              required
-              value={showCustomPool ? 'custom' : (sessionForm.facility_id || '')}
-              onChange={(e) => {
-                if (e.target.value === 'custom') {
-                  setShowCustomPool(true)
-                  setCustomPoolName('')
-                  setSessionForm({ ...sessionForm, facility_id: '', pool_location: '' })
-                } else {
-                  setShowCustomPool(false)
-                  setCustomPoolName('')
-                  const facility = facilities.find(f => f.id === e.target.value)
-                  setSessionForm({ 
-                    ...sessionForm, 
-                    facility_id: e.target.value,
-                    pool_location: facility?.name || ''
-                  })
-                }
-              }}
-              options={[
-                ...facilities.map(f => ({ 
-                  value: f.id, 
-                  label: `${f.name} (${f.lanes} lanes, ${f.pool_length}M)`
-                })),
-                { value: 'custom', label: '➕ Add New Pool Location' }
-              ]}
-            />
-            {showCustomPool && (
-              <div className="mt-4">
-                <Input
-                  label="New Pool Name"
-                  required
-                  value={customPoolName}
-                  onChange={(e) => setCustomPoolName(e.target.value)}
-                  placeholder="e.g., New Training Center"
-                  helperText="This pool will be added to your facilities list"
-                />
-              </div>
-            )}
-          </div>
-          
-          {/* Recurring Session Toggle */}
-          <div className="col-span-2 pt-3 border-t border-gray-200 dark:border-gray-700">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={sessionForm.is_recurring}
-                onChange={(e) => setSessionForm({ ...sessionForm, is_recurring: e.target.checked })}
-                className="w-5 h-5 rounded text-primary focus:ring-2 focus:ring-primary"
-              />
-              <div>
-                <span className="font-medium text-gray-900 dark:text-gray-100">Recurring Session</span>
-                <p className="text-sm text-gray-500 dark:text-gray-400">This session repeats on a schedule</p>
-              </div>
-            </label>
-          </div>
-
-          {sessionForm.is_recurring && (
-            <>
-              <Select
-                label="Recurrence Pattern"
-                required={sessionForm.is_recurring}
-                value={sessionForm.recurrence_type}
-                onChange={(e) => setSessionForm({ ...sessionForm, recurrence_type: e.target.value })}
-                options={[
-                  { value: 'daily', label: 'Daily' },
-                  { value: 'weekly', label: 'Weekly' },
-                  { value: 'biweekly', label: 'Bi-weekly' },
-                  { value: 'monthly', label: 'Monthly' },
-                  { value: 'weekly_on_day', label: 'Weekly on specific day' },
-                  { value: 'monthly_on_week_day', label: 'Monthly on specific week/day' },
-                  { value: 'monthly_on_first_last', label: 'Monthly on first/last day' },
-                  { value: 'annually', label: 'Annually on specific date' },
-                  { value: 'custom', label: 'Custom' }
-                ]}
-              />
-
-              {sessionForm.recurrence_type === 'weekly_on_day' && (
-                <Select
-                  label="Day of Week"
-                  required
-                  value={sessionForm.recurrence_weekday}
-                  onChange={(e) => setSessionForm({ ...sessionForm, recurrence_weekday: e.target.value })}
-                  options={[
-                    { value: '0', label: 'Sunday' },
-                    { value: '1', label: 'Monday' },
-                    { value: '2', label: 'Tuesday' },
-                    { value: '3', label: 'Wednesday' },
-                    { value: '4', label: 'Thursday' },
-                    { value: '5', label: 'Friday' },
-                    { value: '6', label: 'Saturday' }
-                  ]}
-                  helperText={sessionForm.session_date ? `Session date is ${new Date(sessionForm.session_date).toLocaleDateString('en-US', { weekday: 'long' })}` : ''}
-                />
-              )}
-
-              {sessionForm.recurrence_type === 'monthly_on_week_day' && (
-                <>
-                  <Select
-                    label="Week of Month"
-                    required
-                    value={sessionForm.recurrence_ordinal}
-                    onChange={(e) => setSessionForm({ ...sessionForm, recurrence_ordinal: e.target.value })}
-                    options={[
-                      { value: '1', label: 'First' },
-                      { value: '2', label: 'Second' },
-                      { value: '3', label: 'Third' },
-                      { value: '4', label: 'Fourth' },
-                      { value: '5', label: 'Fifth' }
-                    ]}
-                  />
-                  <Select
-                    label="Day of Week"
-                    required
-                    value={sessionForm.recurrence_weekday}
-                    onChange={(e) => setSessionForm({ ...sessionForm, recurrence_weekday: e.target.value })}
-                    options={[
-                      { value: '0', label: 'Sunday' },
-                      { value: '1', label: 'Monday' },
-                      { value: '2', label: 'Tuesday' },
-                      { value: '3', label: 'Wednesday' },
-                      { value: '4', label: 'Thursday' },
-                      { value: '5', label: 'Friday' },
-                      { value: '6', label: 'Saturday' }
-                    ]}
-                  />
-                </>
-              )}
-
-              {sessionForm.recurrence_type === 'monthly_on_first_last' && (
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Day Selection
-                  </label>
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="day_type"
-                        value="first"
-                        checked={sessionForm.recurrence_day_type === 'first'}
-                        onChange={(e) => setSessionForm({ ...sessionForm, recurrence_day_type: e.target.value })}
-                        className="w-4 h-4 text-primary"
-                      />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">First day of month</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="day_type"
-                        value="last"
-                        checked={sessionForm.recurrence_day_type === 'last'}
-                        onChange={(e) => setSessionForm({ ...sessionForm, recurrence_day_type: e.target.value })}
-                        className="w-4 h-4 text-primary"
-                      />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">Last day of month</span>
-                    </label>
-                  </div>
-                </div>
-              )}
-
-              {sessionForm.recurrence_type === 'annually' && (
-                <Input
-                  label="Date (Month-Day)"
-                  type="text"
-                  required
-                  value={sessionForm.recurrence_annually_date}
-                  onChange={(e) => setSessionForm({ ...sessionForm, recurrence_annually_date: e.target.value })}
-                  placeholder="MM-DD (e.g., 03-12 for March 12)"
-                  helperText="Format: MM-DD"
-                />
-              )}
-
-              {sessionForm.recurrence_type === 'custom' && (
-                <>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      label="Repeat every"
-                      type="number"
-                      required
-                      min="1"
-                      max="99"
-                      value={sessionForm.recurrence_custom_interval}
-                      onChange={(e) => setSessionForm({ ...sessionForm, recurrence_custom_interval: e.target.value })}
-                    />
-                    <Select
-                      label="Unit"
-                      required
-                      value={sessionForm.recurrence_custom_unit}
-                      onChange={(e) => setSessionForm({ ...sessionForm, recurrence_custom_unit: e.target.value })}
-                      options={[
-                        { value: 'day', label: 'Day(s)' },
-                        { value: 'week', label: 'Week(s)' },
-                        { value: 'month', label: 'Month(s)' },
-                        { value: 'year', label: 'Year(s)' }
-                      ]}
-                    />
-                  </div>
-
-                  {sessionForm.recurrence_custom_unit === 'week' && (
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Repeat on days
-                      </label>
-                      <div className="flex gap-2">
-                        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) => (
-                          <label key={idx} className="flex flex-col items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={sessionForm.recurrence_custom_weekdays.includes(idx)}
-                              onChange={(e) => {
-                                const days = [...sessionForm.recurrence_custom_weekdays]
-                                if (e.target.checked) {
-                                  days.push(idx)
-                                } else {
-                                  const index = days.indexOf(idx)
-                                  if (index > -1) days.splice(index, 1)
-                                }
-                                setSessionForm({ ...sessionForm, recurrence_custom_weekdays: days })
-                              }}
-                              className="w-5 h-5 rounded text-primary"
-                            />
-                            <span className="text-xs mt-1 text-gray-700 dark:text-gray-300">{day}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-
-              <Input
-                label="Recurrence End Date"
-                type="date"
-                value={sessionForm.recurrence_end_date}
-                onChange={(e) => setSessionForm({ ...sessionForm, recurrence_end_date: e.target.value })}
-                helperText="Leave blank for indefinite"
-              />
-            </>
-          )}
-        </div>
+        <SessionFormFields
+          sessionForm={sessionForm}
+          setSessionForm={setSessionForm}
+          facilities={facilities}
+          squadList={squadList}
+          showCustomPool={showCustomPool}
+          setShowCustomPool={setShowCustomPool}
+          customPoolName={customPoolName}
+          setCustomPoolName={setCustomPoolName}
+        />
       </Modal>
 
       {/* Edit Session Modal */}
@@ -986,303 +895,16 @@ export default function SessionsPage() {
           </div>
         }
       >
-        <div className="grid grid-cols-2 gap-4">
-          <Input
-            label="Session Date"
-            type="date"
-            required
-            value={sessionForm.session_date}
-            onChange={(e) => setSessionForm({ ...sessionForm, session_date: e.target.value })}
-          />
-          <div className="grid grid-cols-2 gap-2">
-            <Input
-              label="Start Time"
-              type="time"
-              required
-              value={sessionForm.start_time}
-              onChange={(e) => setSessionForm({ ...sessionForm, start_time: e.target.value })}
-            />
-            <Input
-              label="End Time"
-              type="time"
-              required
-              value={sessionForm.end_time}
-              onChange={(e) => setSessionForm({ ...sessionForm, end_time: e.target.value })}
-            />
-          </div>
-          <div className="col-span-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Squads <span className="text-red-500">*</span>
-            </label>
-            <div className="flex flex-wrap gap-3">
-              {squadList.map(squad => (
-                <label key={squad.id} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    value={squad.id}
-                    checked={sessionForm.squad_ids.includes(squad.id)}
-                    onChange={(e) => {
-                      const id = e.target.value
-                      setSessionForm(prev => ({
-                        ...prev,
-                        squad_ids: e.target.checked
-                          ? [...prev.squad_ids, id]
-                          : prev.squad_ids.filter(s => s !== id)
-                      }))
-                    }}
-                    className="w-4 h-4 rounded text-primary focus:ring-primary"
-                  />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">{squad.name}</span>
-                </label>
-              ))}
-            </div>
-            {squadList.length === 0 && (
-              <p className="text-sm text-gray-400 dark:text-gray-500">No active squads. Create squads under Admin &rsaquo; Squads.</p>
-            )}
-          </div>
-          <div className={showCustomPool ? 'col-span-2' : ''}>
-            <Select
-              label="Pool Location"
-              required
-              value={showCustomPool ? 'custom' : (sessionForm.facility_id || '')}
-              onChange={(e) => {
-                if (e.target.value === 'custom') {
-                  setShowCustomPool(true)
-                  setCustomPoolName('')
-                  setSessionForm({ ...sessionForm, facility_id: '', pool_location: '' })
-                } else {
-                  setShowCustomPool(false)
-                  setCustomPoolName('')
-                  const facility = facilities.find(f => f.id === e.target.value)
-                  setSessionForm({ 
-                    ...sessionForm, 
-                    facility_id: e.target.value,
-                    pool_location: facility?.name || ''
-                  })
-                }
-              }}
-              options={[
-                ...facilities.map(f => ({ 
-                  value: f.id, 
-                  label: `${f.name} (${f.lanes} lanes, ${f.pool_length}M)`
-                })),
-                { value: 'custom', label: '➕ Add New Pool Location' }
-              ]}
-            />
-            {showCustomPool && (
-              <div className="mt-4">
-                <Input
-                  label="New Pool Name"
-                  required
-                  value={customPoolName}
-                  onChange={(e) => setCustomPoolName(e.target.value)}
-                  placeholder="e.g., New Training Center"
-                  helperText="This pool will be added to your facilities list"
-                />
-              </div>
-            )}
-          </div>
-          
-          {/* Recurring Session Toggle */}
-          <div className="col-span-2 pt-3 border-t border-gray-200 dark:border-gray-700">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={sessionForm.is_recurring}
-                onChange={(e) => setSessionForm({ ...sessionForm, is_recurring: e.target.checked })}
-                className="w-5 h-5 rounded text-primary focus:ring-2 focus:ring-primary"
-              />
-              <div>
-                <span className="font-medium text-gray-900 dark:text-gray-100">Recurring Session</span>
-                <p className="text-sm text-gray-500 dark:text-gray-400">This session repeats on a schedule</p>
-              </div>
-            </label>
-          </div>
-
-          {sessionForm.is_recurring && (
-            <>
-              <Select
-                label="Recurrence Pattern"
-                required={sessionForm.is_recurring}
-                value={sessionForm.recurrence_type}
-                onChange={(e) => setSessionForm({ ...sessionForm, recurrence_type: e.target.value })}
-                options={[
-                  { value: 'daily', label: 'Daily' },
-                  { value: 'weekly', label: 'Weekly' },
-                  { value: 'biweekly', label: 'Bi-weekly' },
-                  { value: 'monthly', label: 'Monthly' },
-                  { value: 'weekly_on_day', label: 'Weekly on specific day' },
-                  { value: 'monthly_on_week_day', label: 'Monthly on specific week/day' },
-                  { value: 'monthly_on_first_last', label: 'Monthly on first/last day' },
-                  { value: 'annually', label: 'Annually on specific date' },
-                  { value: 'custom', label: 'Custom' }
-                ]}
-              />
-
-              {sessionForm.recurrence_type === 'weekly_on_day' && (
-                <Select
-                  label="Day of Week"
-                  required
-                  value={sessionForm.recurrence_weekday}
-                  onChange={(e) => setSessionForm({ ...sessionForm, recurrence_weekday: e.target.value })}
-                  options={[
-                    { value: '0', label: 'Sunday' },
-                    { value: '1', label: 'Monday' },
-                    { value: '2', label: 'Tuesday' },
-                    { value: '3', label: 'Wednesday' },
-                    { value: '4', label: 'Thursday' },
-                    { value: '5', label: 'Friday' },
-                    { value: '6', label: 'Saturday' }
-                  ]}
-                  helperText={sessionForm.session_date ? `Session date is ${new Date(sessionForm.session_date).toLocaleDateString('en-US', { weekday: 'long' })}` : ''}
-                />
-              )}
-
-              {sessionForm.recurrence_type === 'monthly_on_week_day' && (
-                <>
-                  <Select
-                    label="Week of Month"
-                    required
-                    value={sessionForm.recurrence_ordinal}
-                    onChange={(e) => setSessionForm({ ...sessionForm, recurrence_ordinal: e.target.value })}
-                    options={[
-                      { value: '1', label: 'First' },
-                      { value: '2', label: 'Second' },
-                      { value: '3', label: 'Third' },
-                      { value: '4', label: 'Fourth' },
-                      { value: '5', label: 'Fifth' }
-                    ]}
-                  />
-                  <Select
-                    label="Day of Week"
-                    required
-                    value={sessionForm.recurrence_weekday}
-                    onChange={(e) => setSessionForm({ ...sessionForm, recurrence_weekday: e.target.value })}
-                    options={[
-                      { value: '0', label: 'Sunday' },
-                      { value: '1', label: 'Monday' },
-                      { value: '2', label: 'Tuesday' },
-                      { value: '3', label: 'Wednesday' },
-                      { value: '4', label: 'Thursday' },
-                      { value: '5', label: 'Friday' },
-                      { value: '6', label: 'Saturday' }
-                    ]}
-                  />
-                </>
-              )}
-
-              {sessionForm.recurrence_type === 'monthly_on_first_last' && (
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Day Selection
-                  </label>
-                  <div className="flex gap-4">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="day_type"
-                        value="first"
-                        checked={sessionForm.recurrence_day_type === 'first'}
-                        onChange={(e) => setSessionForm({ ...sessionForm, recurrence_day_type: e.target.value })}
-                        className="w-4 h-4 text-primary"
-                      />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">First day of month</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="day_type"
-                        value="last"
-                        checked={sessionForm.recurrence_day_type === 'last'}
-                        onChange={(e) => setSessionForm({ ...sessionForm, recurrence_day_type: e.target.value })}
-                        className="w-4 h-4 text-primary"
-                      />
-                      <span className="text-sm text-gray-700 dark:text-gray-300">Last day of month</span>
-                    </label>
-                  </div>
-                </div>
-              )}
-
-              {sessionForm.recurrence_type === 'annually' && (
-                <Input
-                  label="Date (Month-Day)"
-                  type="text"
-                  required
-                  value={sessionForm.recurrence_annually_date}
-                  onChange={(e) => setSessionForm({ ...sessionForm, recurrence_annually_date: e.target.value })}
-                  placeholder="MM-DD (e.g., 03-12 for March 12)"
-                  helperText="Format: MM-DD"
-                />
-              )}
-
-              {sessionForm.recurrence_type === 'custom' && (
-                <>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      label="Repeat every"
-                      type="number"
-                      required
-                      min="1"
-                      max="99"
-                      value={sessionForm.recurrence_custom_interval}
-                      onChange={(e) => setSessionForm({ ...sessionForm, recurrence_custom_interval: e.target.value })}
-                    />
-                    <Select
-                      label="Unit"
-                      required
-                      value={sessionForm.recurrence_custom_unit}
-                      onChange={(e) => setSessionForm({ ...sessionForm, recurrence_custom_unit: e.target.value })}
-                      options={[
-                        { value: 'day', label: 'Day(s)' },
-                        { value: 'week', label: 'Week(s)' },
-                        { value: 'month', label: 'Month(s)' },
-                        { value: 'year', label: 'Year(s)' }
-                      ]}
-                    />
-                  </div>
-
-                  {sessionForm.recurrence_custom_unit === 'week' && (
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Repeat on days
-                      </label>
-                      <div className="flex gap-2">
-                        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) => (
-                          <label key={idx} className="flex flex-col items-center cursor-pointer">
-                            <input
-                              type="checkbox"
-                              checked={sessionForm.recurrence_custom_weekdays.includes(idx)}
-                              onChange={(e) => {
-                                const days = [...sessionForm.recurrence_custom_weekdays]
-                                if (e.target.checked) {
-                                  days.push(idx)
-                                } else {
-                                  const index = days.indexOf(idx)
-                                  if (index > -1) days.splice(index, 1)
-                                }
-                                setSessionForm({ ...sessionForm, recurrence_custom_weekdays: days })
-                              }}
-                              className="w-5 h-5 rounded text-primary"
-                            />
-                            <span className="text-xs mt-1 text-gray-700 dark:text-gray-300">{day}</span>
-                          </label>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-
-              <Input
-                label="Recurrence End Date"
-                type="date"
-                value={sessionForm.recurrence_end_date}
-                onChange={(e) => setSessionForm({ ...sessionForm, recurrence_end_date: e.target.value })}
-                helperText="Leave blank for indefinite"
-              />
-            </>
-          )}
-        </div>
+        <SessionFormFields
+          sessionForm={sessionForm}
+          setSessionForm={setSessionForm}
+          facilities={facilities}
+          squadList={squadList}
+          showCustomPool={showCustomPool}
+          setShowCustomPool={setShowCustomPool}
+          customPoolName={customPoolName}
+          setCustomPoolName={setCustomPoolName}
+        />
       </Modal>
 
       <Footer />

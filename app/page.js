@@ -22,7 +22,7 @@ export default function Home() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="max-w-3xl mx-auto text-center">
             <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-stone-900 dark:text-gray-100 mb-6 tracking-tightest leading-tight">
-              Welcome to <span className="text-primary dark:text-primary-light">Otters Kenya</span> Swim Club
+              Welcome to <span className="text-primary dark:text-primary-light">Otters Kenya </span> Swim Club
             </h1>
             <p className="text-lg sm:text-xl text-stone-600 dark:text-gray-300 mb-10 leading-relaxed max-w-2xl mx-auto font-medium">
               Your home for competitive swimming excellence in Kenya. 

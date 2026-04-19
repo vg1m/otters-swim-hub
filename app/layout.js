@@ -1,6 +1,7 @@
 import './globals.css'
 import { Toaster } from 'react-hot-toast'
 import { ThemeProvider } from '@/contexts/ThemeContext'
+import SessionTimeoutWatcher from '@/components/SessionTimeoutWatcher'
 
 export const metadata = {
   title: 'Otters Kenya Swim Club',
@@ -41,6 +42,7 @@ export default function RootLayout({ children }) {
       <body className="bg-stone-50 dark:bg-gray-900 text-stone-900 dark:text-gray-100 transition-colors duration-200">
         <ThemeProvider>
           <div className="grain-overlay"></div>
+          <SessionTimeoutWatcher />
           {children}
           <Toaster 
             position="top-right"

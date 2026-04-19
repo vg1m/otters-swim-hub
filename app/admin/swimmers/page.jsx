@@ -247,7 +247,7 @@ export default function SwimmersManagementPage() {
       render: (row) => (
         <div className="text-sm text-gray-900 dark:text-gray-100 max-w-[12rem]">
           <span>{formatSessionsPerWeekLabel(row.sessions_per_week)}</span>
-          {row.sessions_per_week && row.sessions_per_week !== 'drop-in' && row.preferred_payment_type && (
+          {row.preferred_payment_type && (
             <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
               {formatPreferredPaymentTypeLabel(row.preferred_payment_type)}
             </span>
@@ -477,16 +477,14 @@ export default function SwimmersManagementPage() {
             <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
               {formatSessionsPerWeekLabel(selectedSwimmer?.sessions_per_week)}
             </p>
-            {selectedSwimmer?.sessions_per_week &&
-              selectedSwimmer.sessions_per_week !== 'drop-in' &&
-              selectedSwimmer.preferred_payment_type && (
-                <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
-                  Billing: {formatPreferredPaymentTypeLabel(selectedSwimmer.preferred_payment_type)}
-                </p>
-              )}
-            {selectedSwimmer?.sessions_per_week === 'drop-in' && (
+            {selectedSwimmer?.preferred_payment_type && (
+              <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
+                Billing: {formatPreferredPaymentTypeLabel(selectedSwimmer.preferred_payment_type)}
+              </p>
+            )}
+            {selectedSwimmer?.preferred_payment_type === 'per_session' && (
               <p className="mt-1 text-xs text-blue-700 dark:text-blue-300">
-                Drop-in: align squad with occasional / per-session billing.
+                Per-session: invoiced per attended training. No monthly commitment.
               </p>
             )}
           </div>

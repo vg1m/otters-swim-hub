@@ -6,11 +6,17 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 
+const SIGN_OUT_REASONS = {
+  idle: 'You were signed out after 30 minutes of inactivity. Please sign in again.',
+  expired: 'Your session expired for security reasons. Please sign in again.',
+}
+
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [oauthLoading, setOauthLoading] = useState(false)
+  const [signOutReason, setSignOutReason] = useState(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -25,6 +31,13 @@ export default function LoginPage() {
     const err = params.get('error')
     if (err) {
       toast.error(decodeURIComponent(err))
+      window.history.replaceState({}, '', '/login')
+      return
+    }
+    const reason = params.get('reason')
+    if (reason && SIGN_OUT_REASONS[reason]) {
+      setSignOutReason(reason)
+      // Strip the query param so a refresh doesn't keep the banner forever.
       window.history.replaceState({}, '', '/login')
     }
   }, [])
@@ -125,6 +138,15 @@ export default function LoginPage() {
             Otters Academy of Swimming Limited
           </p>
         </div>
+
+        {signOutReason && (
+          <div
+            role="status"
+            className="rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 px-4 py-3 text-sm text-amber-900 dark:text-amber-100"
+          >
+            {SIGN_OUT_REASONS[signOutReason]}
+          </div>
+        )}
 
         <div className="mt-8 space-y-4">
           <button

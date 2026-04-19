@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { profileCache } from '@/lib/cache/profile-cache'
+import { stampSignIn, clearSessionStamps } from '@/lib/auth/session-timeout'
 
 export function useAuth() {
   const [user, setUser] = useState(null)
@@ -91,6 +92,18 @@ export function useAuth() {
         
         if (session?.user) {
           setUser(session.user)
+          // Anchor the absolute session clock on the first load if it's missing
+          // (e.g. the user signed in before this feature shipped, or came back
+          // via an OAuth callback that didn't pass through the signIn helper).
+          if (typeof window !== 'undefined') {
+            try {
+              if (!window.localStorage.getItem('otters.signedInAt')) {
+                stampSignIn()
+              }
+            } catch {
+              // ignore storage errors
+            }
+          }
           // Try to load from cache first for instant display
           const cached = profileCache.get(session.user.id)
           if (cached) {
@@ -148,7 +161,11 @@ export function useAuth() {
           
           if (session?.user) {
             setUser(session.user)
-            
+
+            if (event === 'SIGNED_IN') {
+              stampSignIn()
+            }
+
             // For sign-in events, force refresh profile
             const forceRefresh = event === 'SIGNED_IN' || event === 'USER_UPDATED'
             await getProfile(session.user.id, forceRefresh)
@@ -156,6 +173,7 @@ export function useAuth() {
             setUser(null)
             setProfile(null)
             profileCache.clearAll()
+            clearSessionStamps()
           }
           setLoading(false)
         }, 100) // 100ms debounce
@@ -178,6 +196,7 @@ export function useAuth() {
     })
 
     if (error) throw error
+    stampSignIn()
     return data
   }, [supabase])
 
@@ -218,6 +237,7 @@ export function useAuth() {
     
     // Clear all caches on sign out
     profileCache.clearAll()
+    clearSessionStamps()
     setUser(null)
     setProfile(null)
     

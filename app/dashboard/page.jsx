@@ -11,14 +11,15 @@ import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
 import AttendanceCalendarModal from '@/components/AttendanceCalendarModal'
+import SessionDetailsModal from '@/components/SessionDetailsModal'
 import { calculateAge, formatDate } from '@/lib/utils/date-helpers'
 import { formatKES } from '@/lib/utils/currency'
-import { formatRecurrencePattern } from '@/lib/utils/recurrence'
+import { formatRecurrencePattern, expandRecurringSessions } from '@/lib/utils/recurrence'
 import toast from 'react-hot-toast'
 
-function sessionSquadsLabel(session) {
+function sessionSquadNames(session) {
   const links = session.training_session_squads || []
-  return links.map((l) => l.squads?.name).filter(Boolean).join(', ') || '—'
+  return links.map((l) => l.squads?.name).filter(Boolean)
 }
 
 function sessionMatchesSwimmerSquad(session, squadId) {
@@ -32,9 +33,11 @@ export default function ParentDashboard() {
   const { user, profile, loading: authLoading } = useAuth()
   const [swimmers, setSwimmers] = useState([])
   const [upcomingSessions, setUpcomingSessions] = useState([])
+  const [scheduledSessions, setScheduledSessions] = useState([])
   const [outstandingInvoices, setOutstandingInvoices] = useState([])
   const [attendanceBySwimmer, setAttendanceBySwimmer] = useState({})
   const [loading, setLoading] = useState(true)
+  const [selectedSession, setSelectedSession] = useState(null)
   const dataLoadedRef = useRef(false)
 
   const loadDashboardData = useCallback(async () => {
@@ -43,8 +46,12 @@ export default function ParentDashboard() {
     console.log('Starting to load dashboard data...')
 
     try {
-      const today = new Date().toISOString().split('T')[0]
-      const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      const now = new Date()
+      const todayStr = now.toISOString().split('T')[0]
+      // Widen window so recurring session origins older than today are still included
+      const windowStart = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000)
+      const windowEnd = new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000)
+      const windowEndStr = windowEnd.toISOString().split('T')[0]
 
       // First load swimmers to get their IDs
       const swimmersResult = await supabase
@@ -65,7 +72,10 @@ export default function ParentDashboard() {
       
       const swimmerIds = swimmersList.map(s => s.id)
 
-      // Load rest of data in parallel
+      // Load rest of data in parallel. Sessions query pulls origins up to the
+      // window end so expandRecurringSessions can materialise every occurrence
+      // that lands in our ±6-month window, including recurring bases whose
+      // origin date predates the window.
       const [sessionsResult, invoicesResult, attendanceResult] = await Promise.all([
         supabase
           .from('training_sessions')
@@ -78,8 +88,7 @@ export default function ParentDashboard() {
             )
           `
           )
-          .gte('session_date', today)
-          .lte('session_date', nextWeek)
+          .lte('session_date', windowEndStr)
           .order('session_date', { ascending: true })
           .order('start_time', { ascending: true }),
         
@@ -102,16 +111,32 @@ export default function ParentDashboard() {
               `)
               .in('swimmer_id', swimmerIds)
               .order('created_at', { ascending: false })
-              .limit(50)
+              .limit(500)
           : Promise.resolve({ data: [], error: null })
       ])
 
-      // Handle results
+      // Expand recurring sessions across the ±6-month window once. This is
+      // the canonical schedule used by the attendance calendar, the next-session
+      // line on swimmer cards, and the Upcoming Training Sessions list.
       if (sessionsResult.error) {
         console.error('Error loading sessions:', sessionsResult.error)
+        setScheduledSessions([])
         setUpcomingSessions([])
       } else {
-        setUpcomingSessions(sessionsResult.data || [])
+        const expanded = expandRecurringSessions(
+          sessionsResult.data || [],
+          windowStart,
+          windowEnd
+        )
+          .slice()
+          .sort((a, b) => {
+            if (a.session_date !== b.session_date) {
+              return a.session_date < b.session_date ? -1 : 1
+            }
+            return (a.start_time || '').localeCompare(b.start_time || '')
+          })
+        setScheduledSessions(expanded)
+        setUpcomingSessions(expanded.filter((s) => s.session_date >= todayStr))
       }
 
       if (invoicesResult.error) {
@@ -121,7 +146,9 @@ export default function ParentDashboard() {
         setOutstandingInvoices(invoicesResult.data || [])
       }
 
-      // Group attendance by swimmer (limit to 5 most recent per swimmer)
+      // Group all attendance rows by swimmer. The attendance calendar needs
+      // every historical check-in to render a full monthly picture, so we no
+      // longer cap to 5 records per swimmer.
       if (attendanceResult.error) {
         console.error('Error loading attendance:', attendanceResult.error)
         setAttendanceBySwimmer({})
@@ -130,9 +157,7 @@ export default function ParentDashboard() {
           if (!acc[att.swimmer_id]) {
             acc[att.swimmer_id] = []
           }
-          if (acc[att.swimmer_id].length < 5) {
-            acc[att.swimmer_id].push(att)
-          }
+          acc[att.swimmer_id].push(att)
           return acc
         }, {})
         setAttendanceBySwimmer(grouped)
@@ -317,6 +342,7 @@ export default function ParentDashboard() {
                     key={swimmer.id} 
                     swimmer={swimmer} 
                     sessions={upcomingSessions}
+                    scheduledSessions={scheduledSessions}
                     attendance={attendanceBySwimmer[swimmer.id] || []}
                   />
                 ))}
@@ -333,41 +359,88 @@ export default function ParentDashboard() {
               </Card>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {displaySessions.map((session) => (
-                  <Card key={session.id} padding="normal">
-                    <div className="flex justify-between items-start">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-semibold text-gray-900 dark:text-gray-100">{formatDate(session.session_date)}</p>
+                {displaySessions.map((session) => {
+                  const squadNames = sessionSquadNames(session)
+                  return (
+                  <button
+                    key={`${session.id}_${session.session_date}`}
+                    type="button"
+                    onClick={() => setSelectedSession(session)}
+                    className="text-left focus:outline-none focus:ring-2 focus:ring-primary rounded-lg"
+                  >
+                    <Card padding="normal" className="hover:shadow-md transition-shadow cursor-pointer h-full">
+                      <div className="flex w-full min-w-0 flex-col gap-2">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <p className="font-semibold text-gray-900 dark:text-gray-100">
+                            {formatDate(session.session_date)}
+                          </p>
                           {session.is_recurring && (
                             <Badge variant="success" size="sm">
-                              🔁 {formatRecurrencePattern(session.recurrence_pattern)}
+                              Recurring
                             </Badge>
                           )}
                         </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">{session.start_time} - {session.end_time}</p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">📍 {session.pool_location}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {session.start_time} – {session.end_time}
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 break-words">
+                          {session.pool_location}
+                        </p>
+                        <div className="flex min-w-0 flex-wrap gap-1.5">
+                          {squadNames.length > 0 ? (
+                            squadNames.map((name, i) => (
+                              <Badge
+                                key={`${name}-${i}`}
+                                variant="info"
+                                size="sm"
+                                className="max-w-full !rounded-md whitespace-normal break-words text-left leading-snug"
+                              >
+                                {name}
+                              </Badge>
+                            ))
+                          ) : (
+                            <Badge variant="info" size="sm" className="!rounded-md">
+                              —
+                            </Badge>
+                          )}
+                        </div>
+                        <span className="text-xs text-primary">View details →</span>
                       </div>
-                      <Badge variant="info">{sessionSquadsLabel(session)}</Badge>
-                    </div>
-                  </Card>
-                ))}
+                    </Card>
+                  </button>
+                  )
+                })}
               </div>
             )}
           </div>
         </div>
       </div>
 
+      {selectedSession && (
+        <SessionDetailsModal
+          isOpen={!!selectedSession}
+          onClose={() => setSelectedSession(null)}
+          session={selectedSession}
+          attendanceStatus="upcoming"
+        />
+      )}
+
       <Footer />
     </>
   )
 }
 
-const SwimmerCard = memo(function SwimmerCard({ swimmer, sessions, attendance }) {
+const SwimmerCard = memo(function SwimmerCard({ swimmer, sessions, scheduledSessions = [], attendance }) {
   const [showAttendanceModal, setShowAttendanceModal] = useState(false)
   const age = calculateAge(swimmer.date_of_birth)
   const nextSession = sessions.find((s) => sessionMatchesSwimmerSquad(s, swimmer.squad_id))
   const recentCount = attendance.slice(0, 5).length
+
+  // Only sessions relevant to this swimmer's squad make it into the calendar.
+  const swimmerScheduled = useMemo(
+    () => scheduledSessions.filter((s) => sessionMatchesSwimmerSquad(s, swimmer.squad_id)),
+    [scheduledSessions, swimmer.squad_id]
+  )
 
   return (
     <>
@@ -424,6 +497,7 @@ const SwimmerCard = memo(function SwimmerCard({ swimmer, sessions, attendance })
           swimmerId={swimmer.id}
           swimmerName={`${swimmer.first_name} ${swimmer.last_name}`}
           attendance={attendance}
+          scheduledSessions={swimmerScheduled}
         />
       )}
     </>

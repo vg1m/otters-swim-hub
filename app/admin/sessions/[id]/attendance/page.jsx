@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
@@ -210,6 +211,13 @@ export default function SessionAttendancePage() {
   }
 
   const checkedInCount = Object.values(attendance).filter(Boolean).length
+  const cachedProfile = user ? profileCache.get(user.id) : null
+  const userRole = profile?.role || cachedProfile?.role
+  const backHref =
+    userRole === 'coach'
+      ? '/coach'
+      : `/admin/sessions?date=${encodeURIComponent(session.session_date)}`
+  const backLabel = userRole === 'coach' ? 'Back to coach dashboard' : 'Back to sessions calendar'
 
   return (
     <>
@@ -217,6 +225,17 @@ export default function SessionAttendancePage() {
       
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="mb-6">
+            <Link
+              href={backHref}
+              className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-md"
+            >
+              <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              {backLabel}
+            </Link>
+          </div>
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Session Attendance</h1>
             <p className="text-gray-600 dark:text-gray-400 mt-2">

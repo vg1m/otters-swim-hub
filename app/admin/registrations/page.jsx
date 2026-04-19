@@ -395,17 +395,15 @@ export default function PendingRegistrationsPage() {
                 <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
                   {formatSessionsPerWeekLabel(selectedSwimmer.sessions_per_week)}
                 </p>
-                {selectedSwimmer.sessions_per_week &&
-                  selectedSwimmer.sessions_per_week !== 'drop-in' &&
-                  selectedSwimmer.preferred_payment_type && (
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      Billing preference:{' '}
-                      {formatPreferredPaymentTypeLabel(selectedSwimmer.preferred_payment_type)}
-                    </p>
-                  )}
-                {selectedSwimmer.sessions_per_week === 'drop-in' && (
+                {selectedSwimmer.preferred_payment_type && (
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Billing preference:{' '}
+                    {formatPreferredPaymentTypeLabel(selectedSwimmer.preferred_payment_type)}
+                  </p>
+                )}
+                {selectedSwimmer.preferred_payment_type === 'per_session' && (
                   <p className="mt-1 text-xs text-blue-700 dark:text-blue-300">
-                    Drop-in: per-session billing (no monthly commitment)
+                    Per-session: invoiced per attended training. No monthly commitment.
                   </p>
                 )}
               </div>

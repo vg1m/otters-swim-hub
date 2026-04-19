@@ -215,16 +215,53 @@ html.dark .grain-overlay {
   color: #f3f4f6;
 }
 
+/* ── Admin sessions: custom toolbar (touch-friendly) ─────────────────────── */
+.admin-rbc-toolbar.rbc-toolbar {
+  align-items: stretch;
+}
+
+.admin-rbc-toolbar .rbc-toolbar-label {
+  width: 100%;
+}
+
+@media (min-width: 640px) {
+  .admin-rbc-toolbar .rbc-toolbar-label {
+    width: auto;
+  }
+}
+
 /* ── react-big-calendar: mobile tweaks ──────────────────────────────────── */
 @media (max-width: 767px) {
-  .rbc-toolbar {
+  .rbc-toolbar:not(.admin-rbc-toolbar) {
     flex-direction: column;
     gap: 0.5rem;
     align-items: flex-start;
   }
 
-  .rbc-toolbar .rbc-btn-group {
+  .rbc-toolbar:not(.admin-rbc-toolbar) .rbc-btn-group {
     display: flex;
     flex-wrap: wrap;
   }
+
+  .admin-rbc-toolbar .rbc-btn-group {
+    width: 100%;
+  }
+}
+
+/* ── Admin /admin/sessions only: less squeezed month & week ──────────────── */
+/* Horizontal scroll only in week/day so month “+N more” overlay isn’t trapped/clipped. */
+.admin-sessions-calendar--week-scroll {
+  overflow-x: auto;
+}
+
+.admin-sessions-calendar--week-scroll .rbc-time-content {
+  min-width: 700px;
+}
+
+.admin-sessions-calendar .rbc-month-row {
+  min-height: 6rem;
+}
+
+.admin-sessions-calendar .rbc-month-view {
+  overflow: visible;
 }

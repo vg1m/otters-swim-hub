@@ -226,6 +226,9 @@ export default function AdminSquadsPage() {
               <p className="text-gray-600 dark:text-gray-400 mt-2">
                 Manage squad names, fees, and training tiers. Parents do not choose a squad at registration.
               </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Note: &quot;Pay per session&quot; is a per-swimmer billing option, not a squad. Every swimmer is placed in a real squad (Elite, Development, Pups, Masters) and parents separately choose monthly, quarterly, or per-session payment.
+              </p>
             </div>
             <Button
               onClick={() => {

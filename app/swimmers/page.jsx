@@ -35,7 +35,7 @@ export default function SwimmersPage() {
     try {
       const { data, error } = await supabase
         .from('swimmers')
-        .select('*')
+        .select('*, squads(id, name, slug)')
         .eq('parent_id', user.id)
         .order('first_name', { ascending: true })
 
@@ -113,33 +113,11 @@ export default function SwimmersPage() {
                       <div className="flex items-center gap-2">
                         <span className="text-gray-600 font-medium">Squad:</span>
                         <Badge variant="info">
-                          {swimmer.squad.replace('_', ' ').toUpperCase()}
+                          {swimmer.squads?.name
+                            ? swimmer.squads.name
+                            : 'Not assigned'}
                         </Badge>
                       </div>
-                      {swimmer.sub_squad && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-600 font-medium">Sub Squad:</span>
-                          <span className="uppercase">{swimmer.sub_squad}</span>
-                        </div>
-                      )}
-                      {swimmer.license_number && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-600 font-medium">License:</span>
-                          <span>{swimmer.license_number}</span>
-                        </div>
-                      )}
-                      {swimmer.medical_expiry_date && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-gray-600 font-medium">Medical Expiry:</span>
-                          <span className={
-                            new Date(swimmer.medical_expiry_date) < new Date()
-                              ? 'text-red-600 font-semibold'
-                              : ''
-                          }>
-                            {formatDate(swimmer.medical_expiry_date)}
-                          </span>
-                        </div>
-                      )}
                     </div>
                   </div>
                 </Card>

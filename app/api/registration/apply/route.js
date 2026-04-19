@@ -59,13 +59,13 @@ export async function POST(request) {
         date_of_birth: swimmer.dateOfBirth,
         gender: swimmer.gender,
         squad_id: isUnderSix ? (pupsSquad?.id ?? null) : null,
-        gala_events_opt_in: swimmer.galaEventsOptIn === true,
+        gala_events_opt_in: isUnderSix ? false : swimmer.galaEventsOptIn === true,
         sessions_per_week: isUnderSix ? '1-2' : (swimmer.sessionsPerWeek || null),
         preferred_payment_type: isUnderSix
           ? 'monthly'
-          : (swimmer.sessionsPerWeek === 'drop-in'
-            ? 'monthly'
-            : (swimmer.preferredPaymentType || 'monthly')),
+          : (['monthly', 'quarterly', 'per_session'].includes(swimmer.preferredPaymentType)
+            ? swimmer.preferredPaymentType
+            : 'monthly'),
         status: 'pending',
         registration_complete: true,
         payment_deferred: true,
@@ -114,6 +114,24 @@ export async function POST(request) {
 
     if (!insertedConsents || insertedConsents.length !== consentRecords.length) {
       return NextResponse.json({ error: 'Consent verification failed' }, { status: 500 })
+    }
+
+    if (parentId) {
+      const { error: profileUpdateError } = await supabase
+        .from('profiles')
+        .update({
+          full_name: parentInfo.fullName,
+          phone_number: parentInfo.phone,
+          relationship: parentInfo.relationship,
+          emergency_contact_name: parentInfo.emergencyContactName,
+          emergency_contact_relationship: parentInfo.emergencyContactRelationship,
+          emergency_contact_phone: parentInfo.emergencyContactPhone,
+        })
+        .eq('id', parentId)
+
+      if (profileUpdateError) {
+        console.error('Registration: profile contact fields update failed:', profileUpdateError)
+      }
     }
 
     return NextResponse.json({

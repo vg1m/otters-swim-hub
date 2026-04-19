@@ -13,6 +13,7 @@ export default function Footer() {
                 src="/otters-logo.png"
                 alt="Otters Swimming Logo"
                 fill
+                sizes="(max-width: 639px) 112px, (max-width: 767px) 128px, 144px"
                 className="object-contain brightness-0 invert"
               />
             </div>
