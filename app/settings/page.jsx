@@ -15,6 +15,7 @@ import Modal from '@/components/ui/Modal'
 import ConsentPolicy from '@/components/ConsentPolicy'
 import PrivacyDSRWidget from '@/components/PrivacyDSRWidget'
 import { format } from 'date-fns'
+import { fetchParentIdsForDataAccess } from '@/lib/parent/effective-parent-ids'
 import toast from 'react-hot-toast'
 
 export default function ProfileSettings() {
@@ -26,6 +27,12 @@ export default function ProfileSettings() {
   const [showUpdateConsentModal, setShowUpdateConsentModal] = useState(false)
   const [selectedConsent, setSelectedConsent] = useState(null)
   const [updatingConsent, setUpdatingConsent] = useState(false)
+
+  const [familyInvites, setFamilyInvites] = useState([])
+  const [isPrimaryParent, setIsPrimaryParent] = useState(false)
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteName, setInviteName] = useState('')
+  const [familyBusy, setFamilyBusy] = useState(false)
   
   // Edit mode state
   const [isEditing, setIsEditing] = useState(false)
@@ -69,17 +76,38 @@ export default function ProfileSettings() {
   const loadProfileData = async () => {
     try {
       const supabase = createClient()
+      const parentIds = await fetchParentIdsForDataAccess(supabase, user.id)
 
-      // Load swimmers
+      // Load swimmers (primary account + linked family)
       const { data: swimmersData, error: swimmersError } = await supabase
         .from('swimmers')
         .select('*')
-        .eq('parent_id', user.id)
+        .in('parent_id', parentIds)
         .order('created_at', { ascending: true })
 
       if (swimmersError) throw swimmersError
 
       setSwimmers(swimmersData || [])
+
+      const { data: primaryRows } = await supabase
+        .from('swimmers')
+        .select('id')
+        .eq('parent_id', user.id)
+        .limit(1)
+      const primaryAccount = (primaryRows?.length ?? 0) > 0
+      setIsPrimaryParent(primaryAccount)
+
+      if (primaryAccount && profile?.role === 'parent') {
+        const { data: invites, error: invitesError } = await supabase
+          .from('family_account_members')
+          .select('*')
+          .eq('primary_parent_id', user.id)
+          .order('created_at', { ascending: false })
+        if (invitesError) throw invitesError
+        setFamilyInvites(invites || [])
+      } else {
+        setFamilyInvites([])
+      }
 
       // Get swimmer IDs
       const swimmerIds = (swimmersData || []).map(s => s.id)
@@ -111,6 +139,77 @@ export default function ProfileSettings() {
       toast.error('Failed to load profile data')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleRevokeFamilyInvite = async (row) => {
+    if (!row?.id || row.status === 'revoked') return
+    setFamilyBusy(true)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('family_account_members')
+        .update({ status: 'revoked' })
+        .eq('id', row.id)
+        .eq('primary_parent_id', user.id)
+      if (error) throw error
+      toast.success('Access invitation revoked')
+      await loadProfileData()
+    } catch (e) {
+      console.error(e)
+      toast.error(e.message || 'Could not revoke invitation')
+    } finally {
+      setFamilyBusy(false)
+    }
+  }
+
+  const handleAddFamilyInvite = async () => {
+    const email = inviteEmail.trim().toLowerCase()
+    const name = inviteName.trim() || null
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      toast.error('Enter a valid email address')
+      return
+    }
+    const myEmail = (profile?.email || user?.email || '').trim().toLowerCase()
+    if (email === myEmail) {
+      toast.error('Use a different email from your own account')
+      return
+    }
+    setFamilyBusy(true)
+    try {
+      const supabase = createClient()
+      const { error } = await supabase.from('family_account_members').insert({
+        primary_parent_id: user.id,
+        invited_email: email,
+        invited_name: name,
+        status: 'pending',
+        invited_by: user.id,
+      })
+      if (error) throw error
+      toast.success('Invitation added. They can sign up with that email to get access.')
+      setInviteEmail('')
+      setInviteName('')
+      await loadProfileData()
+    } catch (e) {
+      if (e.code === '23505' || e.message?.includes('duplicate')) {
+        toast.error('An invite for that email already exists')
+      } else {
+        console.error(e)
+        toast.error(e.message || 'Could not add invitation')
+      }
+    } finally {
+      setFamilyBusy(false)
+    }
+  }
+
+  const copyFamilyInviteInstructions = async (emailAddr) => {
+    const text = `You’ve been invited to share Otters Swim Hub access. Create an account using ${emailAddr} — after you sign up, your access links automatically.`
+    try {
+      await navigator.clipboard.writeText(text)
+      toast.success('Instructions copied')
+    } catch {
+      toast.error('Could not copy to clipboard')
     }
   }
 
@@ -504,6 +603,87 @@ export default function ProfileSettings() {
               </div>
             )}
           </Card>
+
+          {isPrimaryParent && profile?.role === 'parent' && (
+            <Card
+              title="Shared hub access"
+              padding="normal"
+              subtitle="Invite a co-parent or partner — they sign in with their own email and see the same swimmers and invoices"
+            >
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="Their name (optional)"
+                    value={inviteName}
+                    onChange={(e) => setInviteName(e.target.value)}
+                    placeholder="Jane Doe"
+                  />
+                  <Input
+                    label="Their email"
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="jane@example.com"
+                  />
+                </div>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleAddFamilyInvite}
+                  loading={familyBusy}
+                  disabled={familyBusy}
+                >
+                  Send invitation
+                </Button>
+
+                {familyInvites.length === 0 ? (
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    No invitations yet. The invited person should register or log in with the email you enter; access
+                    activates automatically after signup.
+                  </p>
+                ) : (
+                  <ul className="space-y-3">
+                    {familyInvites.map((inv) => (
+                      <li
+                        key={inv.id}
+                        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-stone-50 dark:bg-gray-800 rounded-lg"
+                      >
+                        <div>
+                          <p className="font-medium text-gray-900 dark:text-gray-100">
+                            {inv.invited_name || inv.invited_email}
+                          </p>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">{inv.invited_email}</p>
+                          <p className="text-xs text-gray-500 mt-1 capitalize">Status: {inv.status}</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {inv.status === 'pending' && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => copyFamilyInviteInstructions(inv.invited_email)}
+                            >
+                              Copy instructions
+                            </Button>
+                          )}
+                          {inv.status !== 'revoked' && (
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              onClick={() => handleRevokeFamilyInvite(inv)}
+                              loading={familyBusy}
+                              disabled={familyBusy}
+                            >
+                              Revoke
+                            </Button>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </Card>
+          )}
 
           {/* Registered Swimmers */}
           <Card title="Registered Swimmers" padding="normal">

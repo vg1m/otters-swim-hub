@@ -68,7 +68,10 @@ export async function GET(request, { params }) {
       .single()
 
     const isAdmin = profile.data?.role === 'admin'
-    const isOwner = invoice.parent_id === user.id
+    const { data: canAccess } = await supabase.rpc('auth_user_can_access_parent_data', {
+      target_parent_id: invoice.parent_id,
+    })
+    const isOwner = Boolean(canAccess)
 
     if (!isAdmin && !isOwner) {
       return NextResponse.json(

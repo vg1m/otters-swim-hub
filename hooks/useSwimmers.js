@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from './useAuth'
+import { fetchParentIdsForDataAccess } from '@/lib/parent/effective-parent-ids'
 
 export function useSwimmers() {
   const { user } = useAuth()
@@ -22,10 +23,11 @@ export function useSwimmers() {
     setError(null)
 
     try {
+      const parentIds = await fetchParentIdsForDataAccess(supabase, user.id)
       const { data, error } = await supabase
         .from('swimmers')
         .select('*')
-        .eq('parent_id', user.id)
+        .in('parent_id', parentIds)
         .order('first_name', { ascending: true })
 
       if (error) throw error

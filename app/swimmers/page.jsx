@@ -10,6 +10,7 @@ import Footer from '@/components/Footer'
 import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import { calculateAge, formatDate } from '@/lib/utils/date-helpers'
+import { fetchParentIdsForDataAccess } from '@/lib/parent/effective-parent-ids'
 import toast from 'react-hot-toast'
 
 export default function SwimmersPage() {
@@ -33,10 +34,11 @@ export default function SwimmersPage() {
     setLoading(true)
 
     try {
+      const parentIds = await fetchParentIdsForDataAccess(supabase, user.id)
       const { data, error } = await supabase
         .from('swimmers')
         .select('*, squads(id, name, slug)')
-        .eq('parent_id', user.id)
+        .in('parent_id', parentIds)
         .order('first_name', { ascending: true })
 
       if (error) throw error

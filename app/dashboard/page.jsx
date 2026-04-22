@@ -10,22 +10,21 @@ import Footer from '@/components/Footer'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
-import AttendanceCalendarModal from '@/components/AttendanceCalendarModal'
 import SessionDetailsModal from '@/components/SessionDetailsModal'
 import { calculateAge, formatDate } from '@/lib/utils/date-helpers'
 import { formatKES } from '@/lib/utils/currency'
-import { formatRecurrencePattern, expandRecurringSessions } from '@/lib/utils/recurrence'
+import {
+  defaultAttendanceWindow,
+  expandScheduledSessionsInWindow,
+  fetchTrainingSessionsForAttendanceWindow,
+  sessionMatchesSwimmerSquad,
+} from '@/lib/parent/swimmerSchedule'
+import { fetchParentIdsForDataAccess } from '@/lib/parent/effective-parent-ids'
 import toast from 'react-hot-toast'
 
 function sessionSquadNames(session) {
   const links = session.training_session_squads || []
   return links.map((l) => l.squads?.name).filter(Boolean)
-}
-
-function sessionMatchesSwimmerSquad(session, squadId) {
-  if (!squadId) return false
-  const links = session.training_session_squads || []
-  return links.some((l) => l.squad_id === squadId)
 }
 
 export default function ParentDashboard() {
@@ -46,18 +45,15 @@ export default function ParentDashboard() {
     console.log('Starting to load dashboard data...')
 
     try {
-      const now = new Date()
+      const { now, windowStart, windowEnd, windowEndStr } = defaultAttendanceWindow()
       const todayStr = now.toISOString().split('T')[0]
-      // Widen window so recurring session origins older than today are still included
-      const windowStart = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000)
-      const windowEnd = new Date(now.getTime() + 180 * 24 * 60 * 60 * 1000)
-      const windowEndStr = windowEnd.toISOString().split('T')[0]
+      const parentIds = await fetchParentIdsForDataAccess(supabase, user.id)
 
-      // First load swimmers to get their IDs
+      // First load swimmers to get their IDs (primary + linked family accounts)
       const swimmersResult = await supabase
         .from('swimmers')
         .select('*, squads(id, name)')
-        .eq('parent_id', user.id)
+        .in('parent_id', parentIds)
         .order('first_name', { ascending: true })
 
       if (swimmersResult.error) {
@@ -77,20 +73,7 @@ export default function ParentDashboard() {
       // that lands in our ±6-month window, including recurring bases whose
       // origin date predates the window.
       const [sessionsResult, invoicesResult, attendanceResult] = await Promise.all([
-        supabase
-          .from('training_sessions')
-          .select(
-            `
-            *,
-            training_session_squads (
-              squad_id,
-              squads (id, name)
-            )
-          `
-          )
-          .lte('session_date', windowEndStr)
-          .order('session_date', { ascending: true })
-          .order('start_time', { ascending: true }),
+        fetchTrainingSessionsForAttendanceWindow(supabase, windowEndStr),
         
         supabase
           .from('invoices')
@@ -98,7 +81,7 @@ export default function ParentDashboard() {
             *,
             swimmers (first_name, last_name)
           `)
-          .eq('parent_id', user.id)
+          .in('parent_id', parentIds)
           .in('status', ['issued', 'due'])
           .order('due_date', { ascending: true }),
         
@@ -123,18 +106,11 @@ export default function ParentDashboard() {
         setScheduledSessions([])
         setUpcomingSessions([])
       } else {
-        const expanded = expandRecurringSessions(
+        const expanded = expandScheduledSessionsInWindow(
           sessionsResult.data || [],
           windowStart,
           windowEnd
         )
-          .slice()
-          .sort((a, b) => {
-            if (a.session_date !== b.session_date) {
-              return a.session_date < b.session_date ? -1 : 1
-            }
-            return (a.start_time || '').localeCompare(b.start_time || '')
-          })
         setScheduledSessions(expanded)
         setUpcomingSessions(expanded.filter((s) => s.session_date >= todayStr))
       }
@@ -316,11 +292,18 @@ export default function ParentDashboard() {
             </div>
           )}
 
-          {/* Swimmers Section - COMPACT */}
+          {/* Swimmers Section */}
           <div className="mb-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">My Swimmers</h2>
-              <Link href="/register">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-4">
+              <div>
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
+                  My Swimmers
+                </h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 max-w-xl">
+                  Progress, race times, coach notes, and training attendance in one place.
+                </p>
+              </div>
+              <Link href="/register" className="shrink-0">
                 <Button size="sm" variant="secondary">
                   + Add Swimmer
                 </Button>
@@ -336,7 +319,7 @@ export default function ParentDashboard() {
                 </div>
               </Card>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                 {swimmers.map((swimmer) => (
                   <SwimmerCard 
                     key={swimmer.id} 
@@ -431,75 +414,84 @@ export default function ParentDashboard() {
 }
 
 const SwimmerCard = memo(function SwimmerCard({ swimmer, sessions, scheduledSessions = [], attendance }) {
-  const [showAttendanceModal, setShowAttendanceModal] = useState(false)
   const age = calculateAge(swimmer.date_of_birth)
   const nextSession = sessions.find((s) => sessionMatchesSwimmerSquad(s, swimmer.squad_id))
-  const recentCount = attendance.slice(0, 5).length
+  const checkInCount = attendance.length
 
-  // Only sessions relevant to this swimmer's squad make it into the calendar.
   const swimmerScheduled = useMemo(
     () => scheduledSessions.filter((s) => sessionMatchesSwimmerSquad(s, swimmer.squad_id)),
     [scheduledSessions, swimmer.squad_id]
   )
 
+  const attendanceHint = useMemo(() => {
+    function attendanceDateKey(a) {
+      const raw = a?.training_sessions?.session_date
+      if (!raw) return null
+      return typeof raw === 'string' ? raw.slice(0, 10) : new Date(raw).toISOString().slice(0, 10)
+    }
+    if (!swimmer.squad_id || swimmerScheduled.length === 0) {
+      return checkInCount > 0
+        ? `${checkInCount} training check-in${checkInCount === 1 ? '' : 's'} on record`
+        : null
+    }
+    const todayStr = new Date().toISOString().split('T')[0]
+    const pastDates = new Set()
+    for (const s of swimmerScheduled) {
+      if (s.session_date && s.session_date <= todayStr) pastDates.add(s.session_date)
+    }
+    if (pastDates.size === 0) {
+      return checkInCount > 0
+        ? `${checkInCount} training check-in${checkInCount === 1 ? '' : 's'} on record`
+        : 'No past sessions in this schedule window yet'
+    }
+    let pastAttended = 0
+    for (const d of pastDates) {
+      if (attendance.some((a) => attendanceDateKey(a) === d)) pastAttended += 1
+    }
+    return `${pastAttended} of ${pastDates.size} scheduled day${pastDates.size === 1 ? '' : 's'} with attendance (to date)`
+  }, [attendance, swimmerScheduled, swimmer.squad_id, checkInCount])
+
   return (
-    <>
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 hover:shadow-md transition-shadow">
-        {/* Compact Header */}
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex-1 min-w-0">
-            <h3 className="font-semibold text-gray-900 dark:text-gray-100 truncate">
-              {swimmer.first_name} {swimmer.last_name}
-            </h3>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
-              Age {age} • {swimmer.squads?.name || 'Squad pending'}
-            </p>
-          </div>
-          <div className="flex flex-col gap-1">
+    <Card
+      padding="normal"
+      className="h-full hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-700"
+    >
+      <div className="flex flex-col gap-4">
+        <div className="min-w-0">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 leading-snug">
+            {swimmer.first_name} {swimmer.last_name}
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
+            Age {age} · {swimmer.squads?.name || 'Squad pending'}
+          </p>
+          <div className="flex flex-wrap gap-2 mt-3">
             <Badge variant={swimmer.status === 'approved' ? 'success' : 'warning'} size="sm">
               {swimmer.status}
             </Badge>
             <Badge variant={swimmer.gala_events_opt_in ? 'success' : 'default'} size="sm">
-              {swimmer.gala_events_opt_in ? '🎉 Events: Opted In' : 'Events: Not Opted In'}
+              {swimmer.gala_events_opt_in ? 'Events: Opted in' : 'Events: Not opted in'}
             </Badge>
           </div>
         </div>
-        
-        {/* Action Buttons */}
-        <div className="flex gap-2 mb-3">
-          <Button 
-            size="sm" 
-            variant="secondary"
-            fullWidth
-            onClick={() => setShowAttendanceModal(true)}
-          >
-            📅 Attendance {recentCount > 0 && `(${recentCount})`}
-          </Button>
-          <Link href={`/swimmers/${swimmer.id}/performance`} className="flex-1">
-            <Button size="sm" variant="ghost" fullWidth>
-              📈 Progress
-            </Button>
-          </Link>
-        </div>
-        
-        {/* Next Session */}
+
+        {attendanceHint && (
+          <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">{attendanceHint}</p>
+        )}
+
         {nextSession && (
-          <div className="text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded p-2">
-            <strong>Next:</strong> {formatDate(nextSession.session_date)} at {nextSession.start_time}
+          <div className="text-xs text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/40 rounded-lg px-3 py-2 border border-gray-100 dark:border-gray-600/50">
+            <span className="font-medium text-gray-900 dark:text-gray-100">Next session</span>
+            <span className="text-gray-600 dark:text-gray-400"> · </span>
+            {formatDate(nextSession.session_date)} at {nextSession.start_time}
           </div>
         )}
-      </div>
 
-      {showAttendanceModal && (
-        <AttendanceCalendarModal
-          isOpen={showAttendanceModal}
-          onClose={() => setShowAttendanceModal(false)}
-          swimmerId={swimmer.id}
-          swimmerName={`${swimmer.first_name} ${swimmer.last_name}`}
-          attendance={attendance}
-          scheduledSessions={swimmerScheduled}
-        />
-      )}
-    </>
+        <Link href={`/swimmers/${swimmer.id}/performance`} className="block">
+          <Button size="sm" variant="primary" fullWidth className="justify-center">
+            Progress and attendance
+          </Button>
+        </Link>
+      </div>
+    </Card>
   )
 })

@@ -199,7 +199,12 @@ export default function AdminDashboard() {
                 Approve new swimmer sign-ups
               </p>
               <Link href="/admin/registrations" className="block">
-                <Button fullWidth size="sm" className="min-h-[44px] text-xs sm:text-sm sm:min-h-0 sm:py-1.5">
+                <Button
+                  fullWidth
+                  size="sm"
+                  variant="secondary"
+                  className="min-h-[44px] text-xs sm:text-sm sm:min-h-0 sm:py-1.5"
+                >
                   View pending
                 </Button>
               </Link>

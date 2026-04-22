@@ -132,6 +132,29 @@ export async function POST(request) {
       if (profileUpdateError) {
         console.error('Registration: profile contact fields update failed:', profileUpdateError)
       }
+
+      if (parentInfo.shareHubAccess && parentInfo.coParentEmail?.trim()) {
+        const invited = parentInfo.coParentEmail.trim().toLowerCase()
+        const primaryEmail = parentInfo.email.trim().toLowerCase()
+        if (invited && invited !== primaryEmail) {
+          const { error: inviteError } = await supabase.from('family_account_members').insert({
+            primary_parent_id: parentId,
+            invited_email: invited,
+            invited_name: parentInfo.coParentName?.trim() || null,
+            status: 'pending',
+            invited_by: parentId,
+          })
+          if (inviteError) {
+            if (inviteError.code !== '23505') {
+              console.error('Registration: family invite insert failed:', inviteError)
+            }
+          }
+        }
+      }
+    } else if (parentInfo.shareHubAccess && parentInfo.coParentEmail?.trim()) {
+      console.info(
+        'Registration: shareHubAccess requested but no existing profile for email — invite skipped until parent account exists'
+      )
     }
 
     return NextResponse.json({

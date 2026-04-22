@@ -59,7 +59,11 @@ export async function POST(request) {
       )
     }
 
-    if (invoice.parent_id !== user.id) {
+    const { data: canPay, error: accessError } = await supabase.rpc(
+      'auth_user_can_access_parent_data',
+      { target_parent_id: invoice.parent_id }
+    )
+    if (accessError || !canPay) {
       return NextResponse.json(
         { error: 'Unauthorized to pay this invoice' },
         { status: 403 }
@@ -67,7 +71,7 @@ export async function POST(request) {
     }
 
     // Payments INSERT is restricted to admin/service_role in RLS — use service role
-    // after we have verified the authenticated user owns this invoice.
+    // after we have verified the authenticated user may pay this invoice (primary or linked co-parent).
     const supabaseAdmin = createServiceRoleClient()
 
     // ── Early bird discount ───────────────────────────────────────────────────

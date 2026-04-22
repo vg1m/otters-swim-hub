@@ -33,6 +33,9 @@ function emptyParentInfo() {
     emergencyContactName: '',
     emergencyContactRelationship: '',
     emergencyContactPhone: '',
+    shareHubAccess: false,
+    coParentName: '',
+    coParentEmail: '',
   }
 }
 
@@ -45,6 +48,9 @@ function mapProfileToParentInfo(profile) {
     emergencyContactName: profile?.emergency_contact_name || '',
     emergencyContactRelationship: profile?.emergency_contact_relationship || '',
     emergencyContactPhone: profile?.emergency_contact_phone || '',
+    shareHubAccess: false,
+    coParentName: '',
+    coParentEmail: '',
   }
 }
 
@@ -59,6 +65,9 @@ function mergeParentFromProfileAndStorage(profile, stored) {
     emergencyContactName: m.emergencyContactName || s.emergencyContactName || '',
     emergencyContactRelationship: m.emergencyContactRelationship || s.emergencyContactRelationship || '',
     emergencyContactPhone: m.emergencyContactPhone || s.emergencyContactPhone || '',
+    shareHubAccess: Boolean(s.shareHubAccess),
+    coParentName: s.coParentName || m.coParentName || '',
+    coParentEmail: s.coParentEmail || m.coParentEmail || '',
   }
 }
 
@@ -254,6 +263,22 @@ export default function RegisterPage() {
       toast.error('Please agree to the club code of conduct and safety rules')
       return false
     }
+    if (parentInfo.shareHubAccess) {
+      if (!parentInfo.coParentEmail?.trim()) {
+        toast.error('Please enter the email for the person you want to share access with')
+        return false
+      }
+      if (!emailRegex.test(parentInfo.coParentEmail.trim())) {
+        toast.error('Please enter a valid co-parent email address')
+        return false
+      }
+      const a = parentInfo.email.trim().toLowerCase()
+      const b = parentInfo.coParentEmail.trim().toLowerCase()
+      if (a === b) {
+        toast.error('Co-parent email must be different from your own email')
+        return false
+      }
+    }
     return true
   }
 
@@ -348,6 +373,15 @@ export default function RegisterPage() {
                       <span className="font-medium text-stone-900 dark:text-stone-100">Emergency:</span>{' '}
                       {parentInfo.emergencyContactName || '—'} · {parentInfo.emergencyContactPhone || '—'}
                     </p>
+                    {parentInfo.shareHubAccess && parentInfo.coParentEmail && (
+                      <p>
+                        <span className="font-medium text-stone-900 dark:text-stone-100">
+                          Shared access invite:
+                        </span>{' '}
+                        {parentInfo.coParentName ? `${parentInfo.coParentName} · ` : ''}
+                        {parentInfo.coParentEmail}
+                      </p>
+                    )}
                   </div>
                   <Button type="button" variant="outline" onClick={() => setContactsExpanded(true)}>
                     Edit parent and emergency contact
@@ -421,6 +455,44 @@ export default function RegisterPage() {
                       placeholder="0712345678"
                     />
                   </div>
+                </Card>
+
+                <Card
+                  title="Share hub access (optional)"
+                  padding="normal"
+                  subtitle="Invite a partner or co-parent to use the same dashboard with their own login"
+                >
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={parentInfo.shareHubAccess}
+                      onChange={(e) => updateParentInfo('shareHubAccess', e.target.checked)}
+                      className="w-4 h-4 mt-1 text-primary focus:ring-primary rounded border-gray-300"
+                    />
+                    <span className="text-sm text-stone-700 dark:text-stone-300 leading-relaxed">
+                      Share access with another adult (they sign up with their own email and see the same swimmers and
+                      invoices).
+                    </span>
+                  </label>
+                  {parentInfo.shareHubAccess && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-stone-200 dark:border-stone-600">
+                      <Input
+                        label="Their name (optional)"
+                        value={parentInfo.coParentName}
+                        onChange={(e) => updateParentInfo('coParentName', e.target.value)}
+                        placeholder="Jane Doe"
+                      />
+                      <Input
+                        label="Their email"
+                        type="email"
+                        required={parentInfo.shareHubAccess}
+                        value={parentInfo.coParentEmail}
+                        onChange={(e) => updateParentInfo('coParentEmail', e.target.value)}
+                        placeholder="jane@example.com"
+                        helperText="We’ll record an invite if you already have an account with us (same email as above)."
+                      />
+                    </div>
+                  )}
                 </Card>
               </>
             )}

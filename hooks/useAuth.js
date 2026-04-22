@@ -124,6 +124,8 @@ export function useAuth() {
               getProfile(session.user.id, true)
             }
           })
+
+          void Promise.resolve(supabase.rpc('claim_family_invite')).catch(() => {})
         } else {
           setUser(null)
           setProfile(null)
@@ -168,6 +170,9 @@ export function useAuth() {
 
             // For sign-in events, force refresh profile
             const forceRefresh = event === 'SIGNED_IN' || event === 'USER_UPDATED'
+            if (event === 'SIGNED_IN') {
+              void Promise.resolve(supabase.rpc('claim_family_invite')).catch(() => {})
+            }
             await getProfile(session.user.id, forceRefresh)
           } else {
             setUser(null)

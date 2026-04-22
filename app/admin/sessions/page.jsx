@@ -56,47 +56,50 @@ function computeCalendarHeight(view, innerWidth, innerHeight) {
 }
 
 function SessionsCalendarToolbar({ label, onNavigate, onView, view }) {
+  const segBtn =
+    'min-h-[44px] flex-1 border-0 bg-transparent px-2 text-sm font-medium transition-colors focus:outline-none focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900 sm:min-h-[42px] sm:px-3'
+
   return (
-    <div className="rbc-toolbar admin-rbc-toolbar flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 order-2 sm:order-1">
-        <button
-          type="button"
-          className="rbc-btn px-3 py-2.5 min-h-[44px] rounded-lg text-sm font-medium"
-          onClick={() => onNavigate('PREV')}
-        >
-          Back
-        </button>
-        <button
-          type="button"
-          className="rbc-btn px-3 py-2.5 min-h-[44px] rounded-lg text-sm font-medium"
-          onClick={() => onNavigate('TODAY')}
-        >
-          Today
-        </button>
-        <button
-          type="button"
-          className="rbc-btn px-3 py-2.5 min-h-[44px] rounded-lg text-sm font-medium"
-          onClick={() => onNavigate('NEXT')}
-        >
-          Next
-        </button>
-      </div>
-      <span className="rbc-toolbar-label order-1 sm:order-2 text-center font-semibold text-base text-gray-900 dark:text-gray-100 sm:flex-1 sm:min-w-[12rem]">
+    <div className="rbc-toolbar admin-rbc-toolbar flex w-full flex-col gap-4">
+      <div className="rbc-toolbar-label px-1 text-center text-base font-semibold leading-snug text-gray-900 dark:text-gray-100 sm:text-lg">
         {label}
-      </span>
-      <div className="rbc-btn-group flex flex-wrap gap-1 order-3 w-full sm:w-auto justify-stretch sm:justify-end">
-        {CALENDAR_VIEWS.map((name) => (
-          <button
-            key={name}
-            type="button"
-            className={`rbc-btn flex-1 sm:flex-none px-3 py-2.5 min-h-[44px] rounded-lg text-sm font-medium ${
-              view === name ? 'rbc-active' : ''
-            }`}
-            onClick={() => onView(name)}
-          >
-            {VIEW_LABELS[name] ?? name}
+      </div>
+
+      {/* Two equal-width segmented groups on md+; stacked on small screens */}
+      <div className="grid w-full grid-cols-1 gap-3 md:grid-cols-2 md:gap-4">
+        <div
+          className="admin-rbc-segmented flex overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-600 dark:bg-gray-800"
+          role="group"
+          aria-label="Navigate calendar dates"
+        >
+          <button type="button" className={segBtn} onClick={() => onNavigate('PREV')}>
+            Back
           </button>
-        ))}
+          <button type="button" className={segBtn} onClick={() => onNavigate('TODAY')}>
+            Today
+          </button>
+          <button type="button" className={segBtn} onClick={() => onNavigate('NEXT')}>
+            Next
+          </button>
+        </div>
+
+        <div
+          className="admin-rbc-segmented flex overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-600 dark:bg-gray-800"
+          role="group"
+          aria-label="Calendar view mode"
+        >
+          {CALENDAR_VIEWS.map((name) => (
+            <button
+              key={name}
+              type="button"
+              aria-pressed={view === name}
+              className={segBtn}
+              onClick={() => onView(name)}
+            >
+              {VIEW_LABELS[name] ?? name}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   )

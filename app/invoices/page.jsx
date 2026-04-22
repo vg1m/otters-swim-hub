@@ -13,6 +13,7 @@ import Badge from '@/components/ui/Badge'
 import Modal from '@/components/ui/Modal'
 import { formatKES, EARLY_BIRD_DISCOUNT } from '@/lib/utils/currency'
 import { formatDate } from '@/lib/utils/date-helpers'
+import { fetchParentIdsForDataAccess } from '@/lib/parent/effective-parent-ids'
 import toast from 'react-hot-toast'
 
 function InvoicesPageContent() {
@@ -133,11 +134,12 @@ function InvoicesPageContent() {
     setLoading(true)
 
     try {
+      const parentIds = await fetchParentIdsForDataAccess(supabase, user.id)
       // Get invoices including line items and squad early_bird_eligible for discount logic
       const { data: invoicesData, error: invoicesError } = await supabase
         .from('invoices')
         .select('*, invoice_line_items (*)')
-        .eq('parent_id', user.id)
+        .in('parent_id', parentIds)
         .order('created_at', { ascending: false })
 
       if (invoicesError) throw invoicesError

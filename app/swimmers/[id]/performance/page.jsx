@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
@@ -15,6 +15,14 @@ import Modal from '@/components/ui/Modal'
 import PerformanceEntryModal from '@/components/PerformanceEntryModal'
 import CoachNoteModal from '@/components/CoachNoteModal'
 import { calculateAge } from '@/lib/utils/date-helpers'
+import {
+  defaultAttendanceWindow,
+  expandScheduledSessionsInWindow,
+  fetchTrainingSessionsForAttendanceWindow,
+  sessionMatchesSwimmerSquad,
+} from '@/lib/parent/swimmerSchedule'
+import { userCanAccessSwimmerParent } from '@/lib/parent/effective-parent-ids'
+import AttendanceCalendarView from '@/components/AttendanceCalendarView'
 import toast from 'react-hot-toast'
 
 const NOTE_TYPE_BADGE = {
@@ -48,12 +56,15 @@ function formatSquadLabel(swimmer) {
 export default function SwimmerPerformancePage() {
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
   const swimmerId = params.id
   const { user, profile, loading: authLoading } = useAuth()
 
   const [swimmer, setSwimmer] = useState(null)
   const [performances, setPerformances] = useState([])
   const [notes, setNotes] = useState([])
+  const [attendanceForCalendar, setAttendanceForCalendar] = useState([])
+  const [scheduledForCalendar, setScheduledForCalendar] = useState([])
   const [loading, setLoading] = useState(false)
   const [dataLoaded, setDataLoaded] = useState(false)
   const [activeTab, setActiveTab] = useState('times')
@@ -76,22 +87,6 @@ export default function SwimmerPerformancePage() {
   const isCoach = userRole === 'coach'
   const canEdit = isCoach
 
-  useEffect(() => {
-    if (!authLoading) {
-      if (!user || !userRole) {
-        router.push('/login')
-        return
-      }
-      if (!['admin', 'coach', 'parent'].includes(userRole)) {
-        router.push('/login')
-        return
-      }
-    }
-    if (user && swimmerId && !dataLoaded) {
-      loadData()
-    }
-  }, [user, authLoading, swimmerId])
-
   const loadData = useCallback(async () => {
     if (dataLoaded) return
     setLoading(true)
@@ -107,10 +102,17 @@ export default function SwimmerPerformancePage() {
 
       if (swimmerError) throw swimmerError
 
-      // Access control: parents can only view their own swimmers
-      if (userRole === 'parent' && swimmerData.parent_id !== user.id) {
-        router.push('/dashboard')
-        return
+      // Access control: primary parent or linked co-parent
+      if (userRole === 'parent') {
+        const allowed = await userCanAccessSwimmerParent(
+          supabase,
+          user.id,
+          swimmerData.parent_id
+        )
+        if (!allowed) {
+          router.push('/dashboard')
+          return
+        }
       }
 
       setSwimmer(swimmerData)
@@ -138,6 +140,37 @@ export default function SwimmerPerformancePage() {
       if (notesError) throw notesError
       setNotes(notesData || [])
 
+      if (userRole === 'parent') {
+        const { windowStart, windowEnd, windowEndStr } = defaultAttendanceWindow()
+        const [attRes, sessRes] = await Promise.all([
+          supabase
+            .from('attendance')
+            .select(`*, training_sessions (session_date)`)
+            .eq('swimmer_id', swimmerId)
+            .order('created_at', { ascending: false })
+            .limit(500),
+          fetchTrainingSessionsForAttendanceWindow(supabase, windowEndStr),
+        ])
+        if (attRes.error) {
+          console.error('Error loading attendance:', attRes.error)
+          setAttendanceForCalendar([])
+        } else {
+          setAttendanceForCalendar(attRes.data || [])
+        }
+        if (sessRes.error) {
+          console.error('Error loading sessions for attendance:', sessRes.error)
+          setScheduledForCalendar([])
+        } else {
+          const expanded = expandScheduledSessionsInWindow(sessRes.data, windowStart, windowEnd)
+          setScheduledForCalendar(
+            expanded.filter((s) => sessionMatchesSwimmerSquad(s, swimmerData.squad_id))
+          )
+        }
+      } else {
+        setAttendanceForCalendar([])
+        setScheduledForCalendar([])
+      }
+
       setDataLoaded(true)
     } catch (err) {
       const msg = err?.message || err?.error_description || String(err)
@@ -147,6 +180,28 @@ export default function SwimmerPerformancePage() {
       setLoading(false)
     }
   }, [swimmerId, user, userRole, dataLoaded, router])
+
+  useEffect(() => {
+    if (!authLoading) {
+      if (!user || !userRole) {
+        router.push('/login')
+        return
+      }
+      if (!['admin', 'coach', 'parent'].includes(userRole)) {
+        router.push('/login')
+        return
+      }
+    }
+    if (user && swimmerId && !dataLoaded) {
+      loadData()
+    }
+  }, [user, authLoading, swimmerId, userRole, dataLoaded, loadData, router])
+
+  useEffect(() => {
+    if (userRole !== 'parent') return
+    const tab = searchParams.get('tab')
+    if (tab === 'attendance') setActiveTab('attendance')
+  }, [searchParams, userRole])
 
   // ── PERFORMANCE CRUD ─────────────────────────────────────
   async function handleSavePerformance(data) {
@@ -357,10 +412,11 @@ export default function SwimmerPerformancePage() {
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg mb-6 w-fit">
+          <div className="flex flex-wrap gap-1 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg mb-6 w-full max-w-full sm:w-fit">
             <button
+              type="button"
               onClick={() => setActiveTab('times')}
-              className={`px-5 py-2 rounded-md text-sm font-medium transition-all ${
+              className={`px-4 sm:px-5 py-2 rounded-md text-sm font-medium transition-all ${
                 activeTab === 'times'
                   ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
@@ -374,8 +430,9 @@ export default function SwimmerPerformancePage() {
               )}
             </button>
             <button
+              type="button"
               onClick={() => setActiveTab('notes')}
-              className={`px-5 py-2 rounded-md text-sm font-medium transition-all ${
+              className={`px-4 sm:px-5 py-2 rounded-md text-sm font-medium transition-all ${
                 activeTab === 'notes'
                   ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
@@ -388,6 +445,19 @@ export default function SwimmerPerformancePage() {
                 </span>
               )}
             </button>
+            {userRole === 'parent' && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('attendance')}
+                className={`px-4 sm:px-5 py-2 rounded-md text-sm font-medium transition-all ${
+                  activeTab === 'attendance'
+                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                Attendance
+              </button>
+            )}
           </div>
 
           {/* ── RACE TIMES TAB ── */}
@@ -474,6 +544,21 @@ export default function SwimmerPerformancePage() {
                   </table>
                 </div>
               )}
+            </Card>
+          )}
+
+          {/* ── ATTENDANCE (parents) ── */}
+          {activeTab === 'attendance' && userRole === 'parent' && (
+            <Card
+              title="Training attendance"
+              subtitle="Calendar shows scheduled squad sessions and check-ins."
+              padding="normal"
+            >
+              <AttendanceCalendarView
+                className="pt-2"
+                attendance={attendanceForCalendar}
+                scheduledSessions={scheduledForCalendar}
+              />
             </Card>
           )}
 

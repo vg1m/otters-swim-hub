@@ -40,10 +40,10 @@ export default function ForgotPasswordPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
             </svg>
           </div>
-          <h2 className="text-center text-3xl font-bold text-stone-900 tracking-tightest mb-2">
+          <h2 className="text-center text-3xl font-bold text-stone-900 dark:text-gray-100 tracking-tightest mb-2">
             {emailSent ? 'Check Your Email' : 'Reset Password'}
           </h2>
-          <p className="text-center text-stone-600">
+          <p className="text-center text-stone-600 dark:text-gray-400">
             {emailSent 
               ? "We've sent you a password reset link"
               : 'Enter your email to receive a password reset link'
@@ -65,7 +65,7 @@ export default function ForgotPasswordPage() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 rounded-lg placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                className="appearance-none relative block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900/80 placeholder-gray-400 dark:placeholder-gray-500 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
                 placeholder="you@example.com"
               />
             </div>
@@ -74,27 +74,27 @@ export default function ForgotPasswordPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-semibold rounded-lg text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-semibold rounded-lg text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-stone-50 dark:focus:ring-offset-gray-800 focus:ring-primary transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Sending...' : 'Send Reset Link'}
               </button>
             </div>
 
             <div className="text-sm text-center">
-              <Link href="/login" className="font-medium text-primary hover:text-primary-dark">
+              <Link href="/login" className="font-medium text-primary hover:text-primary-dark dark:hover:text-primary">
                 ← Back to login
               </Link>
             </div>
           </form>
         ) : (
           <div className="mt-8 space-y-6">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="bg-green-50 dark:bg-green-950/35 border border-green-200 dark:border-green-800/80 rounded-lg p-4">
               <div className="flex">
-                <svg className="h-5 w-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="h-5 w-5 text-green-500 dark:text-green-400 shrink-0" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
                 </svg>
                 <div className="ml-3">
-                  <p className="text-sm text-green-800">
+                  <p className="text-sm text-green-800 dark:text-green-200">
                     We've sent a password reset link to <strong>{email}</strong>. 
                     Please check your inbox and spam folder.
                   </p>
@@ -118,7 +118,7 @@ export default function ForgotPasswordPage() {
               >
                 Send another email
               </button>
-              <Link href="/login" className="text-sm font-medium text-gray-600 hover:text-primary text-center">
+              <Link href="/login" className="text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-primary dark:hover:text-primary text-center">
                 ← Back to login
               </Link>
             </div>

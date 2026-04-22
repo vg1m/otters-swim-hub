@@ -218,16 +218,63 @@ html.dark .grain-overlay {
 /* ── Admin sessions: custom toolbar (touch-friendly) ─────────────────────── */
 .admin-rbc-toolbar.rbc-toolbar {
   align-items: stretch;
+  flex-wrap: nowrap;
 }
 
 .admin-rbc-toolbar .rbc-toolbar-label {
   width: 100%;
 }
 
-@media (min-width: 640px) {
-  .admin-rbc-toolbar .rbc-toolbar-label {
-    width: auto;
-  }
+/* Segmented controls: vertical dividers between buttons (Tailwind divide-* can fight rbc defaults) */
+.admin-rbc-toolbar .admin-rbc-segmented > button + button {
+  box-shadow: -1px 0 0 rgb(229 231 235);
+}
+
+.dark .admin-rbc-toolbar .admin-rbc-segmented > button + button {
+  box-shadow: -1px 0 0 rgb(75 85 99);
+}
+
+/* Override generic `.dark .rbc-toolbar button` so segmented styling wins */
+.admin-rbc-toolbar .admin-rbc-segmented button {
+  border-radius: 0 !important;
+  border-width: 0 !important;
+  color: #4b5563;
+  background-color: transparent !important;
+}
+
+.admin-rbc-toolbar .admin-rbc-segmented button:hover {
+  background-color: #f9fafb !important;
+  color: #1f2937 !important;
+}
+
+.admin-rbc-toolbar .admin-rbc-segmented button[aria-pressed='true'] {
+  background-color: #f3f4f6 !important;
+  color: #111827 !important;
+  font-weight: 600;
+}
+
+.admin-rbc-toolbar .admin-rbc-segmented button[aria-pressed='true']:hover {
+  background-color: #e5e7eb !important;
+  color: #111827 !important;
+}
+
+.dark .admin-rbc-toolbar .admin-rbc-segmented button {
+  color: #d1d5db !important;
+}
+
+.dark .admin-rbc-toolbar .admin-rbc-segmented button:hover:not([aria-pressed='true']) {
+  background-color: rgba(55, 65, 81, 0.55) !important;
+  color: #f9fafb !important;
+}
+
+.dark .admin-rbc-toolbar .admin-rbc-segmented button[aria-pressed='true'] {
+  background-color: #374151 !important;
+  color: #f9fafb !important;
+}
+
+.dark .admin-rbc-toolbar .admin-rbc-segmented button[aria-pressed='true']:hover {
+  background-color: #4b5563 !important;
+  color: #f9fafb !important;
 }
 
 /* ── react-big-calendar: mobile tweaks ──────────────────────────────────── */
@@ -243,9 +290,6 @@ html.dark .grain-overlay {
     flex-wrap: wrap;
   }
 
-  .admin-rbc-toolbar .rbc-btn-group {
-    width: 100%;
-  }
 }
 
 /* ── Admin /admin/sessions only: less squeezed month & week ──────────────── */

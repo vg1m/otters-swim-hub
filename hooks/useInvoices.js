@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from './useAuth'
+import { fetchParentIdsForDataAccess } from '@/lib/parent/effective-parent-ids'
 
 export function useInvoices() {
   const { user } = useAuth()
@@ -22,6 +23,7 @@ export function useInvoices() {
     setError(null)
 
     try {
+      const parentIds = await fetchParentIdsForDataAccess(supabase, user.id)
       const { data, error } = await supabase
         .from('invoices')
         .select(`
@@ -29,7 +31,7 @@ export function useInvoices() {
           swimmers (first_name, last_name),
           invoice_line_items (*)
         `)
-        .eq('parent_id', user.id)
+        .in('parent_id', parentIds)
         .order('created_at', { ascending: false })
 
       if (error) throw error
