@@ -57,6 +57,7 @@ export default function SessionFormFields({
   setSessionForm,
   facilities,
   squadList,
+  coachList = [],
   showCustomPool,
   setShowCustomPool,
   customPoolName,
@@ -165,6 +166,25 @@ export default function SessionFormFields({
           onChange={(e) => patch({ end_time: e.target.value })}
         />
       </div>
+
+      {/* Lead Coach */}
+      {coachList.length > 0 && (
+        <div className="sm:col-span-2">
+          <Select
+            label="Lead coach"
+            value={sessionForm.coach_id || ''}
+            onChange={(e) => patch({ coach_id: e.target.value })}
+            options={[
+              { value: '', label: 'Select a coach' },
+              ...coachList.map((c) => ({
+                value: c.id,
+                label: c.full_name || c.email || c.id,
+              })),
+            ]}
+            helperText="Who leads this session. Their per-session rate is used for payroll."
+          />
+        </div>
+      )}
 
       {/* Squads */}
       <div className="sm:col-span-2">

@@ -318,7 +318,7 @@ export default function FacilityManagementPage() {
 
   function scheduleSquadLabel(row) {
     const links = row.facility_schedule_squads || []
-    if (!links.length) return '—'
+    if (!links.length) return 'N/A'
     return links
       .map((l) => l.squads?.name || '')
       .filter(Boolean)
@@ -349,7 +349,7 @@ export default function FacilityManagementPage() {
         return (
           <div className="flex flex-col gap-1">
             <span className="text-gray-900 dark:text-gray-100">
-              {row.address || '—'}
+              {row.address || 'N/A'}
             </span>
             {url && (
               <a
@@ -594,7 +594,7 @@ export default function FacilityManagementPage() {
                               <div>
                                 <span className="text-gray-500 dark:text-gray-400">Address</span>
                                 <p className="mt-0.5 text-gray-900 dark:text-gray-100 break-words">
-                                  {row.address || '—'}
+                                  {row.address || 'N/A'}
                                 </p>
                                 {directionsUrl && (
                                   <a
@@ -736,7 +736,7 @@ export default function FacilityManagementPage() {
                             <div className="flex flex-wrap items-baseline justify-between gap-2">
                               <span className="text-gray-500 dark:text-gray-400">Day</span>
                               <span className="text-gray-900 dark:text-gray-100">
-                                {dayNames[row.day_of_week] ?? '—'}
+                                {dayNames[row.day_of_week] ?? 'N/A'}
                               </span>
                             </div>
                             <div className="flex flex-wrap items-baseline justify-between gap-2">

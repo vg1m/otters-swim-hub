@@ -246,7 +246,7 @@ export default function InvoicesPage() {
 
       if (invoiceError) throw invoiceError
 
-      // Create line items (fee_type is NOT NULL in DB — required for PostgREST insert)
+      // Create line items (fee_type is NOT NULL in DB; required for PostgREST insert)
       const lineItemsToInsert = invoiceForm.line_items.map((item) => ({
         invoice_id: invoice.id,
         description: item.description.trim(),

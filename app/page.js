@@ -30,7 +30,7 @@ function FeatureList({ items }) {
   )
 }
 
-/** Branded graphic for the hub section — swim lanes + rhythm bars, not a generic UI clone */
+/** Branded graphic for the hub section: swim lanes + rhythm bars, not a generic UI clone */
 function HubSeasonGraphic() {
   const rhythm = [42, 68, 52, 88, 58, 92, 74]
   return (
@@ -60,7 +60,7 @@ function HubSeasonGraphic() {
                 Season snapshot
               </p>
               <p className="text-[10px] sm:text-[11px] text-stone-500 dark:text-gray-400 leading-snug mt-1">
-                Training rhythm and progress—together in one place
+                Training rhythm and progress, together in one place
               </p>
             </div>
           </div>
@@ -105,7 +105,7 @@ function HubSeasonGraphic() {
                 Invoices, when it&apos;s time
               </p>
               <p className="text-[10px] sm:text-[11px] text-stone-600 dark:text-gray-400 font-medium mt-1 leading-snug">
-                See what&apos;s due and pay securely—details inside the hub
+                See what&apos;s due and pay securely; details inside the hub
               </p>
             </div>
           </div>
@@ -246,7 +246,7 @@ export default function Home() {
                 items={[
                   'Race times and PB history in one table',
                   'Coach notes with technique, fitness, and achievements',
-                  'Attendance tab on the same page as performance—no extra app',
+                  'Attendance tab on the same page as performance, no extra app',
                   'Month navigation with attended, missed, and upcoming days',
                 ]}
               />

@@ -49,7 +49,7 @@ function toDateKey(date) {
 
 function sessionSquadsLabel(session) {
   const links = session?.training_session_squads || []
-  return links.map((l) => l.squads?.name).filter(Boolean).join(', ') || '—'
+  return links.map((l) => l.squads?.name).filter(Boolean).join(', ') || 'N/A'
 }
 
 /**
@@ -275,7 +275,7 @@ export default function AttendanceCalendarView({
                               {session.start_time} – {session.end_time}
                             </p>
                             <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
-                              {session.pool_location || '—'} · {sessionSquadsLabel(session)}
+                              {session.pool_location || 'N/A'} · {sessionSquadsLabel(session)}
                             </p>
                             {session.is_recurring && (
                               <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -302,7 +302,7 @@ export default function AttendanceCalendarView({
         <div className="grid grid-cols-3 gap-3 sm:gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
           <StatTile value={monthStats.attended} label="Attended" valueClass="text-green-600" />
           <StatTile
-            value={monthStats.rate === null ? '—' : `${monthStats.rate}%`}
+            value={monthStats.rate === null ? 'N/A' : `${Math.round(monthStats.rate)}%`}
             label="Attendance rate"
             valueClass="text-blue-600"
           />

@@ -218,7 +218,7 @@ function InvoicesPageContent() {
       }
 
       if (data.earlyBirdApplied) {
-        toast.success(`Early bird discount applied — saving ${formatKES(data.earlyBirdDiscount)}!`)
+        toast.success(`Early bird discount applied, saving ${formatKES(data.earlyBirdDiscount)}!`)
       } else {
         toast.success('Redirecting to secure payment page...')
       }
@@ -439,7 +439,7 @@ function InvoicesPageContent() {
                 </svg>
                 <div>
                   <p className="text-sm font-semibold text-green-800 dark:text-green-200">
-                    Early bird discount active — save {formatKES(EARLY_BIRD_DISCOUNT)}!
+                    Early bird discount active. Save {formatKES(EARLY_BIRD_DISCOUNT)}!
                   </p>
                   <p className="text-xs text-green-700 dark:text-green-300 mt-0.5">
                     Pay your outstanding invoice(s) before the 3rd of this month to receive the discount automatically.

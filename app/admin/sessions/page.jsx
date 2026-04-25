@@ -112,6 +112,7 @@ export default function SessionsPage() {
   const [sessions, setSessions] = useState([])
   const [facilities, setFacilities] = useState([])
   const [squadList, setSquadList] = useState([])
+  const [coachList, setCoachList] = useState([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
@@ -138,6 +139,7 @@ export default function SessionsPage() {
     squad_ids: [],
     pool_location: '',
     facility_id: '',
+    coach_id: '',
     is_recurring: false,
     recurrence_type: 'weekly',
     recurrence_weekday: '',
@@ -166,6 +168,7 @@ export default function SessionsPage() {
       loadSessions()
       loadFacilities()
       loadSquads()
+      loadCoaches()
     }
   }, [user, profile, authLoading])
 
@@ -233,6 +236,21 @@ export default function SessionsPage() {
       toast.error('Failed to load sessions')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function loadCoaches() {
+    const supabase = createClient()
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, per_session_rate_kes')
+        .in('role', ['coach', 'admin'])
+        .order('full_name')
+      if (error) throw error
+      setCoachList(data || [])
+    } catch (error) {
+      console.error('Error loading coaches:', error)
     }
   }
 
@@ -360,7 +378,7 @@ export default function SessionsPage() {
           end_time: sessionForm.end_time,
           pool_location: poolLocation,
           facility_id: facilityId,
-          coach_id: user.id,
+          coach_id: sessionForm.coach_id || user.id,
           is_recurring: sessionForm.is_recurring,
           recurrence_pattern: recurrencePattern,
           recurrence_end_date: sessionForm.is_recurring && sessionForm.recurrence_end_date ? sessionForm.recurrence_end_date : null,
@@ -503,6 +521,7 @@ export default function SessionsPage() {
           end_time: sessionForm.end_time,
           pool_location: poolLocation,
           facility_id: facilityId,
+          coach_id: sessionForm.coach_id || editingSession.coach_id || user.id,
           is_recurring: sessionForm.is_recurring,
           recurrence_pattern: recurrencePattern,
           recurrence_end_date: sessionForm.is_recurring && sessionForm.recurrence_end_date ? sessionForm.recurrence_end_date : null,
@@ -592,7 +611,7 @@ export default function SessionsPage() {
             Click a session to open details. Click a time slot to create a session for that date.
           </p>
 
-          {/* Squad colour legend — one pill per family (not per DB squad row) */}
+          {/* Squad colour legend: one pill per family (not per DB squad row) */}
           <div className="flex flex-wrap gap-2 mb-4">
             {SQUAD_LEGEND_CHIPS.map(({ label, cls }) => (
               <span key={label} className={`squad-legend-chip py-1.5 px-3 text-sm ${cls}`}>
@@ -743,6 +762,7 @@ export default function SessionsPage() {
                   end_time: session.end_time,
                   pool_location: session.pool_location,
                   facility_id: session.facility_id || '',
+                  coach_id: session.coach_id || '',
                   squad_ids: session.training_session_squads?.map((ts) => ts.squad_id) || [],
                   is_recurring: session.is_recurring || false,
                   recurrence_type: parsed.type,
@@ -792,7 +812,7 @@ export default function SessionsPage() {
               </div>
               <div>
                 <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Pool</p>
-                <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">{selectedEvent.pool_location || '—'}</p>
+                <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">{selectedEvent.pool_location || 'N/A'}</p>
               </div>
               <div>
                 <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Recurrence</p>
@@ -857,6 +877,7 @@ export default function SessionsPage() {
           setSessionForm={setSessionForm}
           facilities={facilities}
           squadList={squadList}
+          coachList={coachList}
           showCustomPool={showCustomPool}
           setShowCustomPool={setShowCustomPool}
           customPoolName={customPoolName}
@@ -903,6 +924,7 @@ export default function SessionsPage() {
           setSessionForm={setSessionForm}
           facilities={facilities}
           squadList={squadList}
+          coachList={coachList}
           showCustomPool={showCustomPool}
           setShowCustomPool={setShowCustomPool}
           customPoolName={customPoolName}

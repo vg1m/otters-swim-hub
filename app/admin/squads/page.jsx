@@ -96,7 +96,7 @@ export default function AdminSquadsPage() {
 
     const slug = selected ? selected.slug : slugify(form.slug || form.name)
     if (!slug) {
-      toast.error('Slug could not be derived — use letters/numbers in the name')
+      toast.error('Slug could not be derived. Use letters/numbers in the name.')
       return
     }
 
@@ -160,7 +160,7 @@ export default function AdminSquadsPage() {
     {
       header: 'Quarterly',
       accessor: 'quarterly_fee',
-      render: (r) => (r.quarterly_fee != null ? formatKES(Number(r.quarterly_fee)) : '—'),
+      render: (r) => (r.quarterly_fee != null ? formatKES(Number(r.quarterly_fee)) : 'N/A'),
     },
     {
       header: 'Early bird',
@@ -281,7 +281,7 @@ export default function AdminSquadsPage() {
               label="Slug (optional)"
               value={form.slug}
               onChange={(e) => setForm({ ...form, slug: e.target.value })}
-              placeholder="e.g. pups — auto from name if empty"
+              placeholder="e.g. pups (auto from name if empty)"
               helperText="Stable ID for integrations; cannot be changed after create"
             />
           )}

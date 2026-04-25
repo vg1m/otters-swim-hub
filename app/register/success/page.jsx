@@ -65,7 +65,7 @@ function SuccessPageContent() {
                 <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">Next steps</h3>
                 <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-2 list-disc list-inside">
                   <li>Use the same email to create or sign in to your account when you are ready.</li>
-                  <li>Watch your dashboard — when your swimmer is approved, an invoice will appear under Invoices.</li>
+                  <li>Watch your dashboard. When your swimmer is approved, an invoice will appear under Invoices.</li>
                   <li>Pay online from the dashboard when you are ready.</li>
                 </ul>
               </div>

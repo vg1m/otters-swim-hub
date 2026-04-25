@@ -7,7 +7,7 @@ import { formatRecurrencePattern } from '@/lib/utils/recurrence'
 
 function sessionSquadsLabel(session) {
   const links = session?.training_session_squads || []
-  return links.map((l) => l.squads?.name).filter(Boolean).join(', ') || '—'
+  return links.map((l) => l.squads?.name).filter(Boolean).join(', ') || 'N/A'
 }
 
 function statusBadge(status) {
@@ -60,7 +60,7 @@ export default function SessionDetailsModal({ isOpen, onClose, session, attendan
           <div>
             <dt className="text-gray-500 dark:text-gray-400">Pool</dt>
             <dd className="text-gray-900 dark:text-gray-100 font-medium">
-              {session.pool_location || '—'}
+              {session.pool_location || 'N/A'}
             </dd>
           </div>
           <div className="sm:col-span-2">

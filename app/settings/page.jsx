@@ -204,7 +204,7 @@ export default function ProfileSettings() {
   }
 
   const copyFamilyInviteInstructions = async (emailAddr) => {
-    const text = `You’ve been invited to share Otters Swim Hub access. Create an account using ${emailAddr} — after you sign up, your access links automatically.`
+    const text = `You’ve been invited to share Otters Swim Hub access. Create an account using ${emailAddr}. After you sign up, your access links automatically.`
     try {
       await navigator.clipboard.writeText(text)
       toast.success('Instructions copied')
@@ -608,7 +608,7 @@ export default function ProfileSettings() {
             <Card
               title="Shared hub access"
               padding="normal"
-              subtitle="Invite a co-parent or partner — they sign in with their own email and see the same swimmers and invoices"
+              subtitle="Invite a co-parent or partner. They sign in with their own email and see the same swimmers and invoices"
             >
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

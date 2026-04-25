@@ -56,7 +56,7 @@ export default function MeetsPage() {
 
       if (error) {
         const detail =
-          [error.message, error.details, error.hint].filter(Boolean).join(' — ') ||
+          [error.message, error.details, error.hint].filter(Boolean).join(' | ') ||
           JSON.stringify(error)
         console.error('Error loading meets:', detail, error)
         toast.error(detail || 'Could not load meets')
@@ -80,7 +80,7 @@ export default function MeetsPage() {
       render: (meet) => (
         <div>
           <p className="font-medium text-gray-900 dark:text-gray-100">{meet.name}</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400">{meet.venue || '—'}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{meet.venue || 'N/A'}</p>
         </div>
       ),
     },
@@ -94,7 +94,7 @@ export default function MeetsPage() {
       accessor: 'course',
       render: (meet) => (
         <Badge variant={meet.course === 'LCM' ? 'primary' : 'default'}>
-          {meet.course || '—'}
+          {meet.course || 'N/A'}
         </Badge>
       ),
     },

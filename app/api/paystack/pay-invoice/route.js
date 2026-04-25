@@ -70,7 +70,7 @@ export async function POST(request) {
       )
     }
 
-    // Payments INSERT is restricted to admin/service_role in RLS — use service role
+    // Payments INSERT is restricted to admin/service_role in RLS; use service role
     // after we have verified the authenticated user may pay this invoice (primary or linked co-parent).
     const supabaseAdmin = createServiceRoleClient()
 

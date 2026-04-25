@@ -8,26 +8,46 @@ import { profileCache } from '@/lib/cache/profile-cache'
 import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer'
 import Card from '@/components/ui/Card'
+import Button from '@/components/ui/Button'
+import Modal from '@/components/ui/Modal'
 import Badge from '@/components/ui/Badge'
 import { formatKES } from '@/lib/utils/currency'
 import { formatDate } from '@/lib/utils/date-helpers'
 import toast from 'react-hot-toast'
 
+function AttendanceInfoIcon({ className = '', onOpen }) {
+  return (
+    <button
+      type="button"
+      className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-current text-[10px] font-semibold leading-none text-current opacity-70 transition hover:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${className}`}
+      aria-label="How attendance rate is calculated (opens explanation)"
+      onClick={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onOpen?.()
+      }}
+    >
+      i
+    </button>
+  )
+}
+
 function formatSwimmerNameFromPayment(payment) {
   const inv = payment.invoices
-  if (!inv) return '—'
+  if (!inv) return 'N/A'
   const sw = inv.swimmers
-  if (!sw) return '—'
+  if (!sw) return 'N/A'
   const row = Array.isArray(sw) ? sw[0] : sw
-  if (!row) return '—'
+  if (!row) return 'N/A'
   const name = `${row.first_name || ''} ${row.last_name || ''}`.trim()
-  return name || '—'
+  return name || 'N/A'
 }
 
 export default function ReportsPage() {
   const router = useRouter()
   const { user, profile, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
+  const [attendanceHelpOpen, setAttendanceHelpOpen] = useState(false)
   const [dateRange, setDateRange] = useState('this_month')
   const [stats, setStats] = useState({
     totalRevenue: 0,
@@ -38,7 +58,8 @@ export default function ReportsPage() {
     totalSwimmers: 0,
     activeSwimmers: 0,
     totalSessions: 0,
-    averageAttendance: 0,
+    /** 0–100, whole number: (avg check-ins per session / active swimmers) * 100, capped, rounded */
+    averageAttendancePercent: 0,
   })
   const [recentPayments, setRecentPayments] = useState([])
 
@@ -85,29 +106,23 @@ export default function ReportsPage() {
           startDate.setMonth(now.getMonth() - 1)
       }
 
-      // Fetch all data in parallel
-      const [
-        invoicesResult,
-        outstandingInvoicesResult,
-        paymentsResult,
-        swimmersResult,
-        sessionsResult,
-        attendanceResult
-      ] = await Promise.all([
-        supabase
-          .from('invoices')
-          .select('*')
-          .gte('created_at', startDate.toISOString()),
+      // Fetch in parallel; attendance is loaded after (scoped to same sessions as below)
+      const [invoicesResult, outstandingInvoicesResult, paymentsResult, swimmersResult, sessionsResult] =
+        await Promise.all([
+          supabase
+            .from('invoices')
+            .select('*')
+            .gte('created_at', startDate.toISOString()),
 
-        // Match /admin dashboard: all open amounts (issued + due), not scoped to report date range
-        supabase
-          .from('invoices')
-          .select('total_amount')
-          .in('status', ['issued', 'due']),
-        
-        supabase
-          .from('payments')
-          .select(`
+          // Match /admin dashboard: all open amounts (issued + due), not scoped to report date range
+          supabase
+            .from('invoices')
+            .select('total_amount')
+            .in('status', ['issued', 'due']),
+
+          supabase
+            .from('payments')
+            .select(`
             *,
             invoices (
               id,
@@ -115,30 +130,25 @@ export default function ReportsPage() {
               swimmers ( first_name, last_name )
             )
           `)
-          .eq('status', 'completed')
-          .gte('paid_at', startDate.toISOString())
-          .order('paid_at', { ascending: false })
-          .limit(20),
-        
-        supabase
-          .from('swimmers')
-          .select('id, status'),
-        
-        supabase
-          .from('training_sessions')
-          .select('id')
-          .gte('session_date', startDate.toISOString().split('T')[0]),
-        
-        supabase
-          .from('attendance')
-          .select('id')
-          .gte('created_at', startDate.toISOString())
-      ])
+            .eq('status', 'completed')
+            .gte('paid_at', startDate.toISOString())
+            .order('paid_at', { ascending: false })
+            .limit(20),
+
+          supabase
+            .from('swimmers')
+            .select('id, status'),
+
+          supabase
+            .from('training_sessions')
+            .select('id')
+            .gte('session_date', startDate.toISOString().split('T')[0]),
+        ])
 
       if (invoicesResult.error) throw invoicesResult.error
       if (outstandingInvoicesResult.error) throw outstandingInvoicesResult.error
 
-      // Process invoices (date range — for revenue & period summary only)
+      // Process invoices (date range: revenue and period summary only)
       const invoices = invoicesResult.data || []
       const paidInvoices = invoices.filter(inv => inv.status === 'paid')
       const unpaidInvoices = invoices.filter(inv => inv.status !== 'paid')
@@ -157,12 +167,27 @@ export default function ReportsPage() {
       const swimmers = swimmersResult.data || []
       const activeSwimmers = swimmers.filter(s => s.status === 'approved')
 
-      // Process sessions and attendance
+      // Process sessions; count check-ins only for those sessions (same date window as session_date filter)
       const sessions = sessionsResult.data || []
-      const attendanceRecords = attendanceResult.data || []
-      const averageAttendance = sessions.length > 0 
-        ? Math.round(attendanceRecords.length / sessions.length) 
-        : 0
+      const sessionIds = sessions.map((s) => s.id)
+      let attendanceRecords = []
+      if (sessionIds.length > 0) {
+        const { data: attData, error: attErr } = await supabase
+          .from('attendance')
+          .select('id')
+          .in('session_id', sessionIds)
+        if (attErr) throw attErr
+        attendanceRecords = attData || []
+      }
+      const totalCheckIns = attendanceRecords.length
+      const totalSessions = sessions.length
+      const activeCount = activeSwimmers.length
+      let averageAttendancePercent = 0
+      if (totalSessions > 0 && activeCount > 0) {
+        const avgCheckInsPerSession = totalCheckIns / totalSessions
+        averageAttendancePercent = Math.min(100, (avgCheckInsPerSession / activeCount) * 100)
+        averageAttendancePercent = Math.round(averageAttendancePercent)
+      }
 
       setStats({
         totalRevenue,
@@ -171,9 +196,9 @@ export default function ReportsPage() {
         paidInvoices: paidInvoices.length,
         unpaidInvoices: unpaidInvoices.length,
         totalSwimmers: swimmers.length,
-        activeSwimmers: activeSwimmers.length,
+        activeSwimmers: activeCount,
         totalSessions: sessions.length,
-        averageAttendance,
+        averageAttendancePercent,
       })
 
       // Use actual payments data for recent payments
@@ -202,7 +227,7 @@ export default function ReportsPage() {
       
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header — full-width period on mobile */}
+          {/* Header: full-width period on mobile */}
           <div className="mb-8 space-y-4">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
@@ -231,66 +256,94 @@ export default function ReportsPage() {
           </div>
 
           {loading ? (
-            <Card>
-              <div className="flex items-center justify-center py-12">
-                <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+            <Card className="!p-4">
+              <div className="flex items-center justify-center py-10">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
               </div>
             </Card>
           ) : (
             <>
-              {/* Financial Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
-                <Card padding="normal" className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+              <div className="mb-5 grid grid-cols-2 gap-2.5 sm:mb-6 sm:gap-3">
+                <Card
+                  padding="normal"
+                  className="!p-2.5 sm:!p-3 bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
+                >
                   <div>
-                    <p className="text-sm text-green-600 dark:text-green-400 font-medium">Total Revenue</p>
-                    <p className="text-3xl font-bold text-green-900 dark:text-green-100 mt-2">
+                    <p className="text-[9px] font-medium uppercase tracking-wide text-green-700/90 dark:text-green-300/90 sm:text-[10px]">
+                      Total revenue
+                    </p>
+                    <p className="text-lg font-bold leading-tight text-green-900 dark:text-green-100 sm:text-xl mt-0.5 break-words">
                       {formatKES(stats.totalRevenue)}
                     </p>
-                    <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                      {stats.paidInvoices} paid invoices
+                    <p className="text-[9px] text-green-600 dark:text-green-400/90 mt-0.5 leading-tight">
+                      {stats.paidInvoices} paid in period
                     </p>
                   </div>
                 </Card>
 
-                <Card padding="normal" className="bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800">
+                <Card
+                  padding="normal"
+                  className="!p-2.5 sm:!p-3 bg-yellow-50 dark:bg-yellow-900/20 border-yellow-200 dark:border-yellow-800"
+                >
                   <div>
-                    <p className="text-sm text-yellow-600 dark:text-yellow-400 font-medium">Outstanding</p>
-                    <p className="text-3xl font-bold text-yellow-900 dark:text-yellow-100 mt-2">
+                    <p className="text-[9px] font-medium uppercase tracking-wide text-yellow-800/90 dark:text-yellow-200/90 sm:text-[10px]">
+                      Outstanding
+                    </p>
+                    <p className="text-lg font-bold leading-tight text-yellow-900 dark:text-yellow-100 sm:text-xl mt-0.5 break-words">
                       {formatKES(stats.outstandingAmount)}
                     </p>
-                    <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
-                      {stats.outstandingInvoiceCount} invoice{stats.outstandingInvoiceCount !== 1 ? 's' : ''} (issued or due), all time
+                    <p className="text-[9px] text-yellow-700 dark:text-yellow-300/80 mt-0.5 leading-tight line-clamp-2">
+                      {stats.outstandingInvoiceCount} open (all time)
                     </p>
                   </div>
                 </Card>
 
-                <Card padding="normal" className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+                <Card
+                  padding="normal"
+                  className="!p-2.5 sm:!p-3 bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800"
+                >
                   <div>
-                    <p className="text-sm text-blue-600 dark:text-blue-400 font-medium">Active Swimmers</p>
-                    <p className="text-3xl font-bold text-blue-900 dark:text-blue-100 mt-2">
+                    <p className="text-[9px] font-medium uppercase tracking-wide text-blue-700/90 dark:text-blue-200/90 sm:text-[10px]">
+                      Active swimmers
+                    </p>
+                    <p className="text-lg font-bold tabular-nums text-blue-900 dark:text-blue-100 sm:text-xl mt-0.5">
                       {stats.activeSwimmers}
                     </p>
-                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                      of {stats.totalSwimmers} total
-                    </p>
+                    <p className="text-[9px] text-blue-600 dark:text-blue-300/80 mt-0.5">of {stats.totalSwimmers} total</p>
                   </div>
                 </Card>
 
-                <Card padding="normal" className="bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800">
+                <Card
+                  padding="normal"
+                  className="!p-2.5 sm:!p-3 bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800"
+                >
                   <div>
-                    <p className="text-sm text-purple-600 dark:text-purple-400 font-medium">Avg Attendance</p>
-                    <p className="text-3xl font-bold text-purple-900 dark:text-purple-100 mt-2">
-                      {stats.averageAttendance}
+                    <div className="flex items-center justify-between gap-1 pr-0.5">
+                      <p className="text-[9px] font-medium uppercase tracking-wide text-purple-700/90 dark:text-purple-200/90 sm:text-[10px]">
+                        Attend. rate
+                      </p>
+                      <AttendanceInfoIcon
+                        onOpen={() => setAttendanceHelpOpen(true)}
+                        className="text-purple-600 dark:text-purple-300 border-purple-300/80 dark:border-purple-500"
+                      />
+                    </div>
+                    <p className="text-lg font-bold tabular-nums text-purple-900 dark:text-purple-100 sm:text-xl mt-0.5">
+                      {stats.activeSwimmers > 0 && stats.totalSessions > 0
+                        ? `${stats.averageAttendancePercent}%`
+                        : 'N/A'}
                     </p>
-                    <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
-                      per session ({stats.totalSessions} sessions)
+                    <p className="text-[9px] text-purple-600 dark:text-purple-300/80 mt-0.5 leading-tight">
+                      {stats.totalSessions} session{stats.totalSessions !== 1 ? 's' : ''} in range
                     </p>
                   </div>
                 </Card>
               </div>
 
-              {/* Recent Payments */}
-              <Card title="Recent Payments" subtitle={`Last ${recentPayments.length} payments`}>
+              <Card
+                title="Recent payments"
+                subtitle={`Last ${recentPayments.length} in period`}
+                className="mt-5 sm:mt-6 [&_h3]:!text-sm [&_h3]:!font-semibold [&_p]:!text-xs"
+              >
                 {recentPayments.length === 0 ? (
                   <div className="text-center py-8">
                     <p className="text-gray-500 dark:text-gray-400">No payments recorded in this period</p>
@@ -404,65 +457,82 @@ export default function ReportsPage() {
                 )}
               </Card>
 
-              {/* Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mt-8">
-                <Card title="Payment Summary">
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
-                      <span className="text-gray-600 dark:text-gray-400">Total Invoices</span>
-                      <span className="font-semibold text-gray-900 dark:text-gray-100">
+              <div className="mt-5 grid grid-cols-1 gap-3 sm:mt-6 sm:gap-4 md:grid-cols-2">
+                <Card
+                  title="Payment summary"
+                  padding="normal"
+                  className="!p-3 sm:!p-4 [&_h3]:!text-sm [&_h3]:!font-semibold"
+                >
+                  <div className="space-y-0 text-xs sm:text-sm">
+                    <div className="flex items-center justify-between border-b border-gray-200 py-1.5 dark:border-gray-700">
+                      <span className="text-gray-500 dark:text-gray-400">Total invoices</span>
+                      <span className="font-semibold text-gray-900 dark:text-gray-100 tabular-nums">
                         {stats.paidInvoices + stats.unpaidInvoices}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
-                      <span className="text-gray-600 dark:text-gray-400">Paid Invoices</span>
-                      <span className="font-semibold text-green-600 dark:text-green-400">
+                    <div className="flex items-center justify-between border-b border-gray-200 py-1.5 dark:border-gray-700">
+                      <span className="text-gray-500 dark:text-gray-400">Paid</span>
+                      <span className="font-semibold text-green-600 dark:text-green-400 tabular-nums">
                         {stats.paidInvoices}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
-                      <span className="text-gray-600 dark:text-gray-400">Unpaid Invoices</span>
-                      <span className="font-semibold text-yellow-600 dark:text-yellow-400">
+                    <div className="flex items-center justify-between border-b border-gray-200 py-1.5 dark:border-gray-700">
+                      <span className="text-gray-500 dark:text-gray-400">Unpaid</span>
+                      <span className="font-semibold text-yellow-600 dark:text-yellow-400 tabular-nums">
                         {stats.unpaidInvoices}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center py-2">
-                      <span className="text-gray-600 dark:text-gray-400">Collection Rate</span>
-                      <span className="font-semibold text-gray-900 dark:text-gray-100">
+                    <div className="flex items-center justify-between py-1.5">
+                      <span className="text-gray-500 dark:text-gray-400">Collection rate</span>
+                      <span className="font-semibold text-gray-900 dark:text-gray-100 tabular-nums">
                         {stats.paidInvoices + stats.unpaidInvoices > 0
                           ? Math.round((stats.paidInvoices / (stats.paidInvoices + stats.unpaidInvoices)) * 100)
-                          : 0}%
+                          : 0}
+                        %
                       </span>
                     </div>
                   </div>
                 </Card>
 
-                <Card title="Activity Summary">
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
-                      <span className="text-gray-600 dark:text-gray-400">Training Sessions</span>
-                      <span className="font-semibold text-gray-900 dark:text-gray-100">
+                <Card
+                  title="Activity summary"
+                  padding="normal"
+                  className="!p-3 sm:!p-4 [&_h3]:!text-sm [&_h3]:!font-semibold"
+                >
+                  <div className="space-y-0 text-xs sm:text-sm">
+                    <div className="flex items-center justify-between border-b border-gray-200 py-1.5 dark:border-gray-700">
+                      <span className="text-gray-500 dark:text-gray-400">Training sessions</span>
+                      <span className="font-semibold text-gray-900 dark:text-gray-100 tabular-nums">
                         {stats.totalSessions}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
-                      <span className="text-gray-600 dark:text-gray-400">Average Attendance</span>
-                      <span className="font-semibold text-gray-900 dark:text-gray-100">
-                        {stats.averageAttendance} swimmers
+                    <div className="flex items-center justify-between gap-2 border-b border-gray-200 py-1.5 dark:border-gray-700">
+                      <span className="inline-flex min-w-0 items-center gap-0.5 text-gray-500 dark:text-gray-400">
+                        <span>Attendance rate</span>
+                        <AttendanceInfoIcon
+                          onOpen={() => setAttendanceHelpOpen(true)}
+                          className="h-4 w-4 text-gray-500 dark:text-gray-400 border-gray-400/60"
+                        />
+                      </span>
+                      <span className="shrink-0 font-semibold text-gray-900 dark:text-gray-100 tabular-nums">
+                        {stats.activeSwimmers > 0 && stats.totalSessions > 0
+                          ? `${stats.averageAttendancePercent}%`
+                          : 'N/A'}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-gray-700">
-                      <span className="text-gray-600 dark:text-gray-400">Active Swimmers</span>
-                      <span className="font-semibold text-gray-900 dark:text-gray-100">
+                    <div className="flex items-center justify-between border-b border-gray-200 py-1.5 dark:border-gray-700">
+                      <span className="text-gray-500 dark:text-gray-400">Active swimmers</span>
+                      <span className="font-semibold text-gray-900 dark:text-gray-100 tabular-nums">
                         {stats.activeSwimmers}
                       </span>
                     </div>
-                    <div className="flex justify-between items-center py-2">
-                      <span className="text-gray-600 dark:text-gray-400">Approval Rate</span>
-                      <span className="font-semibold text-gray-900 dark:text-gray-100">
+                    <div className="flex items-center justify-between py-1.5">
+                      <span className="text-gray-500 dark:text-gray-400">Approval rate</span>
+                      <span className="font-semibold text-gray-900 dark:text-gray-100 tabular-nums">
                         {stats.totalSwimmers > 0
                           ? Math.round((stats.activeSwimmers / stats.totalSwimmers) * 100)
-                          : 0}%
+                          : 0}
+                        %
                       </span>
                     </div>
                   </div>
@@ -472,6 +542,47 @@ export default function ReportsPage() {
           )}
         </div>
       </div>
+
+      <Modal
+        isOpen={attendanceHelpOpen}
+        onClose={() => setAttendanceHelpOpen(false)}
+        title="Attendance rate"
+        size="md"
+        footer={
+          <div className="flex w-full justify-end">
+            <Button type="button" variant="primary" onClick={() => setAttendanceHelpOpen(false)}>
+              Got it
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4 text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+          <p className="m-0">
+            <strong className="text-gray-900 dark:text-gray-100">What you&apos;re seeing</strong>
+          </p>
+          <p className="m-0 pl-0 text-gray-600 dark:text-gray-400">
+            Total check-in rows for sessions in your selected date range, divided by how many of those sessions ran,
+            then divided by your number of <strong>active (approved) swimmers</strong>, shown as a percent (capped at
+            100%).
+          </p>
+          <p className="m-0 pt-1">
+            <strong className="text-gray-900 dark:text-gray-100">What we align</strong>
+          </p>
+          <p className="m-0 pl-0 text-gray-600 dark:text-gray-400">
+            Check-ins are only counted when they belong to a session whose session date is in the
+            period. That matches the same set of sessions as your &quot;Training sessions&quot; count. We do not use
+            the day the check-in was first saved in the app to decide if it&apos;s in range.
+          </p>
+          <p className="m-0 pt-1">
+            <strong className="text-gray-900 dark:text-gray-100">Heads up</strong>
+          </p>
+          <p className="m-0 pl-0 text-gray-600 dark:text-gray-400">
+            Roster size is the whole approved list, not &quot;who was meant to be at each session,&quot; so the figure
+            is a <em>rough</em> utilisation view. It is not a full per-session capacity or squad-perfect attendance
+            rate.
+          </p>
+        </div>
+      </Modal>
 
       <Footer />
     </>

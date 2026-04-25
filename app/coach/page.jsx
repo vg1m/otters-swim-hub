@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
@@ -9,20 +10,31 @@ import Footer from '@/components/Footer'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
-import Table from '@/components/ui/Table'
-import { calculateAge, formatDate } from '@/lib/utils/date-helpers'
+import Input from '@/components/ui/Input'
+import Select from '@/components/ui/Select'
+import { calculateAge, formatDate, formatSessionTime } from '@/lib/utils/date-helpers'
+import { buildDirectionsUrlFromLabel } from '@/lib/facilities/directions'
+import {
+  KpiSwimmersIcon,
+  KpiSquadIcon,
+  KpiAttendanceIcon,
+  KpiOutstandingIcon,
+} from '@/components/icons/DashboardKpiIcons'
 import toast from 'react-hot-toast'
+
+const COACH_SCHEDULE_DAYS = 30
 
 export default function CoachDashboard() {
   const router = useRouter()
   const { user, profile, loading: authLoading } = useAuth()
   const [mySwimmers, setMySwimmers] = useState([])
-  const [mySquads, setMySquads] = useState([])
+  const [assignedSquadCount, setAssignedSquadCount] = useState(0)
   const [upcomingSessions, setUpcomingSessions] = useState([])
   const [stats, setStats] = useState({ totalSwimmers: 0, todaySessions: 0, totalSessions: 0 })
   const [perSessionRateKes, setPerSessionRateKes] = useState(null)
-  const [payEvents, setPayEvents] = useState([])
   const [loading, setLoading] = useState(true)
+  const [swimmerSearch, setSwimmerSearch] = useState('')
+  const [swimmerSquadFilter, setSwimmerSquadFilter] = useState('all')
 
   useEffect(() => {
     if (!authLoading) {
@@ -53,32 +65,6 @@ export default function CoachDashboard() {
         setPerSessionRateKes(rateRow?.per_session_rate_kes ?? null)
       }
 
-      const { data: payRows, error: payErr } = await supabase
-        .from('coach_session_pay_events')
-        .select(
-          `
-          id,
-          amount_kes,
-          rate_snapshot_kes,
-          created_at,
-          training_sessions (
-            session_date,
-            start_time,
-            end_time,
-            pool_location
-          )
-        `
-        )
-        .eq('coach_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(50)
-      if (payErr) {
-        console.warn('Coach pay events load:', payErr)
-        setPayEvents([])
-      } else {
-        setPayEvents(payRows || [])
-      }
-
       // Get coach squad assignments
       const { data: squadAssignments } = await supabase
         .from('coach_assignments')
@@ -86,9 +72,9 @@ export default function CoachDashboard() {
         .eq('coach_id', user.id)
         .not('squad_id', 'is', null)
 
-      const assignedSquadIds = squadAssignments?.map(a => a.squad_id) || []
-      const assignedSquadNames = squadAssignments?.map(a => a.squads?.name).filter(Boolean) || []
-      setMySquads(assignedSquadNames)
+      const assignedSquadIds = [
+        ...new Set((squadAssignments ?? []).map((a) => a.squad_id).filter(Boolean)),
+      ]
 
       // Get swimmers (direct + squad-based)
       let swimmersData = []
@@ -124,31 +110,75 @@ export default function CoachDashboard() {
       const uniqueSwimmers = Array.from(new Map(allSwimmers.map(s => [s.id, s])).values())
       setMySwimmers(uniqueSwimmers)
 
-      // Get upcoming sessions for assigned squads via junction table
-      const today = new Date().toISOString().split('T')[0]
-      const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      // Squads the coach touches: admin squad assignments plus each coached swimmer's squad (incl. individual-only)
+      const squadsInCoachingScope = new Set(assignedSquadIds)
+      for (const s of uniqueSwimmers) {
+        if (s.squad_id) squadsInCoachingScope.add(s.squad_id)
+      }
+      setAssignedSquadCount(squadsInCoachingScope.size)
 
-      let sessionsData = []
-      if (assignedSquadIds.length > 0) {
+      // My Schedule: same squads as above; also sessions where this coach is the lead coach.
+      const today = new Date().toISOString().split('T')[0]
+      const scheduleEnd = new Date(
+        Date.now() + COACH_SCHEDULE_DAYS * 24 * 60 * 60 * 1000
+      )
+        .toISOString()
+        .split('T')[0]
+
+      const squadIdsForSchedule = squadsInCoachingScope
+
+      const sessionById = new Map()
+      const squadIdList = [...squadIdsForSchedule]
+
+      if (squadIdList.length > 0) {
         const { data: sessionSquadLinks } = await supabase
           .from('training_session_squads')
           .select('session_id')
-          .in('squad_id', assignedSquadIds)
-        
-        const sessionIds = [...new Set(sessionSquadLinks?.map(l => l.session_id) || [])]
-        
+          .in('squad_id', squadIdList)
+
+        const sessionIds = [...new Set(sessionSquadLinks?.map((l) => l.session_id) || [])]
+
         if (sessionIds.length > 0) {
-          const { data } = await supabase
+          const { data: fromSquads, error: fromSqErr } = await supabase
             .from('training_sessions')
             .select('*, training_session_squads(squad_id, squads(name))')
             .in('id', sessionIds)
             .gte('session_date', today)
-            .lte('session_date', nextWeek)
+            .lte('session_date', scheduleEnd)
             .order('session_date')
             .order('start_time')
-          sessionsData = data || []
+          if (fromSqErr) {
+            console.warn('Coach schedule (squads):', fromSqErr)
+          } else {
+            for (const row of fromSquads || []) {
+              sessionById.set(row.id, row)
+            }
+          }
         }
       }
+
+      const { data: fromLeadCoach, error: fromCoachErr } = await supabase
+        .from('training_sessions')
+        .select('*, training_session_squads(squad_id, squads(name))')
+        .eq('coach_id', user.id)
+        .gte('session_date', today)
+        .lte('session_date', scheduleEnd)
+        .order('session_date')
+        .order('start_time')
+      if (fromCoachErr) {
+        console.warn('Coach schedule (lead coach):', fromCoachErr)
+      } else {
+        for (const row of fromLeadCoach || []) {
+          if (!sessionById.has(row.id)) sessionById.set(row.id, row)
+        }
+      }
+
+      const sessionsData = Array.from(sessionById.values()).sort((a, b) => {
+        if (a.session_date !== b.session_date) {
+          return String(a.session_date).localeCompare(String(b.session_date))
+        }
+        return String(a.start_time || '').localeCompare(String(b.start_time || ''))
+      })
 
       setUpcomingSessions(sessionsData)
 
@@ -169,51 +199,33 @@ export default function CoachDashboard() {
     }
   }
 
-  const swimmerColumns = [
-    {
-      header: 'Name',
-      accessor: 'name',
-      render: (row) => (
-        <div>
-          <p className="font-medium text-gray-900 dark:text-gray-100">
-            {row.first_name} {row.last_name}
-          </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Age {calculateAge(row.date_of_birth)}
-          </p>
-        </div>
-      ),
-    },
-    {
-      header: 'Squad',
-      accessor: 'squad',
-      render: (row) => (
-        <Badge variant="info">{row.squads?.name || 'Pending'}</Badge>
-      ),
-    },
-    {
-      header: 'Status',
-      accessor: 'status',
-      render: (row) => (
-        <Badge variant={row.status === 'approved' ? 'success' : 'warning'}>
-          {row.status.toUpperCase()}
-        </Badge>
-      ),
-    },
-    {
-      header: 'Actions',
-      accessor: 'actions',
-      render: (row) => (
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => router.push(`/swimmers/${row.id}/performance`)}
-        >
-          Progress
-        </Button>
-      ),
-    },
-  ]
+  const coachSwimmerSquadOptions = useMemo(() => {
+    const byId = new Map()
+    for (const s of mySwimmers) {
+      if (s.squad_id && s.squads?.name) {
+        byId.set(s.squad_id, s.squads.name)
+      }
+    }
+    return [...byId.entries()]
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label))
+  }, [mySwimmers])
+
+  const filteredSwimmers = useMemo(() => {
+    const q = swimmerSearch.trim().toLowerCase()
+    return mySwimmers.filter((s) => {
+      if (swimmerSquadFilter !== 'all' && s.squad_id !== swimmerSquadFilter) return false
+      if (!q) return true
+      const full = `${s.first_name || ''} ${s.last_name || ''}`.toLowerCase()
+      const lic = String(s.license_number || '').toLowerCase()
+      return (
+        full.includes(q) ||
+        lic.includes(q) ||
+        (s.first_name && s.first_name.toLowerCase().includes(q)) ||
+        (s.last_name && s.last_name.toLowerCase().includes(q))
+      )
+    })
+  }, [mySwimmers, swimmerSearch, swimmerSquadFilter])
 
   if (loading) {
     return (
@@ -233,129 +245,124 @@ export default function CoachDashboard() {
     <>
       <Navigation />
       
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-5 sm:py-8 transition-colors duration-200">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Coach Dashboard</h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-2">Welcome back, {profile?.full_name}</p>
+          <div className="mb-5 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
+              Coach Dashboard
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-1 sm:mt-2 text-sm sm:text-base">
+              Welcome back, {profile?.full_name}
+            </p>
           </div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <Card padding="normal">
-              <div className="text-center">
-                <p className="text-4xl font-bold text-primary mb-2">{stats.totalSwimmers}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Total Swimmers</p>
-              </div>
-            </Card>
-            <Card padding="normal">
-              <div className="text-center">
-                <p className="text-4xl font-bold text-blue-600 mb-2">{mySquads.length}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Squad{mySquads.length !== 1 ? 's' : ''} Assigned
-                </p>
-                {mySquads.length > 0 && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    {mySquads.join(', ')}
+          {/* Stats: 2x2 on mobile, 4 across from md (matches admin dashboard rhythm) */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3 md:gap-4 mb-5 sm:mb-8">
+            <Card
+              padding="sm"
+              className="bg-cyan-50/90 dark:bg-cyan-900/20 border-cyan-200/80 dark:border-cyan-800 shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-1.5 sm:gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-cyan-800/90 dark:text-cyan-300/90 leading-tight">
+                    <span className="sm:hidden">Swimmers</span>
+                    <span className="hidden sm:inline">Total swimmers</span>
                   </p>
-                )}
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold tabular-nums text-cyan-900 dark:text-cyan-100 mt-0.5 sm:mt-1 leading-none">
+                    {stats.totalSwimmers}
+                  </p>
+                </div>
+                <KpiSwimmersIcon className="w-7 h-7 sm:w-9 sm:h-9 shrink-0 text-cyan-600/80 dark:text-cyan-400/85" />
               </div>
             </Card>
-            <Card padding="normal">
-              <div className="text-center">
-                <p className="text-4xl font-bold text-green-600 mb-2">{stats.todaySessions}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Sessions Today</p>
+
+            <Link
+              href="/coach/earnings"
+              className="block h-full min-h-0 rounded-lg no-underline focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
+              aria-label="What you earn per session. Open full pay history and rate details."
+            >
+              <Card
+                padding="sm"
+                className="h-full cursor-pointer text-left transition-shadow hover:shadow-md active:opacity-95 bg-slate-100/90 dark:bg-slate-800/50 border-slate-200/90 dark:border-slate-600 shadow-sm"
+              >
+                <p className="text-[9px] sm:text-[10px] text-slate-500 dark:text-slate-400 -mt-0.5 mb-0.5">
+                  <span className="sm:hidden">View history</span>
+                  <span className="hidden sm:inline">Open pay history &amp; details</span>
+                </p>
+                <div className="flex items-start justify-between gap-1.5 sm:gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-slate-600 dark:text-slate-400 leading-tight">
+                      <span className="sm:hidden">Earnings</span>
+                      <span className="hidden sm:inline">What you earn (per session)</span>
+                    </p>
+                    {perSessionRateKes != null && Number(perSessionRateKes) > 0 ? (
+                      <p className="text-lg sm:text-xl lg:text-2xl font-bold tabular-nums text-blue-600 dark:text-blue-300 mt-0.5 sm:mt-1 leading-tight break-words">
+                        KES{' '}
+                        {Number(perSessionRateKes).toLocaleString(undefined, {
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 2,
+                        })}
+                      </p>
+                    ) : (
+                      <p className="text-sm sm:text-base font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+                        Not set
+                      </p>
+                    )}
+                  </div>
+                  <KpiOutstandingIcon className="w-7 h-7 sm:w-9 sm:h-9 shrink-0 text-blue-500/70 dark:text-blue-400/80" />
+                </div>
+              </Card>
+            </Link>
+
+            <Card
+              padding="sm"
+              className="bg-blue-50 dark:bg-blue-900/20 border-blue-200/80 dark:border-blue-800 shadow-sm"
+            >
+              <div
+                className="flex items-start justify-between gap-1.5 sm:gap-2"
+                title="Distinct squads you cover: squad-level assignments from admin, plus the squad of each swimmer on your roster (individual and direct assignments included)."
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-blue-700/90 dark:text-blue-300/90 leading-tight">
+                    <span className="sm:hidden">Squads</span>
+                    <span className="hidden sm:inline">Squads you cover</span>
+                  </p>
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold tabular-nums text-blue-900 dark:text-blue-100 mt-0.5 sm:mt-1 leading-none">
+                    {assignedSquadCount}
+                  </p>
+                </div>
+                <KpiSquadIcon className="w-7 h-7 sm:w-9 sm:h-9 shrink-0 text-blue-500/85 dark:text-blue-400/90" />
+              </div>
+            </Card>
+
+            <Card
+              padding="sm"
+              className="bg-green-50 dark:bg-green-900/20 border-green-200/80 dark:border-green-800 shadow-sm"
+            >
+              <div
+                className="flex items-start justify-between gap-1.5 sm:gap-2"
+                title="Training sessions on today's date from the same list as “My Schedule” (your squads, squads of swimmers you coach, lead-coach sessions). Calendar count for today, not attendance or pay."
+              >
+                <div className="min-w-0 flex-1 text-left">
+                  <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-green-800/90 dark:text-green-300/90 leading-tight">
+                    {`Today's sessions`}
+                  </p>
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold tabular-nums text-green-900 dark:text-green-100 mt-0.5 sm:mt-1 leading-none">
+                    {stats.todaySessions}
+                  </p>
+                </div>
+                <KpiAttendanceIcon className="w-7 h-7 sm:w-9 sm:h-9 shrink-0 text-emerald-600/80 dark:text-emerald-400/85" />
               </div>
             </Card>
           </div>
-
-          {/* Session pay (rate set by admin; pay lines from automated job) */}
-          <Card title="Session pay" padding="normal" className="mb-6">
-            <div className="mb-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-4">
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-1">
-                Per-session rate
-              </p>
-              {perSessionRateKes != null && Number(perSessionRateKes) > 0 ? (
-                <p className="text-lg font-semibold text-primary tabular-nums">
-                  KES{' '}
-                  {Number(perSessionRateKes).toLocaleString(undefined, {
-                    minimumFractionDigits: 0,
-                    maximumFractionDigits: 2,
-                  })}{' '}
-                  <span className="text-sm font-normal text-gray-600 dark:text-gray-400">
-                    per session
-                  </span>
-                </p>
-              ) : (
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Not set yet. Your club admin sets this on Coach Management — contact them if you
-                  expect session pay.
-                </p>
-              )}
-              <p className="text-xs text-gray-500 dark:text-gray-500 mt-2">
-                After each session ends, the club system records a pay line here and may email you a
-                summary (club records; not parent billing).
-              </p>
-            </div>
-
-            {payEvents.length === 0 ? (
-              <p className="text-sm text-gray-600 dark:text-gray-400 py-2">
-                No session pay lines recorded yet. Lines appear after sessions you coach finish and
-                your rate is set.
-              </p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700 text-sm">
-                  <thead className="bg-gray-50 dark:bg-gray-800">
-                    <tr>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                        Recorded
-                      </th>
-                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                        Session
-                      </th>
-                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                        Amount (KES)
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-                    {payEvents.map((row) => {
-                      const ts = row.training_sessions
-                      const sessionLabel = ts
-                        ? `${formatDate(ts.session_date)} · ${String(ts.start_time || '').slice(0, 5)}–${String(ts.end_time || '').slice(0, 5)}`
-                        : '—'
-                      const loc = ts?.pool_location
-                      return (
-                        <tr key={row.id} className="bg-white dark:bg-gray-900">
-                          <td className="px-3 py-2 text-gray-700 dark:text-gray-300 whitespace-nowrap">
-                            {row.created_at
-                              ? formatDate(row.created_at.split('T')[0])
-                              : '—'}
-                          </td>
-                          <td className="px-3 py-2 text-gray-700 dark:text-gray-300">
-                            <span className="block">{sessionLabel}</span>
-                            {loc ? (
-                              <span className="text-xs text-gray-500 dark:text-gray-400">{loc}</span>
-                            ) : null}
-                          </td>
-                          <td className="px-3 py-2 text-right font-medium tabular-nums text-gray-900 dark:text-gray-100">
-                            {Number(row.amount_kes).toLocaleString(undefined, {
-                              minimumFractionDigits: 0,
-                              maximumFractionDigits: 2,
-                            })}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </Card>
 
           {/* My Swimmers */}
-          <Card title="My Swimmers" padding="normal" className="mb-6">
+          <Card
+            title="My Swimmers"
+            subtitle="Search and filter; list scrolls inside this area on long rosters."
+            padding="normal"
+            className="mb-6"
+          >
             {mySwimmers.length === 0 ? (
               <div className="text-center py-8">
                 <p className="text-gray-600 dark:text-gray-400">
@@ -363,23 +370,123 @@ export default function CoachDashboard() {
                 </p>
               </div>
             ) : (
-              <Table
-                columns={swimmerColumns}
-                data={mySwimmers}
-                emptyMessage="No swimmers assigned"
-              />
+              <>
+                <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end mb-3">
+                  <div className="min-w-0 flex-1 sm:max-w-md">
+                    <Input
+                      placeholder="Search by name or license…"
+                      value={swimmerSearch}
+                      onChange={(e) => setSwimmerSearch(e.target.value)}
+                      aria-label="Search swimmers"
+                    />
+                  </div>
+                  <div className="w-full sm:w-52">
+                    <Select
+                      label="Squad"
+                      value={swimmerSquadFilter}
+                      onChange={(e) => setSwimmerSquadFilter(e.target.value)}
+                      options={[
+                        { value: 'all', label: 'All squads' },
+                        ...coachSwimmerSquadOptions,
+                      ]}
+                    />
+                  </div>
+                  {(swimmerSearch.trim() !== '' || swimmerSquadFilter !== 'all') && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={() => {
+                        setSwimmerSearch('')
+                        setSwimmerSquadFilter('all')
+                      }}
+                    >
+                      Clear filters
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                  {filteredSwimmers.length === mySwimmers.length
+                    ? `${mySwimmers.length} swimmer${mySwimmers.length !== 1 ? 's' : ''}`
+                    : `Showing ${filteredSwimmers.length} of ${mySwimmers.length}`}
+                </p>
+                {filteredSwimmers.length === 0 ? (
+                  <p className="text-center text-sm text-gray-500 dark:text-gray-400 py-8">
+                    No swimmers match your filters.
+                  </p>
+                ) : (
+                  <div
+                    className="max-h-[min(60vh,520px)] overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50/50 dark:bg-gray-900/30 p-3"
+                    role="region"
+                    aria-label="Swimmer list"
+                  >
+                    <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                      {filteredSwimmers.map((row) => (
+                        <div
+                          key={row.id}
+                          className="flex flex-col rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-3 shadow-sm"
+                        >
+                          <div className="flex flex-wrap items-start justify-between gap-2 min-h-0 flex-1">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold text-gray-900 dark:text-gray-100 leading-snug break-words">
+                                {row.first_name} {row.last_name}
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                Age {calculateAge(row.date_of_birth)}
+                                {row.license_number ? (
+                                  <span className="ml-1">· Lic. {row.license_number}</span>
+                                ) : null}
+                              </p>
+                            </div>
+                            <div className="shrink-0 flex flex-col items-end gap-1">
+                              <Badge variant="info" size="sm">
+                                {row.squads?.name || 'Pending'}
+                              </Badge>
+                              <Badge
+                                variant={row.status === 'approved' ? 'success' : 'warning'}
+                                size="sm"
+                              >
+                                {row.status.toUpperCase()}
+                              </Badge>
+                            </div>
+                          </div>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            fullWidth
+                            className="mt-3"
+                            onClick={() => router.push(`/swimmers/${row.id}/performance`)}
+                          >
+                            Progress
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
             )}
           </Card>
 
           {/* Upcoming Sessions */}
-          <Card title="My Schedule" padding="normal">
+          <Card
+            title="My Schedule"
+            subtitle={`Next ${COACH_SCHEDULE_DAYS} days - squads you coach, your swimmers' squads, and sessions where you are the lead coach.`}
+            padding="normal"
+          >
             {upcomingSessions.length === 0 ? (
               <div className="text-center py-6">
-                <p className="text-gray-600 dark:text-gray-400">No upcoming sessions for your squads</p>
+                <p className="text-gray-600 dark:text-gray-400">
+                  No sessions in this period. Check that training sessions use the right squads in Admin, or that
+                  you are set as the session coach when appropriate.
+                </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {upcomingSessions.map((session) => (
+                {upcomingSessions.map((session) => {
+                  const directionsUrl = buildDirectionsUrlFromLabel(session.pool_location)
+                  return (
                   <div
                     key={session.id}
                     className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4"
@@ -399,9 +506,19 @@ export default function CoachDashboard() {
                         ))}
                       </div>
                     </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                      📍 {session.pool_location}
-                    </p>
+                    <div className="text-sm text-gray-600 dark:text-gray-400 mb-3 space-y-1">
+                      <p className="break-words">📍 {session.pool_location || 'N/A'}</p>
+                      {directionsUrl && (
+                        <a
+                          href={directionsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-primary hover:underline inline-block"
+                        >
+                          Get directions →
+                        </a>
+                      )}
+                    </div>
                     <Button 
                       size="sm" 
                       variant="secondary" 
@@ -411,7 +528,8 @@ export default function CoachDashboard() {
                       Manage Attendance
                     </Button>
                   </div>
-                ))}
+                )
+                })}
               </div>
             )}
           </Card>

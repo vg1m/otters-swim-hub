@@ -41,7 +41,7 @@ export default function LoginPage() {
   }, [])
 
   /**
-   * Where Supabase sends the user *after* OAuth completes — your app’s `/auth/callback`.
+   * Where Supabase sends the user *after* OAuth completes: your app’s `/auth/callback`.
    * Must be listed under Supabase → Authentication → URL Configuration → Redirect URLs
    * (e.g. http://localhost:3000/** and https://your-prod-domain.com/**).
    *
@@ -102,7 +102,7 @@ export default function LoginPage() {
       try {
         payload = await res.json()
       } catch {
-        // non-JSON response — fall through to generic error below
+        // non-JSON response; fall through to generic error below
       }
 
       if (!res.ok || !payload?.ok) {
@@ -117,7 +117,7 @@ export default function LoginPage() {
     } catch (error) {
       const msg = error?.message || ''
       if (error?.name === 'AbortError' || msg.includes('signal aborted')) {
-        // Benign abort from a background request during navigation — ignore
+        // Benign abort from a background request during navigation; ignore
         // so it doesn't surface as a scary toast.
         return
       }

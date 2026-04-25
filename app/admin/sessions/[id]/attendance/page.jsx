@@ -103,12 +103,28 @@ export default function SessionAttendancePage() {
         throw attendanceError
       }
 
+      const coachIds = [...new Set((attendanceData || []).map((a) => a.coach_id).filter(Boolean))]
+      let coachNameById = {}
+      if (coachIds.length > 0) {
+        const { data: coachProfiles, error: coachProfErr } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', coachIds)
+        if (coachProfErr) {
+          console.warn('Coach names for attendance:', coachProfErr)
+        } else {
+          coachNameById = Object.fromEntries((coachProfiles || []).map((p) => [p.id, p.full_name]))
+        }
+      }
+
       const attendanceMap = {}
-      attendanceData.forEach(att => {
+      attendanceData.forEach((att) => {
         attendanceMap[att.swimmer_id] = {
           id: att.id,
           checked_in_by: att.checked_in_by,
           check_in_time: att.check_in_time,
+          coach_id: att.coach_id,
+          coachName: att.coach_id ? coachNameById[att.coach_id] || null : null,
         }
       })
       setAttendance(attendanceMap)
@@ -123,9 +139,16 @@ export default function SessionAttendancePage() {
   }
 
   function toggleAttendance(swimmerId) {
-    setAttendance(prev => ({
+    setAttendance((prev) => ({
       ...prev,
-      [swimmerId]: prev[swimmerId] ? null : { checked_in_by: 'coach', new: true }
+      [swimmerId]: prev[swimmerId]
+        ? null
+        : {
+            checked_in_by: 'coach',
+            new: true,
+            coach_id: user?.id,
+            coachName: profile?.full_name || null,
+          },
     }))
   }
 
@@ -219,6 +242,24 @@ export default function SessionAttendancePage() {
       : `/admin/sessions?date=${encodeURIComponent(session.session_date)}`
   const backLabel = userRole === 'coach' ? 'Back to coach dashboard' : 'Back to sessions calendar'
 
+  function checkInByline(att) {
+    if (!att?.checked_in_by) return null
+    if (att.checked_in_by === 'self') {
+      return 'Self check-in'
+    }
+    if (att.checked_in_by === 'coach') {
+      if (user?.id && att.coach_id && att.coach_id === user.id) {
+        const name = profile?.full_name?.trim()
+        return name ? `Checked in by ${name}` : 'Checked in by you'
+      }
+      if (att.coachName?.trim()) {
+        return `Checked in by ${att.coachName.trim()}`
+      }
+      return 'Checked in by coach'
+    }
+    return null
+  }
+
   return (
     <>
       <Navigation />
@@ -242,7 +283,7 @@ export default function SessionAttendancePage() {
               {formatDate(session.session_date)} - {session.start_time} to {session.end_time}
             </p>
             <p className="text-gray-600 dark:text-gray-400">
-              {session.training_session_squads?.map(ts => ts.squads?.name).filter(Boolean).join(', ') || 'No squad'} — {session.pool_location}
+              {session.training_session_squads?.map(ts => ts.squads?.name).filter(Boolean).join(', ') || 'No squad'} · {session.pool_location}
             </p>
           </div>
 
@@ -264,7 +305,8 @@ export default function SessionAttendancePage() {
             <div className="space-y-2">
               {swimmers.map((swimmer) => {
                 const isCheckedIn = !!attendance[swimmer.id]
-                const checkedInBy = attendance[swimmer.id]?.checked_in_by
+                const attRow = attendance[swimmer.id]
+                const checkInLabel = isCheckedIn && attRow ? checkInByline(attRow) : null
 
                 return (
                   <div
@@ -286,11 +328,9 @@ export default function SessionAttendancePage() {
                         <p className="font-medium text-gray-900 dark:text-gray-100">
                           {swimmer.first_name} {swimmer.last_name}
                         </p>
-                        {isCheckedIn && checkedInBy && (
-                          <p className="text-xs text-gray-600 dark:text-gray-400">
-                            Checked in by: {checkedInBy === 'self' ? 'Self' : 'Coach'}
-                          </p>
-                        )}
+                        {checkInLabel ? (
+                          <p className="text-xs text-gray-600 dark:text-gray-400">{checkInLabel}</p>
+                        ) : null}
                       </div>
                     </div>
                     {isCheckedIn && (

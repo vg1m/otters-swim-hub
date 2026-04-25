@@ -14,6 +14,7 @@ import Modal from '@/components/ui/Modal'
 import Select from '@/components/ui/Select'
 import Badge from '@/components/ui/Badge'
 import Input from '@/components/ui/Input'
+import CoachDeliveryReviewPanel from '@/components/admin/CoachDeliveryReviewPanel'
 import toast from 'react-hot-toast'
 
 export default function CoachManagementPage() {
@@ -42,6 +43,29 @@ export default function CoachManagementPage() {
     per_session_rate_kes: '',
   })
   const [saving, setSaving] = useState(false)
+  const [coachTab, setCoachTab] = useState('roster')
+
+  const setCoachTabWithHash = (tab) => {
+    setCoachTab(tab)
+    if (typeof window === 'undefined') return
+    const path = window.location.pathname + window.location.search
+    if (tab === 'service') {
+      window.history.replaceState(null, '', `${path}#service`)
+    } else {
+      window.history.replaceState(null, '', path)
+    }
+  }
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (window.location.hash === '#service') setCoachTab('service')
+    const onHash = () => {
+      if (window.location.hash === '#service') setCoachTab('service')
+      else if (window.location.hash === '' || window.location.hash === '#') setCoachTab('roster')
+    }
+    window.addEventListener('hashchange', onHash)
+    return () => window.removeEventListener('hashchange', onHash)
+  }, [])
 
   useEffect(() => {
     const cachedProfile = user ? profileCache.get(user.id) : null
@@ -127,6 +151,15 @@ export default function CoachManagementPage() {
     const supabase = createClient()
 
     try {
+      if (assignmentType === 'squad' && assignForm.squad_id) {
+        const { error: delErr } = await supabase
+          .from('coach_assignments')
+          .delete()
+          .eq('squad_id', assignForm.squad_id)
+          .is('swimmer_id', null)
+        if (delErr) throw delErr
+      }
+
       const { data, error } = await supabase
         .from('coach_assignments')
         .insert({
@@ -143,16 +176,23 @@ export default function CoachManagementPage() {
         throw new Error('Insert succeeded but no data returned. Possible RLS policy issue.')
       }
 
-      toast.success('Coach assignment created successfully')
+      toast.success(
+        assignmentType === 'squad'
+          ? 'Squad coach assignment saved'
+          : 'Coach assignment created successfully'
+      )
       setShowAssignModal(false)
       setSelectedCoach(null)
       
       // Reload data after successful creation
       await loadAllData()
     } catch (error) {
-      // Handle duplicate constraint (expected user error, not a bug)
       if (error?.code === '23505' || error?.message?.includes('duplicate key') || error?.message?.includes('unique constraint')) {
-        toast.error('This assignment already exists. Coach is already assigned to this squad or swimmer.')
+        const dupMsg =
+          assignmentType === 'swimmer'
+            ? 'This coach is already assigned to this swimmer.'
+            : 'This coach is already assigned to this squad.'
+        toast.error(dupMsg)
         return
       }
       
@@ -384,7 +424,7 @@ export default function CoachManagementPage() {
                 minimumFractionDigits: 0,
                 maximumFractionDigits: 2,
               })}`
-            : '—'}
+            : 'N/A'}
         </span>
       ),
     },
@@ -467,11 +507,56 @@ export default function CoachManagementPage() {
       
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-8">
+          <div className="mb-6">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Coach Management</h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-2">Manage coaches and their assignments</p>
+            <p className="text-gray-600 dark:text-gray-400 mt-2">
+              Roster and assignments, or review coach-led sessions, attendance, and pay sign-offs.
+            </p>
           </div>
 
+          <div
+            className="flex flex-wrap gap-1 border-b border-gray-200 dark:border-gray-700 mb-6"
+            role="tablist"
+            aria-label="Coach admin sections"
+          >
+            <button
+              type="button"
+              role="tab"
+              id="coaches-tab-roster"
+              aria-selected={coachTab === 'roster'}
+              className={
+                coachTab === 'roster'
+                  ? 'px-4 py-2 text-sm font-medium border-b-2 border-primary text-primary -mb-px'
+                  : 'px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }
+              onClick={() => setCoachTabWithHash('roster')}
+            >
+              Roster &amp; assignments
+            </button>
+            <button
+              type="button"
+              role="tab"
+              id="coaches-tab-service"
+              aria-selected={coachTab === 'service'}
+              className={
+                coachTab === 'service'
+                  ? 'px-4 py-2 text-sm font-medium border-b-2 border-primary text-primary -mb-px'
+                  : 'px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+              }
+              onClick={() => setCoachTabWithHash('service')}
+            >
+              Service &amp; pay review
+            </button>
+          </div>
+
+          {coachTab === 'service' && (
+            <div className="mb-6" role="tabpanel" aria-labelledby="coaches-tab-service">
+              <CoachDeliveryReviewPanel coaches={coaches} />
+            </div>
+          )}
+
+          {coachTab === 'roster' && (
+          <div role="tabpanel" aria-labelledby="coaches-tab-roster">
           {/* Coaches Section */}
           <Card title="Coaches" padding="normal" className="mb-6">
             <div className="mb-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
@@ -492,12 +577,117 @@ export default function CoachManagementPage() {
                 </div>
               )}
             </div>
-            <Table
-              columns={coachColumns}
-              data={coaches}
-              emptyMessage="No coaches found. Coach accounts need to signup first with 'coach' role selected."
-            />
+            {coaches.length === 0 ? (
+              <p className="text-center text-sm text-gray-500 dark:text-gray-400 py-6">
+                No coaches found. Coach accounts need to signup first with &apos;coach&apos; role
+                selected.
+              </p>
+            ) : (
+              <>
+                <div className="md:hidden space-y-3 mt-4">
+                  {coaches.map((row) => {
+                    const workload = getCoachWorkload(row.id)
+                    const coachAssignments = assignments.filter((a) => a.coach_id === row.id)
+                    const assignedSquads = coachAssignments
+                      .filter((a) => a.squad_id)
+                      .map((a) => a.squads?.name || a.squad_id)
+                    const payLabel =
+                      row.per_session_rate_kes != null && row.per_session_rate_kes !== ''
+                        ? `KES ${Number(row.per_session_rate_kes).toLocaleString(undefined, {
+                            minimumFractionDigits: 0,
+                            maximumFractionDigits: 2,
+                          })}`
+                        : 'N/A'
+                    return (
+                      <div
+                        key={row.id}
+                        className="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50/80 dark:bg-gray-900/40 p-4 space-y-3"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-semibold text-gray-900 dark:text-gray-100 break-words">
+                            {row.full_name}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400 break-all mt-0.5">
+                            {row.email}
+                          </p>
+                        </div>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex flex-wrap items-baseline justify-between gap-2">
+                            <span className="text-gray-500 dark:text-gray-400">Pay / session</span>
+                            <span className="text-gray-900 dark:text-gray-100 tabular-nums font-medium">
+                              {payLabel}
+                            </span>
+                          </div>
+                          <div>
+                            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+                              Assignments
+                            </p>
+                            {assignedSquads.length > 0 ? (
+                              <div className="flex flex-wrap gap-1.5">
+                                {assignedSquads.map((name, idx) => (
+                                  <Badge key={idx} variant="info" size="sm">
+                                    {name}
+                                  </Badge>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-gray-400 text-xs">No squad assignments</p>
+                            )}
+                            <p className="text-gray-600 dark:text-gray-400 text-xs mt-1.5">
+                              {workload.swimmerCount + workload.directSwimmers} individual swimmer
+                              {workload.swimmerCount + workload.directSwimmers !== 1 ? 's' : ''}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-2 pt-1">
+                          <div className="grid grid-cols-2 gap-2">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => {
+                                setSelectedCoach(row)
+                                setAssignForm({
+                                  coach_id: row.id,
+                                  squad_id: '',
+                                  swimmer_id: '',
+                                  notes: '',
+                                })
+                                setShowAssignModal(true)
+                              }}
+                            >
+                              Assign
+                            </Button>
+                            <Button size="sm" variant="secondary" onClick={() => openEditCoachModal(row)}>
+                              Edit
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => openViewAssignmentsModal(row)}
+                            >
+                              Assignments
+                            </Button>
+                            <Button size="sm" variant="danger" onClick={() => handleRemoveCoach(row)}>
+                              Remove
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                <div className="hidden md:block -mx-6 -mb-6 mt-4">
+                  <Table
+                    columns={coachColumns}
+                    data={coaches}
+                    emptyMessage="No coaches found. Coach accounts need to signup first with 'coach' role selected."
+                  />
+                </div>
+              </>
+            )}
           </Card>
+          </div>
+          )}
         </div>
       </div>
 

@@ -83,25 +83,25 @@ html.dark .grain-overlay {
 
 /* ── Squad colour palette ────────────────────────────────────────────────── */
 
-/* Elite — pool blue */
+/* Elite: pool blue */
 .rbc-squad-elite                         { background-color: #0ea5e9 !important; }
 .rbc-squad-elite:hover, .rbc-squad-elite:focus { background-color: #0284c7 !important; }
 
-/* Pups — soft green */
+/* Pups: soft green */
 .rbc-squad-pups                          { background-color: #22c55e !important; }
 .rbc-squad-pups:hover, .rbc-squad-pups:focus   { background-color: #16a34a !important; }
 
-/* Development — purple */
+/* Development: purple */
 .rbc-squad-development                   { background-color: #a855f7 !important; }
 .rbc-squad-development:hover,
 .rbc-squad-development:focus             { background-color: #9333ea !important; }
 
-/* Masters — amber / yellow */
+/* Masters: amber / yellow */
 .rbc-squad-masters                       { background-color: #f59e0b !important; color: #1f2937 !important; }
 .rbc-squad-masters:hover,
 .rbc-squad-masters:focus                 { background-color: #d97706 !important; }
 
-/* Default / unassigned — gray */
+/* Default / unassigned: gray */
 .rbc-squad-default                       { background-color: #6b7280 !important; }
 .rbc-squad-default:hover,
 .rbc-squad-default:focus                 { background-color: #4b5563 !important; }
@@ -155,7 +155,7 @@ html.dark .grain-overlay {
   border-color: rgba(255, 255, 255, 0.06);
 }
 
-/* Inner time-grid lines — half-hour dividers and column separators */
+/* Inner time-grid lines: half-hour dividers and column separators */
 .dark .rbc-time-content,
 .dark .rbc-time-content > * + * > *,
 .dark .rbc-day-slot .rbc-time-slot,

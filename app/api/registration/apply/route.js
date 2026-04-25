@@ -153,7 +153,7 @@ export async function POST(request) {
       }
     } else if (parentInfo.shareHubAccess && parentInfo.coParentEmail?.trim()) {
       console.info(
-        'Registration: shareHubAccess requested but no existing profile for email — invite skipped until parent account exists'
+        'Registration: shareHubAccess requested but no existing profile for email; invite skipped until parent account exists'
       )
     }
 

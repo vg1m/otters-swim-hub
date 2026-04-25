@@ -226,7 +226,7 @@ export default function SwimmersManagementPage() {
         if (inv.error) {
           toast.error(inv.error)
         } else {
-          toast.success('Swimmer approved and invoice created — parent can pay from the dashboard')
+          toast.success('Swimmer approved and invoice created. Parent can pay from the dashboard.')
         }
       } else {
         toast.success('Swimmer updated successfully')
@@ -525,7 +525,7 @@ export default function SwimmersManagementPage() {
             </svg>
             <div>
               <p className="text-sm font-semibold text-green-800 dark:text-green-200">
-                Registration fee waived — swimmer is under 6 years old
+                Registration fee waived: swimmer is under 6 years old
               </p>
               <p className="text-xs text-green-700 dark:text-green-300 mt-0.5">
                 Squad auto-assigned to Pups. The onboarding invoice will reflect KES 0 for the annual registration line item.
@@ -566,7 +566,7 @@ export default function SwimmersManagementPage() {
           />
           <div className="sm:col-span-2 rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-              Parent registration — training frequency
+              Parent registration: training frequency
             </p>
             <p className="mt-1 text-sm text-gray-900 dark:text-gray-100">
               {formatSessionsPerWeekLabel(selectedSwimmer?.sessions_per_week)}

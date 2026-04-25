@@ -156,7 +156,7 @@ export default function PendingRegistrationsPage() {
       if (inv.error) {
         toast.error(`Approved, but invoice failed: ${inv.error}`)
       } else {
-        toast.success('Swimmer approved and invoice created — parent can pay from the dashboard')
+        toast.success('Swimmer approved and invoice created. Parent can pay from the dashboard.')
       }
 
       loadPendingSwimmers()

@@ -14,7 +14,7 @@ export default function AttendanceCalendarModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={`Attendance calendar — ${swimmerName}`}
+      title={`Attendance calendar: ${swimmerName}`}
       size="xl"
     >
       <AttendanceCalendarView attendance={attendance} scheduledSessions={scheduledSessions} />

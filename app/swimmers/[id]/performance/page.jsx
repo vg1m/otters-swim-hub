@@ -43,14 +43,14 @@ const NOTE_TYPE_CLASSES = {
 
 /** After migration 054: `squads` join; legacy `squad` text only on old DBs. */
 function formatSquadLabel(swimmer) {
-  if (!swimmer) return '—'
+  if (!swimmer) return 'N/A'
   const rel = swimmer.squads
   const row = Array.isArray(rel) ? rel[0] : rel
   if (row?.name) return row.name
   if (typeof swimmer.squad === 'string' && swimmer.squad) {
     return swimmer.squad.replace(/_/g, ' ')
   }
-  return '—'
+  return 'N/A'
 }
 
 export default function SwimmerPerformancePage() {
@@ -321,7 +321,7 @@ export default function SwimmerPerformancePage() {
   }
 
   function formatDate(dateStr) {
-    if (!dateStr) return '—'
+    if (!dateStr) return 'N/A'
     return new Date(dateStr).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
   }
 
@@ -515,7 +515,7 @@ export default function SwimmerPerformancePage() {
                             </span>
                           </td>
                           <td className="py-3 px-3 text-gray-600 dark:text-gray-400 hidden sm:table-cell">
-                            {perf.competition_name || '—'}
+                            {perf.competition_name || 'N/A'}
                           </td>
                           <td className="py-3 px-3 text-gray-600 dark:text-gray-400 hidden md:table-cell">
                             {formatDate(perf.competition_date)}
@@ -621,7 +621,7 @@ export default function SwimmerPerformancePage() {
                                 <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                                 </svg>
-                                Linked to: <span className="font-medium">{linkedPerf.event} — {linkedPerf.time_formatted}</span>
+                                Linked to: <span className="font-medium">{linkedPerf.event} · {linkedPerf.time_formatted}</span>
                               </div>
                             )}
 

@@ -351,7 +351,7 @@ export default function RegisterPage() {
                 {prefillSource === 'account'
                   ? ' from your account'
                   : ' from your last visit on this device'}
-                — please review before submitting.
+                . Please review before submitting.
               </div>
             )}
 
@@ -359,7 +359,7 @@ export default function RegisterPage() {
               <Card
                 title="Your contact details"
                 padding="normal"
-                subtitle="Saved for this application — expand to edit"
+                subtitle="Saved for this application. Expand to edit"
               >
                 <div className="space-y-4">
                   <div className="text-sm text-stone-700 dark:text-stone-300 space-y-2">
@@ -367,11 +367,11 @@ export default function RegisterPage() {
                       <span className="font-medium text-stone-900 dark:text-stone-100">
                         Parent/guardian:
                       </span>{' '}
-                      {parentInfo.fullName || '—'} · {parentInfo.email || '—'} · {parentInfo.phone || '—'}
+                      {parentInfo.fullName || 'N/A'} · {parentInfo.email || 'N/A'} · {parentInfo.phone || 'N/A'}
                     </p>
                     <p>
                       <span className="font-medium text-stone-900 dark:text-stone-100">Emergency:</span>{' '}
-                      {parentInfo.emergencyContactName || '—'} · {parentInfo.emergencyContactPhone || '—'}
+                      {parentInfo.emergencyContactName || 'N/A'} · {parentInfo.emergencyContactPhone || 'N/A'}
                     </p>
                     {parentInfo.shareHubAccess && parentInfo.coParentEmail && (
                       <p>
@@ -421,7 +421,7 @@ export default function RegisterPage() {
                       value={parentInfo.phone}
                       onChange={(e) => updateParentInfo('phone', e.target.value)}
                       placeholder="0712345678"
-                      helperText="Use the same email if you already have an account — we will link your swimmers."
+                      helperText="Use the same email if you already have an account. We will link your swimmers."
                     />
                   </div>
                 </Card>
@@ -598,7 +598,7 @@ export default function RegisterPage() {
                         </svg>
                         <div>
                           <span className="font-medium text-gray-900 dark:text-gray-100">1–2 days/week (Pups)</span>
-                          <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">— {formatKES(7000)}/month</span>
+                          <span className="ml-2 text-sm text-gray-600 dark:text-gray-400">{formatKES(7000)}/month</span>
                           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Automatically assigned for swimmers under 6</p>
                         </div>
                       </div>
@@ -651,7 +651,7 @@ export default function RegisterPage() {
                                         className="w-4 h-4 text-primary focus:ring-primary"
                                       />
                                       <span className="text-sm text-gray-700 dark:text-gray-300">
-                                        Monthly — {formatKES(tier.monthly)}
+                                        Monthly: {formatKES(tier.monthly)}
                                       </span>
                                     </label>
                                     {hasQuarterly && (
@@ -665,7 +665,7 @@ export default function RegisterPage() {
                                           className="w-4 h-4 text-primary focus:ring-primary"
                                         />
                                         <span className="text-sm text-gray-700 dark:text-gray-300">
-                                          Quarterly — {formatKES(tier.quarterly)} (save {formatKES(tier.monthly * 3 - tier.quarterly)})
+                                          Quarterly: {formatKES(tier.quarterly)} (save {formatKES(tier.monthly * 3 - tier.quarterly)})
                                         </span>
                                       </label>
                                     )}
@@ -679,7 +679,7 @@ export default function RegisterPage() {
                                         className="w-4 h-4 text-primary focus:ring-primary"
                                       />
                                       <span className="text-sm text-gray-700 dark:text-gray-300">
-                                        Pay per session — {formatKES(OCCASIONAL_SWIMMER_RATE)} each
+                                        Pay per session: {formatKES(OCCASIONAL_SWIMMER_RATE)} each
                                       </span>
                                     </label>
                                   </div>
@@ -771,7 +771,7 @@ export default function RegisterPage() {
                         <span className="text-gray-600 dark:text-gray-400">Annual registration (one-time)</span>
                         <span className="font-medium text-gray-900 dark:text-gray-100 text-right">
                           {line.registrationAmount === null
-                            ? '—'
+                            ? 'N/A'
                             : line.isUnderSix
                               ? `${formatKES(0)} (under 6 waived)`
                               : formatKES(line.registrationAmount)}

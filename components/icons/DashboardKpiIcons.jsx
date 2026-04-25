@@ -63,6 +63,16 @@ export function KpiOutstandingIcon({ className }) {
   )
 }
 
+/** Squad lanes / group (coach squad assignments) */
+export function KpiSquadIcon({ className }) {
+  return (
+    <SvgShell className={className}>
+      <path d="M4.25 6.5h15.5a.75.75 0 0 1 .75.75V17a.75.75 0 0 1-.75.75H4.25a.75.75 0 0 1-.75-.75V7.25a.75.75 0 0 1 .75-.75z" />
+      <path d="M6.5 10.25H17M6.5 13.5H17" />
+    </SvgShell>
+  )
+}
+
 /** Clipboard + check — sessions marked present */
 export function KpiAttendanceIcon({ className }) {
   return (

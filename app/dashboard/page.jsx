@@ -175,11 +175,17 @@ export default function ParentDashboard() {
     }
   }, [user, profile, authLoading, loadDashboardData])
 
-  // Memoize filtered upcoming sessions to avoid re-computation
-  const displaySessions = useMemo(() => 
-    upcomingSessions.slice(0, 4),
+  // Memoize filtered upcoming sessions to avoid re-computation (desktop: session cards + modal)
+  const displaySessions = useMemo(
+    () => upcomingSessions.slice(0, 4),
     [upcomingSessions]
   )
+
+  const notificationCount = useMemo(() => {
+    const invoiceCount = outstandingInvoices.length
+    const pending = swimmers.some((s) => s.status === 'pending') ? 1 : 0
+    return invoiceCount + pending
+  }, [outstandingInvoices.length, swimmers])
 
   if (authLoading || loading) {
     return (
@@ -204,15 +210,15 @@ export default function ParentDashboard() {
             <Card className="mb-6 border-amber-200 dark:border-amber-800 bg-amber-50/80 dark:bg-amber-900/20">
               <p className="text-sm text-amber-900 dark:text-amber-100">
                 <strong>Application in review.</strong> The club is assigning a squad and coach. You will see an invoice
-                here when you can pay — no payment is required until then.
+                here when you can pay. No payment is required until then.
               </p>
             </Card>
           )}
 
-          {/* Quick Actions - MOVED TO TOP */}
+          {/* Quick Actions — 2x2 on mobile (fourth card removes empty cell) */}
           <div className="mb-6">
             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Quick Actions</h2>
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <Link href="/invoices">
                 <Card padding="normal" className="hover:shadow-lg transition-shadow cursor-pointer border-2 border-primary/20 hover:border-primary/50">
                   <div className="text-center py-3">
@@ -251,6 +257,31 @@ export default function ParentDashboard() {
                     </svg>
                     <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Profile Settings</p>
                     <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Manage info</p>
+                  </div>
+                </Card>
+              </Link>
+
+              <Link href="/dashboard/notifications">
+                <Card padding="normal" className="hover:shadow-lg transition-shadow cursor-pointer border-2 border-primary/10 dark:border-primary/20">
+                  <div className="text-center py-3 min-w-0">
+                    <svg
+                      className="mx-auto h-10 w-10 text-primary mb-2"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      aria-hidden
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                      />
+                    </svg>
+                    <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Notifications</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 break-words">
+                      {notificationCount > 0 ? `${notificationCount} alert${notificationCount === 1 ? '' : 's'}` : 'All caught up'}
+                    </p>
                   </div>
                 </Card>
               </Link>
@@ -333,8 +364,8 @@ export default function ParentDashboard() {
             )}
           </div>
 
-          {/* Upcoming Sessions Section - LAST */}
-          <div className="mb-6">
+          {/* Session cards (Mon–Sun week list above covers mobile; tap cards for modal on md+) */}
+          <div className="mb-6 hidden md:block">
             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Upcoming Training Sessions</h2>
             {upcomingSessions.length === 0 ? (
               <Card>
@@ -383,7 +414,7 @@ export default function ParentDashboard() {
                             ))
                           ) : (
                             <Badge variant="info" size="sm" className="!rounded-md">
-                              —
+                              No squad
                             </Badge>
                           )}
                         </div>

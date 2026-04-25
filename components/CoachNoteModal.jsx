@@ -72,7 +72,7 @@ export default function CoachNoteModal({ isOpen, onClose, onSave, editNote = nul
 
   const performanceOptions = performances.map(p => ({
     value: p.id,
-    label: `${p.event} — ${p.time_formatted}${p.competition_date ? ` (${p.competition_date})` : ''}`,
+    label: `${p.event} · ${p.time_formatted}${p.competition_date ? ` (${p.competition_date})` : ''}`,
   }))
 
   const noteTypeColors = {
@@ -158,7 +158,7 @@ export default function CoachNoteModal({ isOpen, onClose, onSave, editNote = nul
             value={form.performance_id}
             onChange={e => handleChange('performance_id', e.target.value)}
             options={performanceOptions}
-            placeholder="— Not linked to a race —"
+            placeholder="Not linked to a race"
             helperText="Attach this note to a specific race time entry"
           />
         )}

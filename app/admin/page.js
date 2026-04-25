@@ -114,7 +114,7 @@ export default function AdminDashboard() {
             </p>
           </div>
 
-          {/* Stats — 2×2 on mobile so tiles feel like KPI chips, not full-width banners */}
+          {/* Stats: 2x2 on mobile so tiles feel like KPI chips, not full-width banners */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3 md:gap-4 mb-5 sm:mb-8">
             <Card
               padding="sm"
@@ -187,7 +187,7 @@ export default function AdminDashboard() {
             </Card>
           </div>
 
-          {/* Quick actions — 2 columns on phone: glanceable tiles, not six full-width panels */}
+          {/* Quick actions: 2 columns on phone: glanceable tiles, not six full-width panels */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 sm:gap-3 md:gap-4 lg:gap-6">
             <Card
               padding="sm"
