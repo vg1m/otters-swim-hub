@@ -5,6 +5,8 @@ import Image from 'next/image'
 import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 import { useTheme } from '@/contexts/ThemeContext'
+import { useParentUnreadNotificationsCount } from '@/hooks/useParentUnreadNotificationsCount'
+import { UnreadNotificationIndicator } from '@/components/UnreadNotificationIndicator'
 
 export default function Navigation() {
   const [isScrolled, setIsScrolled] = useState(false)
@@ -18,6 +20,12 @@ export default function Navigation() {
     if (profile.role === 'admin') return '/admin'
     return '/dashboard'
   }, [profile])
+
+  const isParentUser = Boolean(user && profile?.role === 'parent')
+  const parentUnreadNotifications = useParentUnreadNotificationsCount(
+    user?.id,
+    isParentUser
+  )
 
   useEffect(() => {
     setMounted(true)
@@ -58,12 +66,24 @@ export default function Navigation() {
               <>
                 {user ? (
                   <>
-                    <span
-                      className="text-sm font-medium text-stone-400 dark:text-gray-500 cursor-default"
-                      title="Coming soon"
-                    >
-                      Notifications <span className="text-xs font-normal">(soon)</span>
-                    </span>
+                    {isParentUser ? (
+                      <Link
+                        href="/dashboard/notifications"
+                        className="inline-flex items-center gap-2 text-stone-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary-light transition-colors font-medium text-sm"
+                      >
+                        <span className="relative inline-flex items-center gap-2">
+                          Notifications
+                          <UnreadNotificationIndicator count={parentUnreadNotifications} />
+                        </span>
+                      </Link>
+                    ) : (
+                      <span
+                        className="text-sm font-medium text-stone-400 dark:text-gray-500 cursor-default"
+                        title="Coming soon"
+                      >
+                        Notifications <span className="text-xs font-normal">(soon)</span>
+                      </span>
+                    )}
                     <span
                       className="text-sm font-medium text-stone-400 dark:text-gray-500 cursor-default"
                       title="Coming soon"
@@ -189,9 +209,20 @@ export default function Navigation() {
               <>
                 {user ? (
                   <>
-                    <div className="px-4 py-2 text-sm text-stone-400 dark:text-gray-500" title="Coming soon">
-                      Notifications <span className="text-xs">(soon)</span>
-                    </div>
+                    {isParentUser ? (
+                      <Link
+                        href="/dashboard/notifications"
+                        className="flex items-center justify-between px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        <span>Notifications</span>
+                        <UnreadNotificationIndicator count={parentUnreadNotifications} />
+                      </Link>
+                    ) : (
+                      <div className="px-4 py-2 text-sm text-stone-400 dark:text-gray-500" title="Coming soon">
+                        Notifications <span className="text-xs">(soon)</span>
+                      </div>
+                    )}
                     <div className="px-4 py-2 text-sm text-stone-400 dark:text-gray-500" title="Coming soon">
                       Merch <span className="text-xs">(soon)</span>
                     </div>

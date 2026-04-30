@@ -159,36 +159,16 @@
 ---
 
 ### ✅ 7. Digital Receipt Generation
-**Location**: `lib/utils/receipt-generator.js`
+**Location (current):** `lib/utils/generate-receipt.js`; **`GET /api/receipts/[invoiceId]/download`** (`generateReceiptBuffer`).
 
 **Features Implemented:**
 - PDF receipt generation using jsPDF
-- Professional receipt layout with:
-  - Otters Kenya branding
-  - Receipt number (invoice ID)
-  - Date and payment method
-  - Customer information
-  - Line items breakdown
-  - Total amount in green "PAID IN FULL"
-  - Transaction ID (for M-Pesa/Paystack)
-- Functions available:
-  - `generateReceipt()` - Creates PDF document
-  - `downloadReceipt()` - Downloads to device
-  - `getReceiptBlob()` - For upload to storage
-  - `getReceiptDataUrl()` - For email embedding
+- Professional receipt layout with Otters Kenya branding, receipt number, dates, payer info, line items, totals, payment reference/channel
 
-**Usage:**
-```javascript
-import { downloadReceipt } from '@/lib/utils/receipt-generator'
+**Usage (current):**
+- Authenticated clients call `GET /api/receipts/:invoiceId/download` (see parent/admin invoice pages).
 
-// Generate and download receipt
-await downloadReceipt(invoice, payment, profile)
-```
-
-**Integration Points:**
-- Call after payment confirmation in M-Pesa/Paystack callback
-- Available in invoice details modal (download button)
-- Can be sent via email to parent
+> Historical note: an older client helper `lib/utils/receipt-generator.js` was removed; all downloads go through the API route above.
 
 ---
 
@@ -246,7 +226,7 @@ otters-swim-hub/
 │   └── utils/
 │       ├── currency.js                            ✅ Currency formatting
 │       ├── date-helpers.js                        ✅ Date utilities
-│       └── receipt-generator.js                   ✅ PDF receipts
+│       └── generate-receipt.js                    ✅ PDF receipts (API download)
 ├── hooks/
 │   ├── useAuth.js                                 ✅ Auth hook
 │   ├── useSwimmers.js                             ✅ Swimmers hook

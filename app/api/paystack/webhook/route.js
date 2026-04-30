@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { verifyWebhookSignature } from '@/lib/paystack/client'
+import { insertNotification } from '@/lib/notifications/insert-notification'
 
 export async function POST(request) {
   try {
@@ -107,6 +108,18 @@ export async function POST(request) {
       if (invoiceUpdateError) {
         console.error('Error updating invoice:', invoiceUpdateError)
         throw invoiceUpdateError
+      }
+
+      // Notify parent that payment was received
+      const invoiceParentId = payment.invoices?.parent_id
+      if (invoiceParentId) {
+        await insertNotification(supabase, {
+          parent_id: invoiceParentId,
+          type: 'payment_received',
+          title: 'Payment confirmed',
+          body: `We received your payment of KES ${(event.data.amount / 100).toFixed(0)}. Your receipt is available on the invoices page.`,
+          invoice_id: payment.invoice_id,
+        })
       }
 
       // Generate receipt record (using helper function)

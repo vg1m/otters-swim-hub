@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service-role'
 
 /**
  * Manually link orphaned registration data to current user's account
@@ -21,10 +22,25 @@ export async function POST(request) {
 
     console.log('Linking orphaned registrations for user:', user.email)
 
-    // Call the database function to link records
-    const { data, error } = await supabase
-      .rpc('link_my_orphaned_registrations')
-      .single()
+    const email = typeof user.email === 'string' ? user.email.trim() : ''
+    if (!email) {
+      return NextResponse.json({ error: 'Account has no email' }, { status: 400 })
+    }
+
+    let svc
+    try {
+      svc = createServiceRoleClient()
+    } catch (e) {
+      console.error('Service role unavailable:', e)
+      return NextResponse.json({ error: 'Server misconfiguration' }, { status: 500 })
+    }
+
+    const { data, error } = await svc
+      .rpc('link_orphaned_registrations_by_email', {
+        user_id: user.id,
+        user_email: email,
+      })
+      .maybeSingle()
 
     if (error) {
       console.error('Error linking registrations:', error)

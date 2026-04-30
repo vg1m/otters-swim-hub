@@ -14,19 +14,41 @@ function copyCookies(fromResponse, toResponse) {
   }
 }
 
+const EMAIL_OTP_TYPES = new Set(['signup', 'invite', 'recovery', 'email', 'magiclink', 'email_change'])
+
 export async function GET(request) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
+  const token_hash = requestUrl.searchParams.get('token_hash')
+  const otpType = requestUrl.searchParams.get('type')
   const nextParam = requestUrl.searchParams.get('next')
   const nextSafe = safeInternalPath(nextParam)
   const origin = requestUrl.origin
+
+  let usedInviteTokenHash = false
 
   // Placeholder redirect; session cookies attach to this response during exchange
   let response = NextResponse.redirect(new URL('/dashboard', origin))
 
   const supabase = createRouteHandlerClient(request, response)
 
-  if (code) {
+  if (token_hash && otpType) {
+    if (!EMAIL_OTP_TYPES.has(otpType)) {
+      return NextResponse.redirect(
+        new URL(`/login?error=${encodeURIComponent('Invalid confirmation link')}`, origin)
+      )
+    }
+    usedInviteTokenHash = otpType === 'invite'
+    const { error } = await supabase.auth.verifyOtp({
+      token_hash,
+      type: otpType,
+    })
+    if (error) {
+      return NextResponse.redirect(
+        new URL(`/login?error=${encodeURIComponent(error.message)}`, origin)
+      )
+    }
+  } else if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (error) {
       return NextResponse.redirect(
@@ -45,6 +67,12 @@ export async function GET(request) {
 
   if (nextSafe) {
     const res = NextResponse.redirect(new URL(nextSafe, origin))
+    copyCookies(response, res)
+    return res
+  }
+
+  if (usedInviteTokenHash && !nextSafe) {
+    const res = NextResponse.redirect(new URL('/auth/set-password', origin))
     copyCookies(response, res)
     return res
   }

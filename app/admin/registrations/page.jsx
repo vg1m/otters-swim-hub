@@ -14,6 +14,7 @@ import Badge from '@/components/ui/Badge'
 import Modal from '@/components/ui/Modal'
 import { calculateAge, formatDate } from '@/lib/utils/date-helpers'
 import { createSwimmerOnboardingInvoice } from '@/lib/invoices/create-swimmer-onboarding-invoice'
+import { insertNotification } from '@/lib/notifications/insert-notification'
 import {
   formatSessionsPerWeekLabel,
   formatPreferredPaymentTypeLabel,
@@ -156,8 +157,16 @@ export default function PendingRegistrationsPage() {
       if (inv.error) {
         toast.error(`Approved, but invoice failed: ${inv.error}`)
       } else {
-        toast.success('Swimmer approved and invoice created. Parent can pay from the dashboard.')
+        toast.success('Swimmer approved and invoice created. Parent notified.')
       }
+
+      await insertNotification(supabase, {
+        parent_id: swimmer.parent_id,
+        type: 'swimmer_approved',
+        title: `${swimmer.first_name}'s registration approved`,
+        body: 'Your swimmer has been approved. An invoice has been created — pay from your dashboard.',
+        swimmer_id: swimmer.id,
+      })
 
       loadPendingSwimmers()
       setShowDetailsModal(false)
@@ -187,6 +196,18 @@ export default function PendingRegistrationsPage() {
         .eq('id', swimmer.id)
 
       if (swimmerError) throw swimmerError
+
+      if (swimmer.parent_id) {
+        await insertNotification(supabase, {
+          parent_id: swimmer.parent_id,
+          type: 'swimmer_rejected',
+          title: `${swimmer.first_name}'s registration was not accepted`,
+          body: reason?.trim()
+            ? reason.trim()
+            : 'Please contact the club for more information.',
+          swimmer_id: swimmer.id,
+        })
+      }
 
       toast.success('Registration rejected')
       loadPendingSwimmers()

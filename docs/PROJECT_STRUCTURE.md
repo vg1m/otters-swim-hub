@@ -75,7 +75,7 @@ otters-swim-hub/
 │   └── utils/                      # Helper Functions
 │       ├── currency.js             # KES formatting
 │       ├── date-helpers.js         # Date utilities
-│       └── receipt-generator.js    # PDF receipts
+│       └── generate-receipt.js     # PDF receipts (server; used by GET /api/receipts/[invoiceId]/download)
 │
 ├── 🪝 hooks/                       # Custom React Hooks
 │   ├── useAuth.js                  # Authentication hook

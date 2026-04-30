@@ -20,6 +20,8 @@ import {
   sessionMatchesSwimmerSquad,
 } from '@/lib/parent/swimmerSchedule'
 import { fetchParentIdsForDataAccess } from '@/lib/parent/effective-parent-ids'
+import { useParentUnreadNotificationsCount } from '@/hooks/useParentUnreadNotificationsCount'
+import { UnreadNotificationIndicator } from '@/components/UnreadNotificationIndicator'
 import toast from 'react-hot-toast'
 
 function sessionSquadNames(session) {
@@ -187,6 +189,13 @@ export default function ParentDashboard() {
     return invoiceCount + pending
   }, [outstandingInvoices.length, swimmers])
 
+  const unreadFeedCount = useParentUnreadNotificationsCount(
+    user?.id,
+    profile?.role === 'parent' && Boolean(user?.id)
+  )
+
+  const dashboardBadgeCount = unreadFeedCount + notificationCount
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -261,9 +270,21 @@ export default function ParentDashboard() {
                 </Card>
               </Link>
 
-              <Link href="/dashboard/notifications">
-                <Card padding="normal" className="hover:shadow-lg transition-shadow cursor-pointer border-2 border-primary/10 dark:border-primary/20">
-                  <div className="text-center py-3 min-w-0">
+              <Link
+                href="/dashboard/notifications"
+                aria-label={
+                  dashboardBadgeCount > 0
+                    ? `Notifications, ${dashboardBadgeCount} unread or needing attention`
+                    : 'Notifications'
+                }
+              >
+                <Card padding="normal" className="relative hover:shadow-lg transition-shadow cursor-pointer border-2 border-primary/10 dark:border-primary/20">
+                  {dashboardBadgeCount > 0 && (
+                    <span className="absolute right-3 top-3 z-10">
+                      <UnreadNotificationIndicator count={dashboardBadgeCount} />
+                    </span>
+                  )}
+                  <div className="text-center py-3 min-w-0 pr-8">
                     <svg
                       className="mx-auto h-10 w-10 text-primary mb-2"
                       fill="none"
@@ -280,7 +301,14 @@ export default function ParentDashboard() {
                     </svg>
                     <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Notifications</p>
                     <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 break-words">
-                      {notificationCount > 0 ? `${notificationCount} alert${notificationCount === 1 ? '' : 's'}` : 'All caught up'}
+                      {notificationCount > 0
+                        ? `${notificationCount} alert${notificationCount === 1 ? '' : 's'}`
+                        : 'All caught up'}
+                      {unreadFeedCount > 0 && (
+                        <span className="block text-gray-700 dark:text-gray-300">
+                          · {unreadFeedCount} new update{unreadFeedCount === 1 ? '' : 's'}
+                        </span>
+                      )}
                     </p>
                   </div>
                 </Card>

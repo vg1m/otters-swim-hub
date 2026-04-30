@@ -143,8 +143,7 @@ Loaded assignments: 0
 
 If coaches still show 0, the issue might be:
 1. No users have `role = 'coach'` in profiles table
-2. Coach users haven't signed up yet
-3. Users signed up but didn't select "coach" role
+2. Coaches have not been added from **Coach Management** yet (see below)
 
 ## 🔍 **Verify Coach Users Exist**
 
@@ -156,32 +155,36 @@ WHERE role = 'coach'
 ORDER BY created_at DESC;
 ```
 
-- **0 rows**: No coaches exist, need to signup first
-- **X rows**: Coaches exist, migration should fix the view issue
+- **0 rows**: No coaches yet; add them from `/admin/coaches` (**Add coach**)
+- **X rows**: Coaches exist; migration 046+ should allow admins to see them in the UI
 
-## 💡 **How Coach Signup Works**
+## How coaches are added (current product)
 
-1. Coach goes to `/signup` page
-2. Fills in name, email, password
-3. **IMPORTANT**: Selects "Coach" from role dropdown
-4. Submits registration
-5. Profile created with `role = 'coach'`
-6. Admin can now see them in `/admin/coaches`
+Coaches **do not** use the parent `/signup` or `/register` flow.
 
-**Note**: If coaches signed up before the role selector was added, their role might be 'parent' and needs manual update in database.
+1. Admin opens **`/admin/coaches`** and clicks **Add coach**.
+2. Enter **email** and **full name** (optional phone). The app calls `POST /api/admin/coaches/invite` (requires `SUPABASE_SERVICE_ROLE_KEY` on the server).
+3. **New email**: Supabase sends an invite. The API sets `redirect_to` to **`/auth/finish-invite`** (no nested `?next=` query—nested redirects can prevent session tokens being appended). Tokens from the implicit hash or PKCE `code` become **auth cookies** on that page; the coach then sets a password at **`/auth/set-password`**.
+   - In **Supabase → Authentication → URL configuration**, add your site origin’s **`/auth/finish-invite`** and **`/auth/set-password`** (and wildcards if you use them) to **Redirect URLs**.
+   - Optional but recommended: in **Auth → Email templates → Invite user**, use a link that hits your app with `token_hash` so the server can verify without relying on the hash (see [Supabase email templates → Redirecting server-side](https://supabase.com/docs/guides/auth/auth-email-templates)):  
+     `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=invite&next=%2Fauth%2Fset-password`
+4. **Existing parent** with the same email: their profile is upgraded to `role = 'coach'`; they keep their existing login.
 
-## 🛠️ **Manual Role Update (If Needed)**
+Then use **Assign** on the same page for squads or swimmers.
 
-If coaches exist but have wrong role:
+## Manual role update (emergency / support only)
+
+Prefer **Add coach** in the UI. For database maintenance (e.g. superuser session), you can still run SQL:
+
 ```sql
--- Check user's current role
 SELECT id, email, full_name, role FROM profiles WHERE email = 'coach@example.com';
 
--- Update to coach role
 UPDATE profiles 
 SET role = 'coach' 
 WHERE email = 'coach@example.com';
 ```
+
+Migration **`066_profiles_role_change_guard.sql`** blocks non-admins from changing `role` via the Supabase client; service role and privileged DB sessions can still update roles.
 
 ## ✅ **Success Criteria**
 

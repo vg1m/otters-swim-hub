@@ -44,9 +44,8 @@ The application is fully built and ready for Supabase + Paystack integration.
 - Coach override for manual attendance
 
 ### 7. ✅ Digital Receipt Generation
-**Utility**: `lib/utils/receipt-generator.js`
+**Implementation**: `lib/utils/generate-receipt.js` (PDF via jsPDF); **`GET /api/receipts/[invoiceId]/download`** streams the PDF. Parent and admin invoice pages download via fetch to that route.
 - PDF receipt with branding
-- Download or email
 - Transaction details included
 
 ## 🔧 Setup Steps

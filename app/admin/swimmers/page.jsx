@@ -21,6 +21,7 @@ import {
   formatPreferredPaymentTypeLabel,
 } from '@/lib/utils/currency'
 import { createSwimmerOnboardingInvoice } from '@/lib/invoices/create-swimmer-onboarding-invoice'
+import { insertNotification } from '@/lib/notifications/insert-notification'
 import toast from 'react-hot-toast'
 
 function renderParentChoiceCell(row) {
@@ -211,6 +212,9 @@ export default function SwimmersManagementPage() {
         gala_events_opt_in: editForm.gala_events_opt_in || false,
       }
 
+      const squadChanged = (cleanedData.squad_id ?? null) !== (selectedSwimmer.squad_id ?? null)
+      const coachChanged = (cleanedData.coach_id ?? null) !== (selectedSwimmer.coach_id ?? null)
+
       const { error } = await supabase
         .from('swimmers')
         .update(cleanedData)
@@ -230,6 +234,27 @@ export default function SwimmersManagementPage() {
         }
       } else {
         toast.success('Swimmer updated successfully')
+      }
+
+      if (selectedSwimmer.parent_id) {
+        if (squadChanged && cleanedData.squad_id) {
+          await insertNotification(supabase, {
+            parent_id: selectedSwimmer.parent_id,
+            type: 'squad_assigned',
+            title: `${selectedSwimmer.first_name} assigned to a squad`,
+            body: `${selectedSwimmer.first_name} has been placed in a training squad.`,
+            swimmer_id: selectedSwimmer.id,
+          })
+        }
+        if (coachChanged && cleanedData.coach_id) {
+          await insertNotification(supabase, {
+            parent_id: selectedSwimmer.parent_id,
+            type: 'coach_assigned',
+            title: `Coach assigned to ${selectedSwimmer.first_name}`,
+            body: `${selectedSwimmer.first_name} now has a coach assigned.`,
+            swimmer_id: selectedSwimmer.id,
+          })
+        }
       }
 
       setShowEditModal(false)

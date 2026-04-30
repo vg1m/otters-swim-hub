@@ -15,6 +15,7 @@ import Select from '@/components/ui/Select'
 import Badge from '@/components/ui/Badge'
 import Input from '@/components/ui/Input'
 import CoachDeliveryReviewPanel from '@/components/admin/CoachDeliveryReviewPanel'
+import { insertNotification } from '@/lib/notifications/insert-notification'
 import toast from 'react-hot-toast'
 
 export default function CoachManagementPage() {
@@ -26,6 +27,7 @@ export default function CoachManagementPage() {
   const [squadList, setSquadList] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAssignModal, setShowAssignModal] = useState(false)
+  const [showAddCoachModal, setShowAddCoachModal] = useState(false)
   const [showEditCoachModal, setShowEditCoachModal] = useState(false)
   const [showViewAssignmentsModal, setShowViewAssignmentsModal] = useState(false)
   const [selectedCoach, setSelectedCoach] = useState(null)
@@ -41,6 +43,11 @@ export default function CoachManagementPage() {
     email: '',
     coach_squad_id: '',
     per_session_rate_kes: '',
+  })
+  const [addCoachForm, setAddCoachForm] = useState({
+    email: '',
+    full_name: '',
+    phone_number: '',
   })
   const [saving, setSaving] = useState(false)
   const [coachTab, setCoachTab] = useState('roster')
@@ -95,7 +102,7 @@ export default function CoachManagementPage() {
           .order('full_name'),
         supabase
           .from('swimmers')
-          .select('id, first_name, last_name, squad_id, squads(name), status, coach_id')
+          .select('id, first_name, last_name, squad_id, squads(name), status, coach_id, parent_id')
           .order('last_name'),
         supabase
           .from('coach_assignments')
@@ -181,6 +188,20 @@ export default function CoachManagementPage() {
           ? 'Squad coach assignment saved'
           : 'Coach assignment created successfully'
       )
+
+      if (assignmentType === 'swimmer' && assignForm.swimmer_id) {
+        const sw = swimmers.find(s => s.id === assignForm.swimmer_id)
+        if (sw?.parent_id) {
+          await insertNotification(supabase, {
+            parent_id: sw.parent_id,
+            type: 'coach_assigned',
+            title: `Coach assigned to ${sw.first_name}`,
+            body: `${sw.first_name} has been assigned a coach.`,
+            swimmer_id: sw.id,
+          })
+        }
+      }
+
       setShowAssignModal(false)
       setSelectedCoach(null)
       
@@ -205,6 +226,41 @@ export default function CoachManagementPage() {
       } else {
         toast.error('Failed to create assignment. Check console for details.')
       }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleInviteCoach() {
+    const email = addCoachForm.email?.trim() || ''
+    const fullName = addCoachForm.full_name?.trim() || ''
+    if (!email || !fullName) {
+      toast.error('Email and full name are required')
+      return
+    }
+
+    setSaving(true)
+    try {
+      const res = await fetch('/api/admin/coaches/invite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          full_name: fullName,
+          phone_number: addCoachForm.phone_number?.trim() || undefined,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data.error || `Request failed (${res.status})`)
+      }
+      toast.success(data.message || 'Coach saved')
+      setShowAddCoachModal(false)
+      setAddCoachForm({ email: '', full_name: '', phone_number: '' })
+      await loadAllData()
+    } catch (error) {
+      console.error('Add coach:', error)
+      toast.error(error?.message || 'Failed to add coach')
     } finally {
       setSaving(false)
     }
@@ -558,29 +614,37 @@ export default function CoachManagementPage() {
           {coachTab === 'roster' && (
           <div role="tabpanel" aria-labelledby="coaches-tab-roster">
           {/* Coaches Section */}
-          <Card title="Coaches" padding="normal" className="mb-6">
+          <Card
+            title="Coaches"
+            action={
+              <Button type="button" size="sm" variant="primary" onClick={() => setShowAddCoachModal(true)}>
+                Add coach
+              </Button>
+            }
+            padding="normal"
+            className="mb-6"
+          >
             <div className="mb-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
               <p className="text-sm text-blue-800 dark:text-blue-200">
-                <strong>How to add coaches:</strong>
+                <strong>How coaches join:</strong>
               </p>
               <ol className="text-sm text-blue-800 dark:text-blue-200 mt-2 ml-4 list-decimal space-y-1">
-                <li>User creates an account via signup page</li>
-                <li>Admin assigns the user with the role of 'Coach'</li>
-                <li>Once registered, they'll appear here automatically</li>
-                <li>Use the 'Assign' button to assign them to squads or swimmers</li>
+                <li>Use <strong>Add coach</strong> and enter their email and name.</li>
+                <li>New coaches get an invitation email with a link to finish setup and choose a login password.</li>
+                <li>If they already have a parent account with the same email, they are upgraded to coach and keep their login.</li>
+                <li>Use <strong>Assign</strong> to attach them to squads or individual swimmers.</li>
               </ol>
               {coaches.length === 0 && (
                 <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-700">
                   <p className="text-sm text-blue-800 dark:text-blue-200">
-                    ⚠️ <strong>No coaches found.</strong> Make sure coach users have signed up with the "coach" role selected.
+                    No coaches yet. Click <strong>Add coach</strong> above to invite the first one.
                   </p>
                 </div>
               )}
             </div>
             {coaches.length === 0 ? (
               <p className="text-center text-sm text-gray-500 dark:text-gray-400 py-6">
-                No coaches found. Coach accounts need to signup first with &apos;coach&apos; role
-                selected.
+                No coaches yet. Use <strong>Add coach</strong> to send an invite or upgrade an existing parent account.
               </p>
             ) : (
               <>
@@ -680,7 +744,7 @@ export default function CoachManagementPage() {
                   <Table
                     columns={coachColumns}
                     data={coaches}
-                    emptyMessage="No coaches found. Coach accounts need to signup first with 'coach' role selected."
+                    emptyMessage="No coaches yet. Use Add coach to invite someone."
                   />
                 </div>
               </>
@@ -690,6 +754,67 @@ export default function CoachManagementPage() {
           )}
         </div>
       </div>
+
+      {/* Add coach */}
+      <Modal
+        isOpen={showAddCoachModal}
+        onClose={() => {
+          if (!saving) {
+            setShowAddCoachModal(false)
+            setAddCoachForm({ email: '', full_name: '', phone_number: '' })
+          }
+        }}
+        title="Add coach"
+        size="md"
+        footer={
+          <div className="flex gap-3 justify-end">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setShowAddCoachModal(false)
+                setAddCoachForm({ email: '', full_name: '', phone_number: '' })
+              }}
+              disabled={saving}
+            >
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleInviteCoach} loading={saving}>
+              Send invite / save
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            For someone new we send them an invitation by email so they can set up their Otters coach login.
+            If that email already has a parent account with us, we switch it to coach and they keep signing in as before—no invitation email needed.
+          </p>
+          <Input
+            label="Email"
+            type="email"
+            required
+            autoComplete="off"
+            value={addCoachForm.email}
+            onChange={(e) => setAddCoachForm((p) => ({ ...p, email: e.target.value }))}
+            placeholder="coach@example.com"
+          />
+          <Input
+            label="Full name"
+            required
+            value={addCoachForm.full_name}
+            onChange={(e) => setAddCoachForm((p) => ({ ...p, full_name: e.target.value }))}
+            placeholder="Jane Coach"
+          />
+          <Input
+            label="Phone (optional)"
+            type="tel"
+            value={addCoachForm.phone_number}
+            onChange={(e) => setAddCoachForm((p) => ({ ...p, phone_number: e.target.value }))}
+            placeholder="07..."
+          />
+        </div>
+      </Modal>
 
       {/* Assignment Modal */}
       <Modal

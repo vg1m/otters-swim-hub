@@ -1,5 +1,6 @@
-// Migration script to transfer data from Prisma SQLite to Supabase
-// Run this with: node supabase/migrate-from-prisma.js
+// Migration script to transfer data from Prisma SQLite to Supabase (one-off).
+// Run from repo root: node scripts/migrate-from-prisma.js
+// Requires: npm i -D better-sqlite3 (not a default project dependency)
 
 const Database = require('better-sqlite3');
 const { createClient } = require('@supabase/supabase-js');

@@ -94,6 +94,9 @@ export default function CoachDeliveryReviewPanel({ coaches = [] }) {
   const [coachProfileById, setCoachProfileById] = useState({})
   /** per_session_rate_kes by normId (mirrors batch profile fetch for quick lookups). */
   const [coachRateByCoachId, setCoachRateByCoachId] = useState({})
+  /** Summary card: whole program (ignores date/coach filters). */
+  const [programTotals, setProgramTotals] = useState(null)
+  const [programTotalsLoading, setProgramTotalsLoading] = useState(true)
 
   const applyPreset = (days) => {
     setRangeDays(days)
@@ -178,12 +181,32 @@ export default function CoachDeliveryReviewPanel({ coaches = [] }) {
       }
       setPayrollCoachBySession(payrollMap)
 
+      const checkInCoachesBySession = {}
+      for (const sid of ids) {
+        const uniq = new Set()
+        for (const r of rawBySession[sid] || []) {
+          if (
+            r.checked_in_by === 'coach' &&
+            r.coach_id != null &&
+            String(r.coach_id).trim() !== ''
+          ) {
+            uniq.add(normId(r.coach_id))
+          }
+        }
+        checkInCoachesBySession[sid] = [...uniq]
+      }
+
       const idSet = new Set()
       for (const s of list) {
         if (s.coach_id) idSet.add(String(s.coach_id).trim())
       }
       for (const pid of Object.values(payrollMap)) {
         if (pid) idSet.add(String(pid).trim())
+      }
+      for (const nkList of Object.values(checkInCoachesBySession)) {
+        for (const nk of nkList || []) {
+          if (nk) idSet.add(nk)
+        }
       }
       const profIds = [...idSet]
       const profMap = {}
@@ -255,37 +278,48 @@ export default function CoachDeliveryReviewPanel({ coaches = [] }) {
     }
   }, [user, profile?.role, dateFrom, dateTo, coachId])
 
+  const loadProgramTotals = useCallback(async () => {
+    if (profile?.role !== 'admin' || !user) {
+      setProgramTotalsLoading(false)
+      setProgramTotals(null)
+      return
+    }
+    setProgramTotalsLoading(true)
+    try {
+      const res = await fetch('/api/admin/program-service-summary', { method: 'GET', credentials: 'include' })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(body.error || `Request failed (${res.status})`)
+      }
+      const data = body
+      if (data == null || typeof data !== 'object') {
+        setProgramTotals(null)
+        toast.error('Could not load program totals')
+        return
+      }
+      setProgramTotals({
+        sessionCount: Number(data.session_count ?? 0),
+        dayCount: Number(data.calendar_day_count ?? 0),
+        coachCount: Number(data.coach_count ?? 0),
+        checkInCount: Number(data.check_in_count ?? 0),
+        uniqueSwimmers: Number(data.unique_swimmer_count ?? 0),
+      })
+    } catch (e) {
+      console.error(e)
+      toast.error(e.message || 'Could not load program totals')
+      setProgramTotals(null)
+    } finally {
+      setProgramTotalsLoading(false)
+    }
+  }, [user, profile?.role])
+
+  useEffect(() => {
+    void loadProgramTotals()
+  }, [loadProgramTotals])
+
   useEffect(() => {
     loadData()
   }, [loadData])
-
-  const summary = useMemo(() => {
-    if (!sessions.length) {
-      return { sessionCount: 0, dayCount: 0, checkInCount: 0, uniqueSwimmers: 0, coachCount: 0 }
-    }
-    const days = new Set(sessions.map((s) => s.session_date).filter(Boolean))
-    let checkInCount = 0
-    const swimmers = new Set()
-    const coachIds = new Set()
-    for (const s of sessions) {
-      const effective = payrollCoachBySession[s.id] ?? s.coach_id
-      if (effective != null && String(effective).trim() !== '') {
-        coachIds.add(normId(effective))
-      }
-      const rows = attendanceBySession[s.id] || []
-      checkInCount += rows.length
-      for (const r of rows) {
-        if (r.swimmer_id) swimmers.add(r.swimmer_id)
-      }
-    }
-    return {
-      sessionCount: sessions.length,
-      dayCount: days.size,
-      checkInCount,
-      uniqueSwimmers: swimmers.size,
-      coachCount: coachIds.size,
-    }
-  }, [sessions, attendanceBySession, payrollCoachBySession])
 
   const coachName = useCallback(
     (id) => {
@@ -510,39 +544,42 @@ export default function CoachDeliveryReviewPanel({ coaches = [] }) {
       <div
         className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-800/40 px-2 py-3 sm:px-3"
         role="status"
-        aria-label="Range summary"
+        aria-label="Whole program summary"
       >
+        <p className="mb-1.5 px-1 text-center text-[9px] font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400 sm:text-[10px]">
+          Whole program totals
+        </p>
         <div className="grid min-h-0 grid-cols-3 [grid-template-rows:minmax(0,1fr)_auto_minmax(0,1fr)] text-center sm:min-h-[6.5rem]">
           <div className="col-start-1 row-start-1 flex flex-col items-center justify-end gap-0.5 pb-1 sm:justify-center sm:pb-0">
             <p className="text-lg font-bold text-primary tabular-nums leading-none sm:text-base">
-              {summary.sessionCount}
+              {programTotalsLoading ? '\u2014' : programTotals?.sessionCount ?? '\u2014'}
             </p>
             <p className="text-[9px] leading-tight text-gray-500 dark:text-gray-400 sm:text-[10px]">Sessions</p>
           </div>
           <div className="col-start-3 row-start-1 flex flex-col items-center justify-end gap-0.5 pb-1 sm:justify-center sm:pb-0">
             <p className="text-lg font-bold text-primary tabular-nums leading-none sm:text-base">
-              {summary.dayCount}
+              {programTotalsLoading ? '\u2014' : programTotals?.dayCount ?? '\u2014'}
             </p>
             <p className="text-[9px] leading-tight text-gray-500 dark:text-gray-400 sm:text-[10px]">Calendar days</p>
           </div>
           <div
             className="col-start-2 row-start-2 flex min-w-0 flex-col items-center justify-center self-center justify-self-center rounded-xl border-2 border-primary/35 bg-primary/10 px-1.5 py-2.5 text-center shadow-sm dark:border-primary/40 dark:bg-primary/15"
-            title="Coaches: distinct in this range (attendance coach when set, else session lead per session)"
+            title="Coaches across the whole program: distinct leads on coached sessions plus anyone who recorded a coach check-in on those sessions"
           >
             <p className="text-2xl font-extrabold leading-none text-primary tabular-nums sm:text-3xl">
-              {summary.coachCount}
+              {programTotalsLoading ? '\u2014' : programTotals?.coachCount ?? '\u2014'}
             </p>
             <p className="mt-0.5 text-[9px] font-semibold leading-tight text-primary sm:text-[10px]">Coaches</p>
           </div>
           <div className="col-start-1 row-start-3 flex flex-col items-center justify-start gap-0.5 pt-1 sm:justify-center sm:pt-0">
             <p className="text-lg font-bold text-primary tabular-nums leading-none sm:text-base">
-              {summary.checkInCount}
+              {programTotalsLoading ? '\u2014' : programTotals?.checkInCount ?? '\u2014'}
             </p>
             <p className="text-[9px] leading-tight text-gray-500 dark:text-gray-400 sm:text-[10px]">Check-ins</p>
           </div>
           <div className="col-start-3 row-start-3 flex flex-col items-center justify-start gap-0.5 pt-1 sm:justify-center sm:pt-0">
             <p className="text-lg font-bold text-primary tabular-nums leading-none sm:text-base">
-              {summary.uniqueSwimmers}
+              {programTotalsLoading ? '\u2014' : programTotals?.uniqueSwimmers ?? '\u2014'}
             </p>
             <p className="text-[9px] leading-tight text-gray-500 dark:text-gray-400 sm:text-[10px]">Unique swimmers</p>
           </div>

@@ -53,7 +53,7 @@ End-to-end club management:
 | Data & auth | **Supabase** (PostgreSQL, Auth, RLS) |
 | Payments | **Paystack** (KES) |
 | PWA | **@ducanh2912/next-pwa** |
-| Notable libs | **date-fns**, **react-big-calendar**, **react-hot-toast**, **jspdf**, **zustand** |
+| Notable libs | **date-fns**, **react-big-calendar**, **react-hot-toast**, **jspdf** |
 
 **Auth routing:** [`proxy.js`](proxy.js) runs Supabase session refresh (Next.js “proxy” convention; replaces deprecated `middleware` file name). Email/password sign-in posts to [`app/auth/login/route.js`](app/auth/login/route.js) so cookies are set via HTTP headers (better on mobile).
 
