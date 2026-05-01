@@ -90,7 +90,7 @@ export default function CoachDeliveryReviewPanel({ coaches = [] }) {
    * If absent, UI and pay line fall back to training_sessions.coach_id.
    */
   const [payrollCoachBySession, setPayrollCoachBySession] = useState({})
-  /** normId → { full_name, per_session_rate_kes } for loaded coaches. */
+  /** normId → { full_name, per_session_rate_kes, role? } for loaded coaches. */
   const [coachProfileById, setCoachProfileById] = useState({})
   /** per_session_rate_kes by normId (mirrors batch profile fetch for quick lookups). */
   const [coachRateByCoachId, setCoachRateByCoachId] = useState({})
@@ -214,13 +214,17 @@ export default function CoachDeliveryReviewPanel({ coaches = [] }) {
       if (profIds.length > 0) {
         const { data: profRows, error: profBatchErr } = await supabase
           .from('profiles')
-          .select('id, full_name, per_session_rate_kes')
+          .select('id, full_name, per_session_rate_kes, role')
           .in('id', profIds)
         if (profBatchErr) throw profBatchErr
         for (const row of profRows || []) {
           const k = normId(row.id)
           if (!k) continue
-          profMap[k] = { full_name: row.full_name, per_session_rate_kes: row.per_session_rate_kes }
+          profMap[k] = {
+            full_name: row.full_name,
+            per_session_rate_kes: row.per_session_rate_kes,
+            role: row.role,
+          }
           rateById[k] = row.per_session_rate_kes
         }
       }
@@ -331,17 +335,42 @@ export default function CoachDeliveryReviewPanel({ coaches = [] }) {
     [coaches]
   )
 
-  /** Name for card / pay line: coach who used coach check-in when present, else lead on the session. */
+  /**
+   * Payroll / display coach id: attendance mode when the crediting coach is not a different admin from the lead;
+   * if check-ins were credited to an admin while the session has another lead, use the lead (legacy / defense in depth).
+   */
+  const resolvePayrollCoachIdForSession = useCallback(
+    (session) => {
+      if (!session) return null
+      const fromAtt = payrollCoachBySession[session.id]
+      const lead = session.coach_id
+      const leadTrim = lead == null || lead === '' ? null : String(lead).trim()
+      if (!leadTrim) {
+        return fromAtt ? String(fromAtt).trim() : null
+      }
+      const leadNorm = normId(leadTrim)
+      if (!fromAtt) return leadTrim
+      const attNorm = normId(fromAtt)
+      const meta = coachProfileById[attNorm]
+      if (meta?.role === 'admin' && attNorm !== leadNorm) {
+        return leadTrim
+      }
+      return String(fromAtt).trim()
+    },
+    [payrollCoachBySession, coachProfileById]
+  )
+
+  /** Name for card / pay line: resolved payroll coach (see resolvePayrollCoachIdForSession). */
   const displayCoachNameForSession = useCallback(
     (session) => {
-      const effective = payrollCoachBySession[session.id] ?? session.coach_id
+      const effective = resolvePayrollCoachIdForSession(session)
       if (effective == null || effective === '') return 'N/A'
       const k = normId(effective)
       const n = coachProfileById[k]?.full_name?.trim()
       if (n) return n
       return coachName(effective)
     },
-    [payrollCoachBySession, coachProfileById, coachName]
+    [resolvePayrollCoachIdForSession, coachProfileById, coachName]
   )
 
   async function saveReview() {
@@ -419,9 +448,7 @@ export default function CoachDeliveryReviewPanel({ coaches = [] }) {
     setPayLineLeadCoachName(null)
     setPayLineRateLoading(true)
     const supabase = createClient()
-    const targetId = String(
-      payrollCoachBySession[session.id] ?? session.coach_id ?? ''
-    ).trim()
+    const targetId = String(resolvePayrollCoachIdForSession(session) ?? '').trim()
     if (!targetId) {
       if (token === payLineFetchTokenRef.current) {
         setPayLineRateLoading(false)
@@ -469,10 +496,7 @@ export default function CoachDeliveryReviewPanel({ coaches = [] }) {
   function effectivePayLineCoachId() {
     if (!payLineSession) return null
     if (payLineLeadCoachId) return payLineLeadCoachId
-    const fromAtt = payrollCoachBySession[payLineSession.id]
-    if (fromAtt) return fromAtt
-    const id = payLineSession.coach_id
-    return id == null || id === '' ? null : String(id).trim()
+    return resolvePayrollCoachIdForSession(payLineSession)
   }
 
   async function savePayLine() {
@@ -564,12 +588,17 @@ export default function CoachDeliveryReviewPanel({ coaches = [] }) {
           </div>
           <div
             className="col-start-2 row-start-2 flex min-w-0 flex-col items-center justify-center self-center justify-self-center rounded-xl border-2 border-primary/35 bg-primary/10 px-1.5 py-2.5 text-center shadow-sm dark:border-primary/40 dark:bg-primary/15"
-            title="Coaches across the whole program: distinct leads on coached sessions plus anyone who recorded a coach check-in on those sessions"
+            title="Large number counts distinct coaches who lead a session or appear on coach check-ins (whole program). ‘On roster’ is everyone listed under Coach Management."
           >
             <p className="text-2xl font-extrabold leading-none text-primary tabular-nums sm:text-3xl">
               {programTotalsLoading ? '\u2014' : programTotals?.coachCount ?? '\u2014'}
             </p>
-            <p className="mt-0.5 text-[9px] font-semibold leading-tight text-primary sm:text-[10px]">Coaches</p>
+            <p className="mt-0.5 text-[9px] font-semibold leading-tight text-primary sm:text-[10px]">
+              Coaches (active program)
+            </p>
+            <p className="mt-1 text-[8px] leading-tight text-gray-600 dark:text-gray-400 sm:text-[9px]">
+              {coaches.length} on roster
+            </p>
           </div>
           <div className="col-start-1 row-start-3 flex flex-col items-center justify-start gap-0.5 pt-1 sm:justify-center sm:pt-0">
             <p className="text-lg font-bold text-primary tabular-nums leading-none sm:text-base">
@@ -754,7 +783,7 @@ export default function CoachDeliveryReviewPanel({ coaches = [] }) {
                         Attendance
                       </Button>
                     </Link>
-                    {!pay && (payrollCoachBySession[session.id] || session.coach_id) ? (
+                    {!pay && resolvePayrollCoachIdForSession(session) ? (
                       <Button
                         size="sm"
                         variant="primary"
@@ -920,7 +949,7 @@ export default function CoachDeliveryReviewPanel({ coaches = [] }) {
                     coachProfileById[normId(payLineLeadCoachId || '')]?.full_name ||
                     coachName(
                       payLineLeadCoachId ||
-                        payrollCoachBySession[payLineSession.id] ||
+                        resolvePayrollCoachIdForSession(payLineSession) ||
                         payLineSession.coach_id
                     )}
                 </p>

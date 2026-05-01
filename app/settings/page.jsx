@@ -102,6 +102,7 @@ export default function ProfileSettings() {
           .from('family_account_members')
           .select('*')
           .eq('primary_parent_id', user.id)
+          .neq('status', 'revoked')
           .order('created_at', { ascending: false })
         if (invitesError) throw invitesError
         setFamilyInvites(invites || [])
@@ -163,6 +164,17 @@ export default function ProfileSettings() {
     }
   }
 
+  const sendInviteEmailRequest = async (inviteId) => {
+    const res = await fetch('/api/family/invite-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ inviteId }),
+    })
+    const data = await res.json().catch(() => ({}))
+    return { res, data }
+  }
+
   const handleAddFamilyInvite = async () => {
     const email = inviteEmail.trim().toLowerCase()
     const name = inviteName.trim() || null
@@ -179,15 +191,37 @@ export default function ProfileSettings() {
     setFamilyBusy(true)
     try {
       const supabase = createClient()
-      const { error } = await supabase.from('family_account_members').insert({
-        primary_parent_id: user.id,
-        invited_email: email,
-        invited_name: name,
-        status: 'pending',
-        invited_by: user.id,
-      })
+      const { data: inserted, error } = await supabase
+        .from('family_account_members')
+        .insert({
+          primary_parent_id: user.id,
+          invited_email: email,
+          invited_name: name,
+          status: 'pending',
+          invited_by: user.id,
+        })
+        .select('id')
+        .single()
       if (error) throw error
-      toast.success('Invitation added. They can sign up with that email to get access.')
+      toast.success('Invitation added.')
+      if (inserted?.id) {
+        const { res, data } = await sendInviteEmailRequest(inserted.id)
+        if (res.ok && data.sent) {
+          toast.success('We sent them an email with a link to sign up.')
+        } else if (res.ok && data.skipped) {
+          toast(
+            "We couldn't email them automatically. Use Copy message to share below and send the note however you like.",
+            {
+              duration: 6000,
+            }
+          )
+        } else {
+          toast.error(
+            data.error ||
+              "We couldn't send the email. Your invite is saved — use Copy message to share with them."
+          )
+        }
+      }
       setInviteEmail('')
       setInviteName('')
       await loadProfileData()
@@ -203,11 +237,34 @@ export default function ProfileSettings() {
     }
   }
 
+  const handleResendFamilyInviteEmail = async (inviteId) => {
+    setFamilyBusy(true)
+    try {
+      const { res, data } = await sendInviteEmailRequest(inviteId)
+      if (res.ok && data.sent) {
+        toast.success('We emailed them the invite.')
+        return
+      }
+      if (res.ok && data.skipped) {
+        toast("We couldn't email them from here — use Copy message to share and send it yourself.", {
+          duration: 6000,
+        })
+        return
+      }
+      toast.error(data.error || "We couldn't send the email. Try Copy message to share.")
+    } catch (e) {
+      console.error(e)
+      toast.error(e.message || 'Could not send email')
+    } finally {
+      setFamilyBusy(false)
+    }
+  }
+
   const copyFamilyInviteInstructions = async (emailAddr) => {
     const text = `You’ve been invited to share Otters Swim Hub access. Create an account using ${emailAddr}. After you sign up, your access links automatically.`
     try {
       await navigator.clipboard.writeText(text)
-      toast.success('Instructions copied')
+      toast.success('Copied — paste it into a message for them.')
     } catch {
       toast.error('Could not copy to clipboard')
     }
@@ -608,7 +665,7 @@ export default function ProfileSettings() {
             <Card
               title="Shared hub access"
               padding="normal"
-              subtitle="Invite a co-parent or partner. They sign in with their own email and see the same swimmers and invoices"
+              subtitle="Let a co-parent or partner use their own login to see the same swimmers and invoices as you. Add their email—we'll try to send them an invite, or you can copy a short message to share yourself."
             >
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -638,8 +695,8 @@ export default function ProfileSettings() {
 
                 {familyInvites.length === 0 ? (
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    No invitations yet. The invited person should register or log in with the email you enter; access
-                    activates automatically after signup.
+                    When they're ready to join, they'll create an account with the exact email you used above. Otters links
+                    their access automatically after they sign up.
                   </p>
                 ) : (
                   <ul className="space-y-3">
@@ -657,13 +714,24 @@ export default function ProfileSettings() {
                         </div>
                         <div className="flex flex-wrap gap-2">
                           {inv.status === 'pending' && (
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => copyFamilyInviteInstructions(inv.invited_email)}
-                            >
-                              Copy instructions
-                            </Button>
+                            <>
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => handleResendFamilyInviteEmail(inv.id)}
+                                loading={familyBusy}
+                                disabled={familyBusy}
+                              >
+                                Email them again
+                              </Button>
+                              <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => copyFamilyInviteInstructions(inv.invited_email)}
+                              >
+                                Copy message to share
+                              </Button>
+                            </>
                           )}
                           {inv.status !== 'revoked' && (
                             <Button

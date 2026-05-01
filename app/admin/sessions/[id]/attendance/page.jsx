@@ -60,7 +60,21 @@ export default function SessionAttendancePage() {
         console.error('Session fetch error:', sessionError)
         throw sessionError
       }
-      setSession(sessionData)
+
+      let leadCoachFullName = null
+      if (sessionData.coach_id) {
+        const { data: lp, error: lpErr } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', sessionData.coach_id)
+          .maybeSingle()
+        if (lpErr) {
+          console.warn('Lead coach name load:', lpErr)
+        } else {
+          leadCoachFullName = lp?.full_name?.trim() || null
+        }
+      }
+      setSession({ ...sessionData, lead_coach_full_name: leadCoachFullName })
 
       // Load swimmers for all squads in this session
       const squadIds = sessionData.training_session_squads?.map(ts => ts.squad_id).filter(Boolean) || []
@@ -138,7 +152,35 @@ export default function SessionAttendancePage() {
     }
   }
 
+  /** Credits coach check-ins to the session lead when an admin clicks; coaches still credit themselves. */
+  function coachCreditForNewCheckIn() {
+    const cachedProfile = user ? profileCache.get(user.id) : null
+    const userRole = profile?.role || cachedProfile?.role
+    if (userRole === 'admin') {
+      if (!session?.coach_id) {
+        return { coach_id: null, coachName: null }
+      }
+      return {
+        coach_id: session.coach_id,
+        coachName: session.lead_coach_full_name || null,
+      }
+    }
+    return {
+      coach_id: user?.id ?? null,
+      coachName: profile?.full_name || null,
+    }
+  }
+
   function toggleAttendance(swimmerId) {
+    const credit = coachCreditForNewCheckIn()
+    if (!credit.coach_id) {
+      const cachedProfile = user ? profileCache.get(user.id) : null
+      const userRole = profile?.role || cachedProfile?.role
+      if (userRole === 'admin') {
+        toast.error('Assign a lead coach to this session before recording coach check-ins.')
+      }
+      return
+    }
     setAttendance((prev) => ({
       ...prev,
       [swimmerId]: prev[swimmerId]
@@ -146,8 +188,8 @@ export default function SessionAttendancePage() {
         : {
             checked_in_by: 'coach',
             new: true,
-            coach_id: user?.id,
-            coachName: profile?.full_name || null,
+            coach_id: credit.coach_id,
+            coachName: credit.coachName,
           },
     }))
   }
@@ -175,12 +217,16 @@ export default function SessionAttendancePage() {
             toDelete.push(swimmerId)
           }
         } else if (att.new) {
-          // New check-in
+          const { coach_id: creditCoachId } = coachCreditForNewCheckIn()
+          if (!creditCoachId) {
+            toast.error('Assign a lead coach to this session before recording coach check-ins.')
+            throw new Error('No coach to credit')
+          }
           toInsert.push({
             session_id: sessionId,
             swimmer_id: swimmerId,
             checked_in_by: 'coach',
-            coach_id: user.id,
+            coach_id: creditCoachId,
             check_in_time: new Date().toISOString(),
           })
         }
@@ -211,7 +257,9 @@ export default function SessionAttendancePage() {
       loadSessionData()
     } catch (error) {
       console.error('Error saving attendance:', error)
-      toast.error('Failed to save attendance')
+      if (error?.message !== 'No coach to credit') {
+        toast.error('Failed to save attendance')
+      }
     } finally {
       setSaving(false)
     }

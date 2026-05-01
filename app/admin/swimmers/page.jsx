@@ -21,6 +21,7 @@ import {
   formatPreferredPaymentTypeLabel,
 } from '@/lib/utils/currency'
 import { createSwimmerOnboardingInvoice } from '@/lib/invoices/create-swimmer-onboarding-invoice'
+import { requestInvoiceIssuedEmailNotification } from '@/lib/invoices/request-invoice-issued-email'
 import { insertNotification } from '@/lib/notifications/insert-notification'
 import toast from 'react-hot-toast'
 
@@ -230,6 +231,7 @@ export default function SwimmersManagementPage() {
         if (inv.error) {
           toast.error(inv.error)
         } else {
+          void requestInvoiceIssuedEmailNotification(inv.invoiceId)
           toast.success('Swimmer approved and invoice created. Parent can pay from the dashboard.')
         }
       } else {

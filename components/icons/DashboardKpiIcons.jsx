@@ -84,3 +84,13 @@ export function KpiAttendanceIcon({ className }) {
     </SvgShell>
   )
 }
+
+/** Check circle — settled invoices / confirmed payments */
+export function KpiPaidIcon({ className }) {
+  return (
+    <SvgShell className={className}>
+      <circle cx="12" cy="12" r="9.25" />
+      <path d="M8.15 12.4 10.7 14.95 15.85 9.05" strokeWidth={2} />
+    </SvgShell>
+  )
+}

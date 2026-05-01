@@ -11,9 +11,15 @@ import Button from '@/components/ui/Button'
 import Table from '@/components/ui/Table'
 import Badge from '@/components/ui/Badge'
 import Modal from '@/components/ui/Modal'
-import { formatKES, EARLY_BIRD_DISCOUNT } from '@/lib/utils/currency'
+import { formatKES } from '@/lib/utils/currency'
+import { computeInvoiceEarlyBirdPayAdjustments } from '@/lib/invoices/invoice-early-bird-pay'
 import { formatDate } from '@/lib/utils/date-helpers'
 import { fetchParentIdsForDataAccess } from '@/lib/parent/effective-parent-ids'
+import {
+  KpiOutstandingIcon,
+  KpiPendingIcon,
+  KpiPaidIcon,
+} from '@/components/icons/DashboardKpiIcons'
 import toast from 'react-hot-toast'
 
 function InvoicesPageContent() {
@@ -31,17 +37,42 @@ function InvoicesPageContent() {
   const paid = searchParams.get('paid') === 'true'
 
   useEffect(() => {
-    if (!authLoading) {
-      if (!user) {
-        router.push('/login')
-        return
+    if (authLoading) return
+
+    let cancelled = false
+
+    if (!user) {
+      const fromPaystack = Boolean(paid && reference)
+      if (fromPaystack) {
+        ;(async () => {
+          const supabase = createClient()
+          for (let i = 0; i < 12 && !cancelled; i++) {
+            const {
+              data: { session },
+            } = await supabase.auth.getSession()
+            if (session?.user) {
+              window.location.reload()
+              return
+            }
+            await new Promise((r) => setTimeout(r, 125))
+          }
+          if (!cancelled) {
+            router.replace(
+              `/login?next=${encodeURIComponent(`/invoices?reference=${reference}&paid=true`)}`
+            )
+          }
+        })()
+        return () => {
+          cancelled = true
+        }
       }
-      loadInvoices()
-      
-      // If user just returned from payment, verify and refresh
-      if (paid && reference) {
-        verifyPaymentStatus(reference)
-      }
+      router.push('/login')
+      return
+    }
+
+    loadInvoices()
+    if (paid && reference) {
+      verifyPaymentStatus(reference)
     }
   }, [user, authLoading, router, paid, reference])
 
@@ -189,16 +220,9 @@ function InvoicesPageContent() {
     setShowDetailsModal(true)
   }
 
-  // Returns the early bird discount amount (KES) if this invoice qualifies today, else 0.
   function getEarlyBirdDiscount(invoice) {
     if (invoice.status === 'paid') return 0
-    const today = new Date().getDate()
-    if (today > 3) return 0
-    const hasMonthlyTraining = invoice.invoice_line_items?.some(
-      (item) => item.fee_type === 'monthly_training'
-    )
-    const squadEligible = invoice.swimmers?.squads?.early_bird_eligible === true
-    return hasMonthlyTraining && squadEligible ? EARLY_BIRD_DISCOUNT : 0
+    return computeInvoiceEarlyBirdPayAdjustments(invoice).earlyBirdDiscount
   }
 
   async function handlePayNow(invoiceId) {
@@ -398,19 +422,26 @@ function InvoicesPageContent() {
     )
   }
 
-  const outstandingTotal = invoices
-    .filter(inv => inv.status !== 'paid')
-    .reduce((sum, inv) => sum + parseFloat(inv.total_amount), 0)
+  const unpaidInvoices = invoices.filter((inv) => inv.status !== 'paid')
+  const paidInvoiceCount = invoices.filter((inv) => inv.status === 'paid').length
+  const balanceDueTotal = unpaidInvoices.reduce(
+    (sum, inv) => sum + computeInvoiceEarlyBirdPayAdjustments(inv).chargedAmount,
+    0
+  )
 
   return (
     <>
       <Navigation />
       
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 transition-colors duration-200">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-5 sm:py-8 transition-colors duration-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">My Invoices</h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-2">View and manage your payment invoices</p>
+          <div className="mb-5 sm:mb-8">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 tracking-tight">
+              My Invoices
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-1 sm:mt-2 text-sm sm:text-base">
+              Billing and receipts — Otters Kenya Academy of Swimming Limited
+            </p>
             
             {/* Payment Verification Alert */}
             {verifyingPayment && (
@@ -439,7 +470,14 @@ function InvoicesPageContent() {
                 </svg>
                 <div>
                   <p className="text-sm font-semibold text-green-800 dark:text-green-200">
-                    Early bird discount active. Save {formatKES(EARLY_BIRD_DISCOUNT)}!
+                    Early bird discount active. Save{' '}
+                    {formatKES(
+                      invoices.reduce((max, inv) => {
+                        const d = computeInvoiceEarlyBirdPayAdjustments(inv).earlyBirdDiscount
+                        return d > max ? d : max
+                      }, 0)
+                    )}
+                    !
                   </p>
                   <p className="text-xs text-green-700 dark:text-green-300 mt-0.5">
                     Pay your outstanding invoice(s) before the 3rd of this month to receive the discount automatically.
@@ -449,30 +487,69 @@ function InvoicesPageContent() {
             </div>
           )}
 
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <Card padding="normal">
-              <div className="text-center">
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Total Outstanding</p>
-                <p className="text-2xl font-bold text-primary dark:text-primary-light">
-                  {formatKES(outstandingTotal)}
-                </p>
+          {/* KPI summary — rhythm matches Admin / Coach dashboards */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5 sm:gap-3 md:gap-4 mb-5 sm:mb-8">
+            <Card
+              padding="sm"
+              className="bg-amber-50/90 dark:bg-amber-900/20 border-amber-200/80 dark:border-amber-800 shadow-sm col-span-2 md:col-span-1"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-amber-900/85 dark:text-amber-200/90 leading-tight">
+                    <span className="sm:hidden">Balance due</span>
+                    <span className="hidden sm:inline">Amount due (open invoices)</span>
+                  </p>
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold tabular-nums text-amber-950 dark:text-amber-50 mt-0.5 sm:mt-1 leading-none break-words">
+                    {formatKES(balanceDueTotal)}
+                  </p>
+                  <p className="text-[10px] sm:text-[11px] text-amber-800/80 dark:text-amber-300/80 mt-1 leading-snug">
+                    What you&apos;d pay if you settle everything outstanding today (early bird
+                    reflected when it applies).
+                  </p>
+                </div>
+                <KpiOutstandingIcon className="w-7 h-7 sm:w-9 sm:h-9 shrink-0 text-amber-600/80 dark:text-amber-400/85" />
               </div>
             </Card>
-            <Card padding="normal">
-              <div className="text-center">
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Unpaid Invoices</p>
-                <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-                  {invoices.filter(inv => inv.status !== 'paid').length}
-                </p>
+
+            <Card
+              padding="sm"
+              className="bg-orange-50/90 dark:bg-orange-950/30 border-orange-200/80 dark:border-orange-800 shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-orange-900/85 dark:text-orange-200/90 leading-tight">
+                    <span className="sm:hidden">To pay</span>
+                    <span className="hidden sm:inline">Invoices awaiting payment</span>
+                  </p>
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold tabular-nums text-orange-950 dark:text-orange-50 mt-0.5 sm:mt-1 leading-none">
+                    {unpaidInvoices.length}
+                  </p>
+                  <p className="text-[10px] sm:text-[11px] text-orange-900/78 dark:text-orange-300/80 mt-1 leading-snug">
+                    Issued or due — use Pay when you&apos;re ready.
+                  </p>
+                </div>
+                <KpiPendingIcon className="w-7 h-7 sm:w-9 sm:h-9 shrink-0 text-orange-500/85 dark:text-orange-400/90" />
               </div>
             </Card>
-            <Card padding="normal">
-              <div className="text-center">
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Paid Invoices</p>
-                <p className="text-2xl font-bold text-secondary dark:text-secondary-light">
-                  {invoices.filter(inv => inv.status === 'paid').length}
-                </p>
+
+            <Card
+              padding="sm"
+              className="bg-emerald-50/90 dark:bg-emerald-900/20 border-emerald-200/80 dark:border-emerald-800 shadow-sm"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wide text-emerald-900/85 dark:text-emerald-200/90 leading-tight">
+                    <span className="sm:hidden">Paid</span>
+                    <span className="hidden sm:inline">Completed payments</span>
+                  </p>
+                  <p className="text-xl sm:text-2xl lg:text-3xl font-bold tabular-nums text-emerald-950 dark:text-emerald-50 mt-0.5 sm:mt-1 leading-none">
+                    {paidInvoiceCount}
+                  </p>
+                  <p className="text-[10px] sm:text-[11px] text-emerald-900/78 dark:text-emerald-300/80 mt-1 leading-snug">
+                    Receipts available from the table below.
+                  </p>
+                </div>
+                <KpiPaidIcon className="w-7 h-7 sm:w-9 sm:h-9 shrink-0 text-emerald-600/80 dark:text-emerald-400/85" />
               </div>
             </Card>
           </div>

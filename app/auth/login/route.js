@@ -16,6 +16,15 @@ function copyCookies(fromResponse, toResponse) {
   }
 }
 
+/** Allow post-login redirect to in-app paths only (no protocol / open redirects). */
+function sanitizeRelativeNext(raw) {
+  if (typeof raw !== 'string') return null
+  const s = raw.trim()
+  if (!s.startsWith('/') || s.startsWith('//')) return null
+  if (s.includes('://')) return null
+  return s.length > 1024 ? s.slice(0, 1024) : s
+}
+
 export async function POST(request) {
   let body
   try {
@@ -26,6 +35,8 @@ export async function POST(request) {
 
   const email = typeof body?.email === 'string' ? body.email.trim() : ''
   const password = typeof body?.password === 'string' ? body.password : ''
+
+  const requestedNext = sanitizeRelativeNext(body?.next)
 
   if (!email || !password) {
     return NextResponse.json(
@@ -60,6 +71,7 @@ export async function POST(request) {
 
     if (profile?.role === 'admin') next = '/admin'
     else if (profile?.role === 'coach') next = '/coach'
+    else if (profile?.role === 'parent' && requestedNext) next = requestedNext
   } catch {
     // If the profile lookup fails we still let the user through to /dashboard;
     // the proxy will re-check role on the next request.

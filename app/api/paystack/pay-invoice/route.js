@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { initializePaystackTransaction, generatePaymentReference } from '@/lib/paystack/client'
-import { EARLY_BIRD_DISCOUNT } from '@/lib/utils/currency'
+import { computeInvoiceEarlyBirdPayAdjustments } from '@/lib/invoices/invoice-early-bird-pay'
 
 /**
  * Initialize payment for an existing invoice
@@ -26,7 +26,7 @@ export async function POST(request) {
       .from('invoices')
       .select(`
         *,
-        swimmers (id, first_name, last_name, squad_id, squads (name)),
+        swimmers (id, first_name, last_name, squad_id, squads (name, early_bird_eligible)),
         profiles (id, full_name, email, phone_number),
         invoice_line_items (*)
       `)
@@ -74,21 +74,24 @@ export async function POST(request) {
     // after we have verified the authenticated user may pay this invoice (primary or linked co-parent).
     const supabaseAdmin = createServiceRoleClient()
 
-    // ── Early bird discount ───────────────────────────────────────────────────
-    // Applies when ALL conditions are met (checked server-side):
-    //   1. Today is on or before the 3rd of the month
-    //   2. The invoice has at least one monthly_training line item
-    //   3. The swimmer's assigned squad has early_bird_eligible = true
-    const today = new Date().getDate()
-    const hasMonthlyTraining = invoice.invoice_line_items?.some(
-      (item) => item.fee_type === 'monthly_training'
-    )
-    const squadEarlyBirdEligible = invoice.swimmers?.squads?.early_bird_eligible === true
+    const { chargedAmount, earlyBirdApplied, earlyBirdDiscount } =
+      computeInvoiceEarlyBirdPayAdjustments(invoice)
 
-    const earlyBirdApplied = today <= 3 && hasMonthlyTraining && squadEarlyBirdEligible
-    const chargedAmount = earlyBirdApplied
-      ? Math.max(0, Number(invoice.total_amount) - EARLY_BIRD_DISCOUNT)
-      : Number(invoice.total_amount)
+    let callbackOrigin
+    try {
+      callbackOrigin = new URL(request.url).origin
+    } catch {
+      callbackOrigin =
+        typeof process.env.NEXT_PUBLIC_APP_URL === 'string'
+          ? process.env.NEXT_PUBLIC_APP_URL.trim().replace(/\/$/, '')
+          : ''
+    }
+    if (!callbackOrigin.startsWith('http')) {
+      return NextResponse.json(
+        { error: 'Could not determine app URL for Paystack redirect' },
+        { status: 500 }
+      )
+    }
 
     // Generate unique payment reference
     const paymentReference = generatePaymentReference('INV', invoice.id)
@@ -137,7 +140,9 @@ export async function POST(request) {
           squad: s.squad,
         })),
       },
-      callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/invoices?reference=${paymentReference}&paid=true`,
+      callback_url: `${callbackOrigin}/invoices?reference=${encodeURIComponent(
+        paymentReference
+      )}&paid=true`,
     })
 
     // Store Paystack access code in payment callback data
@@ -164,7 +169,7 @@ export async function POST(request) {
       invoiceId: invoice.id,
       paymentId: payment.id,
       earlyBirdApplied,
-      earlyBirdDiscount: earlyBirdApplied ? EARLY_BIRD_DISCOUNT : 0,
+      earlyBirdDiscount,
       chargedAmount,
     })
   } catch (error) {

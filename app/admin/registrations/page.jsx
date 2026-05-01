@@ -14,6 +14,7 @@ import Badge from '@/components/ui/Badge'
 import Modal from '@/components/ui/Modal'
 import { calculateAge, formatDate } from '@/lib/utils/date-helpers'
 import { createSwimmerOnboardingInvoice } from '@/lib/invoices/create-swimmer-onboarding-invoice'
+import { requestInvoiceIssuedEmailNotification } from '@/lib/invoices/request-invoice-issued-email'
 import { insertNotification } from '@/lib/notifications/insert-notification'
 import {
   formatSessionsPerWeekLabel,
@@ -157,6 +158,7 @@ export default function PendingRegistrationsPage() {
       if (inv.error) {
         toast.error(`Approved, but invoice failed: ${inv.error}`)
       } else {
+        void requestInvoiceIssuedEmailNotification(inv.invoiceId)
         toast.success('Swimmer approved and invoice created. Parent notified.')
       }
 

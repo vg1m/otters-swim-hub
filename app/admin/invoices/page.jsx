@@ -17,6 +17,8 @@ import Modal from '@/components/ui/Modal'
 import { formatKES } from '@/lib/utils/currency'
 import { formatDate } from '@/lib/utils/date-helpers'
 import toast from 'react-hot-toast'
+import { insertNotification } from '@/lib/notifications/insert-notification'
+import { requestInvoiceIssuedEmailNotification } from '@/lib/invoices/request-invoice-issued-email'
 
 /** Matches `invoice_line_items.fee_type` CHECK (migrations 041 + 055). */
 const LINE_ITEM_FEE_TYPES = [
@@ -279,7 +281,7 @@ export default function InvoicesPage() {
     }
   }
 
-  async function updateInvoiceStatus(invoiceId, newStatus) {
+  async function updateInvoiceStatus(invoiceId, newStatus, notifyContext = null) {
     const supabase = createClient()
 
     try {
@@ -294,6 +296,23 @@ export default function InvoicesPage() {
         .eq('id', invoiceId)
 
       if (error) throw error
+
+      if (newStatus === 'issued' && notifyContext?.parent_id) {
+        const swimmer = notifyContext.swimmers
+        const first = swimmer?.first_name || 'your swimmer'
+        const dueStr = notifyContext.due_date ? formatDate(notifyContext.due_date) : null
+        await insertNotification(supabase, {
+          parent_id: notifyContext.parent_id,
+          type: 'invoice_issued',
+          title: `New invoice for ${first}`,
+          body: dueStr
+            ? `An invoice has been issued. Please pay by ${dueStr}.`
+            : 'An invoice has been issued. Please pay from your dashboard.',
+          swimmer_id: notifyContext.swimmer_id ?? null,
+          invoice_id: invoiceId,
+        })
+        void requestInvoiceIssuedEmailNotification(invoiceId)
+      }
 
       toast.success(`Invoice marked as ${newStatus}`)
       loadInvoices()
@@ -776,7 +795,9 @@ export default function InvoicesPage() {
                 <Button
                   fullWidth
                   className="sm:w-auto"
-                  onClick={() => updateInvoiceStatus(selectedInvoice.id, 'issued')}
+                  onClick={() =>
+                    updateInvoiceStatus(selectedInvoice.id, 'issued', selectedInvoice)
+                  }
                 >
                   Issue invoice
                 </Button>

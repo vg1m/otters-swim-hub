@@ -86,6 +86,13 @@ export default function LoginPage() {
     setLoading(true)
 
     try {
+      const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+      const nextParam = params?.get('next')
+      const next =
+        typeof nextParam === 'string' && nextParam.startsWith('/') && !nextParam.startsWith('//')
+          ? nextParam
+          : undefined
+
       // Sign in via a server route so auth cookies are returned as HTTP
       // Set-Cookie headers. This fixes a mobile bug where client-side
       // signInWithPassword writes to document.cookie and the subsequent
@@ -94,7 +101,7 @@ export default function LoginPage() {
       const res = await fetch('/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, ...(next ? { next } : {}) }),
         credentials: 'include',
       })
 

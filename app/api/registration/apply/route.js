@@ -148,6 +148,21 @@ export async function POST(request) {
             if (inviteError.code !== '23505') {
               console.error('Registration: family invite insert failed:', inviteError)
             }
+          } else {
+            try {
+              const { sendFamilySharedAccessInviteEmail } = await import('@/lib/utils/send-email')
+              const emailOut = await sendFamilySharedAccessInviteEmail({
+                inviteeEmail: invited,
+                inviteeName: parentInfo.coParentName?.trim() || null,
+                primaryName: parentInfo.fullName,
+                primaryEmail,
+              })
+              if (!emailOut.success) {
+                console.warn('Registration: family invite email:', emailOut.error)
+              }
+            } catch (mailErr) {
+              console.warn('Registration: family invite email exception:', mailErr)
+            }
           }
         }
       }
