@@ -12,7 +12,7 @@ export default function PrivacyDSRWidget() {
 
     // Function to initialize the widget
     const initializeWidget = () => {
-      if (window.PrivacyKE && widgetRef.current) {
+      if (window.PrivacyKE && typeof window.PrivacyKE.render === 'function' && widgetRef.current) {
         window.PrivacyKE.render({
           apiKey: 'pk_live_0fd0c18ccff9111cbf8ed9bd08de97a42eb4b070c0103c0c61622b524ea557e3',
           container: '#dsr-widget',
@@ -21,8 +21,8 @@ export default function PrivacyDSRWidget() {
       }
     }
 
-    // Check if script is already loaded
-    if (window.PrivacyKE) {
+    // Only skip loading if the DSR-specific render method is already available
+    if (window.PrivacyKE && typeof window.PrivacyKE.render === 'function') {
       initializeWidget()
       scriptLoadedRef.current = true
       return

@@ -85,7 +85,7 @@ export default function RegisterPage() {
   const [consents, setConsents] = useState({
     dataAccuracy: false,
     codeOfConduct: false,
-    mediaConsent: true,
+    mediaConsent: false,
   })
 
   const [swimmers, setSwimmers] = useState([

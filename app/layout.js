@@ -2,6 +2,7 @@ import './globals.css'
 import { Toaster } from 'react-hot-toast'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import SessionTimeoutWatcher from '@/components/SessionTimeoutWatcher'
+import PrivacyConsentWidget from '@/components/PrivacyConsentWidget'
 
 export const metadata = {
   title: 'Otters Kenya Academy of Swimming Limited',
@@ -43,6 +44,7 @@ export default function RootLayout({ children }) {
         <ThemeProvider>
           <div className="grain-overlay"></div>
           <SessionTimeoutWatcher />
+          <PrivacyConsentWidget />
           {children}
           <Toaster 
             position="top-right"

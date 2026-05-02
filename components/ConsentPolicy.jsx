@@ -94,7 +94,8 @@ export default function ConsentPolicy({
             <span className="text-sm text-gray-700 dark:text-gray-300 group-hover:text-gray-900 dark:group-hover:text-gray-100 transition-colors">
               <span className="font-semibold">I consent</span> to the use of photographs or videos of myself / my child taken during training or competitions for club-related promotional materials, social media, or reports.
               <span className="text-xs text-gray-500 dark:text-gray-400 block mt-1">
-                (Optional - You can opt out by unchecking this box or notifying the club in writing)
+                Optional, not required to join. If unticked, no club promotion from swim photos or videos until you
+                consent. You can withdraw anytime.
               </span>
             </span>
           </label>
