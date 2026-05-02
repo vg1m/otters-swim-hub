@@ -1,4 +1,5 @@
 import './globals.css'
+import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from 'react-hot-toast'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import SessionTimeoutWatcher from '@/components/SessionTimeoutWatcher'
@@ -59,6 +60,7 @@ export default function RootLayout({ children }) {
               className: 'dark:!bg-gray-800 dark:!text-gray-100',
             }}
           />
+          <Analytics />
         </ThemeProvider>
       </body>
     </html>

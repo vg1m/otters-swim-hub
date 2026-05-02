@@ -13,6 +13,7 @@
     "@ducanh2912/next-pwa": "^10.2.9",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.95.3",
+    "@vercel/analytics": "^2.0.1",
     "date-fns": "^4.1.0",
     "date-fns-tz": "^3.2.0",
     "jspdf": "^4.1.0",
