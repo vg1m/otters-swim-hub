@@ -110,7 +110,7 @@ export default function AdminDashboard() {
               Admin Dashboard
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mt-1 sm:mt-2 text-sm sm:text-base">
-              Otters Kenya Academy of Swimming Limited
+              Otters Kenya Academy of Swimming
             </p>
           </div>
 

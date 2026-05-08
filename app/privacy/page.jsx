@@ -8,9 +8,9 @@ const LAST_UPDATED = '2 May 2026'
 const PRIVACY_EMAIL = 'otters.kenya@gmail.com'
 
 export const metadata = {
-  title: 'Privacy Policy | Otters Kenya Academy of Swimming Limited',
+  title: 'Privacy Policy | Otters Kenya Academy of Swimming',
   description:
-    'How Otters Kenya Academy of Swimming Limited collects, uses, and protects your personal information.',
+    'How Otters collects, uses, and protects your personal information.',
 }
 
 // Helpers for layout and tables.
@@ -171,7 +171,7 @@ export default function PrivacyPolicyPage() {
             <section className="space-y-3">
               <H2>1. Who we are</H2>
               <P>
-                We are <strong>Otters Kenya Academy of Swimming Limited</strong>, a swim club in
+                We are <strong>Otters Kenya Academy of Swimming</strong>, a swim club in
                 Kenya. In this notice we call ourselves &quot;we&quot;, &quot;us&quot;, or &quot;the
                 Club&quot;.
               </P>
@@ -218,7 +218,7 @@ export default function PrivacyPolicyPage() {
                     ['About your account', 'Your email, the password you choose (or identifiers from an optional external identity provider when you prefer not to manage a Club-only password), and what kind of user you are (parent, coach, or admin).'],
                     ['About you (the parent or guardian)', 'Your full name, phone number, your relationship to the swimmer, and an emergency contact name and number.'],
                     ['About your child (the swimmer)', 'Name, date of birth, gender, the squad they are placed in, how many sessions a week, gala preferences, and which coach and pool they are assigned to.'],
-                    ['Sensitive details', 'Medical information that helps us keep your child safe in the water (for example asthma, allergies, heart conditions). Photos or videos, but only if you have given us permission to use them.'],
+                    ['Photographs or video', 'Only if you give us permission, for club-related promotion or reporting as explained when you consent.'],
                     ['Payments', 'Invoice details, what you paid, when you paid it, and the phone number used for mobile money. Card numbers are handled by our payment provider, not by us.'],
                     ['Training and attendance', 'Which sessions your child attended, the date and time, and whether the coach or your child marked the attendance.'],
                     ['The permissions you give us', 'Which boxes you tick when you sign up (for example agreeing to the code of conduct, or saying yes to photos), the date and time you ticked them, and the device you used. We keep this so we can show what you agreed to.'],
@@ -232,11 +232,11 @@ export default function PrivacyPolicyPage() {
                 </tbody>
               </TableWrapper>
               <div className="rounded-lg bg-amber-50/70 dark:bg-amber-950/20 border border-amber-200/70 dark:border-amber-900/40 px-4 py-3 text-sm space-y-1">
-                <p className="font-semibold text-amber-900 dark:text-amber-200">Medical notes and imagery</p>
+                <p className="font-semibold text-amber-900 dark:text-amber-200">Photographs and video</p>
                 <p className="text-amber-800/90 dark:text-amber-300/90 leading-relaxed">
-                  Kenyan law attaches higher standards to minors&apos; health details and likenesses.
-                  We collect the minimum justified for pool safety and obtain separate opt-in wording
-                  for photography. Access is narrowed to authorised staff.
+                  Kenyan law attaches higher standards to how children&apos;s likenesses may be used. We obtain
+                  separate opt-in wording for promotional photography or video where we intend to rely on consent.
+                  Access is narrowed to authorised staff.
                 </p>
               </div>
             </section>
@@ -251,7 +251,7 @@ export default function PrivacyPolicyPage() {
               <ul className="list-disc pl-5 space-y-2">
                 <Li>Setting up your account and your child&apos;s membership.</Li>
                 <Li>Putting your child in the right squad and running training sessions.</Li>
-                <Li>Keeping your child safe in the water, and acting quickly if there is a medical issue.</Li>
+                <Li>Keeping your child safe during training through supervision, scheduling, and our usual coaching practices.</Li>
                 <Li>Sending you bills and collecting fees.</Li>
                 <Li>Telling you about training schedules, changes, meets, and Club news.</Li>
                 <Li>Keeping a record of the permissions you have given us.</Li>
@@ -284,7 +284,6 @@ export default function PrivacyPolicyPage() {
                     ['Sending invoices and collecting fees', 'Same reason: it is part of the deal you signed up for.'],
                     ['Keeping accounting and tax records', 'Because the law tells us we have to keep these records.'],
                     ['Keeping safeguarding records about children', 'Statutory and policy duties to protect swimmers under eighteen.'],
-                    ['Holding medical information about your child', 'Health safeguarding for aquatic programmes and enrolment disclosures you approve.'],
                     ['Using photos or videos of your child', 'Only with your permission. You can change your mind any time.'],
                     ['Anything else that needs your specific permission', 'Because you said yes. You can say no, or change your mind later.'],
                   ].map(([what, why], i) => (
@@ -477,6 +476,11 @@ export default function PrivacyPolicyPage() {
                 could identify you, unless the law tells us we must keep it longer (for example,
                 because of a court case).
               </P>
+              <P>
+                We run an automated check at the start of each month to flag records that have
+                reached the end of their retention window. A member of our team reviews the findings
+                before anything is removed.
+              </P>
             </section>
 
             {/* 10 */}
@@ -570,9 +574,8 @@ export default function PrivacyPolicyPage() {
             <section className="space-y-3">
               <H2>13. Do you have to give us your information?</H2>
               <P>
-                We need core registration and safety particulars to enrol a swimmer: for example name,
-                date of birth, your contact telephone, and relevant medical screening that bears on
-                pool safety.
+                We need core registration particulars to enrol a swimmer: for example name,
+                date of birth, emergency contact names and telephone numbers we can reach, and a way for us to communicate with parents or guardians.
               </P>
               <P>
                 Optional items such as media consent remain voluntary. Declining optional items does

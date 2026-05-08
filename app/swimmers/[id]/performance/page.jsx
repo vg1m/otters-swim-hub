@@ -14,6 +14,9 @@ import Badge from '@/components/ui/Badge'
 import Modal from '@/components/ui/Modal'
 import PerformanceEntryModal from '@/components/PerformanceEntryModal'
 import CoachNoteModal from '@/components/CoachNoteModal'
+import RubricEvaluationPanel from '@/components/RubricEvaluationPanel'
+import RubricProgressView from '@/components/RubricProgressView'
+import { hasRubric } from '@/lib/rubrics/rubric-data'
 import { calculateAge } from '@/lib/utils/date-helpers'
 import {
   defaultAttendanceWindow,
@@ -82,10 +85,23 @@ export default function SwimmerPerformancePage() {
   const [showDeleteNote, setShowDeleteNote] = useState(null)
   const [deleting, setDeleting] = useState(false)
 
+  const [rubricProgressRefreshNonce, setRubricProgressRefreshNonce] = useState(0)
+  const [rubricSavedMonthYear, setRubricSavedMonthYear] = useState(null)
+  const [coachRubricEligible, setCoachRubricEligible] = useState(false)
+
+  useEffect(() => {
+    setRubricProgressRefreshNonce(0)
+    setRubricSavedMonthYear(null)
+    setCoachRubricEligible(false)
+    setDataLoaded(false)
+  }, [swimmerId])
+
   const cachedProfile = user ? profileCache.get(user.id) : null
   const userRole = profile?.role || cachedProfile?.role
   const isCoach = userRole === 'coach'
   const canEdit = isCoach
+  const canSaveRubric =
+    userRole === 'admin' || (userRole === 'coach' && coachRubricEligible)
 
   const loadData = useCallback(async () => {
     if (dataLoaded) return
@@ -96,7 +112,7 @@ export default function SwimmerPerformancePage() {
       // Load swimmer details
       const { data: swimmerData, error: swimmerError } = await supabase
         .from('swimmers')
-        .select('id, first_name, last_name, date_of_birth, gender, squad_id, status, parent_id, coach_id, squads(name)')
+        .select('id, first_name, last_name, date_of_birth, gender, squad_id, status, parent_id, coach_id, squads(name, slug)')
         .eq('id', swimmerId)
         .single()
 
@@ -114,6 +130,29 @@ export default function SwimmerPerformancePage() {
           return
         }
       }
+
+      let eligibleToEditRubric = false
+      if (userRole === 'admin') {
+        eligibleToEditRubric = true
+      } else if (userRole === 'coach' && user?.id) {
+        if (swimmerData.coach_id === user.id) {
+          eligibleToEditRubric = true
+        } else {
+          const { data: assignments } = await supabase
+            .from('coach_assignments')
+            .select('squad_id, swimmer_id')
+            .eq('coach_id', user.id)
+
+          const sid = swimmerData.squad_id
+          const roster = assignments || []
+          const squadHead =
+            Boolean(sid) &&
+            roster.some((a) => a.squad_id === sid && a.swimmer_id == null)
+          const swimmerAssign = roster.some((a) => a.swimmer_id === swimmerData.id)
+          eligibleToEditRubric = squadHead || swimmerAssign
+        }
+      }
+      setCoachRubricEligible(eligibleToEditRubric)
 
       setSwimmer(swimmerData)
 
@@ -458,6 +497,19 @@ export default function SwimmerPerformancePage() {
                 Attendance
               </button>
             )}
+            {hasRubric(swimmer?.squads?.slug ?? swimmer?.squads?.[0]?.slug) && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('rubric')}
+                className={`px-4 sm:px-5 py-2 rounded-md text-sm font-medium transition-all ${
+                  activeTab === 'rubric'
+                    ? 'bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 shadow-sm'
+                    : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                Rubric
+              </button>
+            )}
           </div>
 
           {/* ── RACE TIMES TAB ── */}
@@ -661,6 +713,45 @@ export default function SwimmerPerformancePage() {
               )}
             </div>
           )}
+          {/* ── RUBRIC TAB ── */}
+          {activeTab === 'rubric' && (() => {
+            const rel = swimmer.squads
+            const squadRow = Array.isArray(rel) ? rel[0] : rel
+            const squadSlug = squadRow?.slug ?? null
+            return (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-1">
+                    Squad Rubric
+                  </h2>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Monthly skills, habits and attitude evaluation against the {squadRow?.name ?? 'squad'} rubric.
+                  </p>
+                </div>
+                {canSaveRubric && (
+                  <Card title="Add / Edit Evaluation" padding="normal">
+                    <RubricEvaluationPanel
+                      swimmerId={swimmerId}
+                      squadSlug={squadSlug}
+                      onSaved={({ monthYear }) => {
+                        setRubricSavedMonthYear(monthYear)
+                        setRubricProgressRefreshNonce((n) => n + 1)
+                      }}
+                    />
+                  </Card>
+                )}
+                <Card title="Progress History" padding="normal">
+                  <RubricProgressView
+                    swimmerId={swimmerId}
+                    squadSlug={squadSlug}
+                    refreshNonce={rubricProgressRefreshNonce}
+                    savedMonthYear={rubricSavedMonthYear}
+                  />
+                </Card>
+              </div>
+            )
+          })()}
+
         </div>
       </div>
 
