@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/supabase/route-handler'
+import { getPublicOrigin } from '@/lib/utils/public-origin'
 
 function safeInternalPath(nextPath) {
   if (!nextPath || typeof nextPath !== 'string') return null
@@ -23,7 +24,7 @@ export async function GET(request) {
   const otpType = requestUrl.searchParams.get('type')
   const nextParam = requestUrl.searchParams.get('next')
   const nextSafe = safeInternalPath(nextParam)
-  const origin = requestUrl.origin
+  const origin = getPublicOrigin(request)
 
   let usedInviteTokenHash = false
 

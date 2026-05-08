@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
 
 const SIGN_OUT_REASONS = {
@@ -16,8 +15,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [oauthLoading, setOauthLoading] = useState(false)
   const [signOutReason, setSignOutReason] = useState(null)
-  const supabase = createClient()
-
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     // OAuth must hit /auth/callback so the server can exchange ?code= for a session.
@@ -41,44 +38,21 @@ export default function LoginPage() {
   }, [])
 
   /**
-   * Where Supabase sends the user *after* OAuth completes: your app’s `/auth/callback`.
-   * Must be listed under Supabase → Authentication → URL Configuration → Redirect URLs
-   * (e.g. http://localhost:3000/** and https://your-prod-domain.com/**).
-   *
-   * This is NOT the Google Cloud “Authorized redirect URI” (that stays
-   * https://<project-ref>.supabase.co/auth/v1/callback for every environment).
+   * Google OAuth starts at `/auth/oauth/google` (server route) so PKCE cookies
+   * are set via Set-Cookie; `/auth/callback` must stay in Supabase redirect URLs.
    */
-  const getOAuthRedirectUrl = () => {
-    const envBase = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '')
-    if (envBase && envBase.startsWith('http')) {
-      return `${envBase}/auth/callback`
-    }
-    if (typeof window !== 'undefined') {
-      return `${window.location.origin}/auth/callback`
-    }
-    return '/auth/callback'
-  }
-
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignIn = () => {
     setOauthLoading(true)
-    try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: getOAuthRedirectUrl(),
-        },
-      })
-      if (error) throw error
-      if (data?.url) {
-        window.location.assign(data.url)
-        return
-      }
-      toast.error('Could not get Google sign-in URL')
-      setOauthLoading(false)
-    } catch (error) {
-      toast.error(error.message || 'Could not start Google sign-in')
-      setOauthLoading(false)
-    }
+    const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+    const nextParam = params?.get('next')
+    const next =
+      typeof nextParam === 'string' && nextParam.startsWith('/') && !nextParam.startsWith('//')
+        ? nextParam
+        : undefined
+    const url = next
+      ? `/auth/oauth/google?next=${encodeURIComponent(next)}`
+      : '/auth/oauth/google'
+    window.location.assign(url)
   }
 
   const handleLogin = async (e) => {

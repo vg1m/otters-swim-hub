@@ -1,6 +1,6 @@
 import { updateSession } from './lib/supabase/middleware'
 
-export async function proxy(request) {
+export async function middleware(request) {
   return await updateSession(request)
 }
 
@@ -12,7 +12,6 @@ export const config = {
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - api routes (let them handle their own logic)
-     * Feel free to modify this pattern to include more paths.
      */
     '/((?!api|_next/static|_next/image|favicon.ico|manifest.json|icons/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],

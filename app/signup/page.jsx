@@ -35,44 +35,12 @@ export default function SignupPage() {
   }, [])
 
   /**
-   * Where Supabase sends the user *after* OAuth completes — your app’s `/auth/callback`.
-   * Must be listed under Supabase → Authentication → URL Configuration → Redirect URLs
-   * (e.g. http://localhost:3000/** and https://your-prod-domain.com/**).
-   *
-   * This is NOT the Google Cloud “Authorized redirect URI” (that stays
-   * https://<project-ref>.supabase.co/auth/v1/callback for every environment).
+   * Google OAuth starts at `/auth/oauth/google` (server) so PKCE cookies are set
+   * reliably; include return path for error redirects.
    */
-  const getOAuthRedirectUrl = () => {
-    const envBase = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, '')
-    if (envBase && envBase.startsWith('http')) {
-      return `${envBase}/auth/callback`
-    }
-    if (typeof window !== 'undefined') {
-      return `${window.location.origin}/auth/callback`
-    }
-    return '/auth/callback'
-  }
-
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignIn = () => {
     setOauthLoading(true)
-    try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: getOAuthRedirectUrl(),
-        },
-      })
-      if (error) throw error
-      if (data?.url) {
-        window.location.assign(data.url)
-        return
-      }
-      toast.error('Could not get Google sign-in URL')
-      setOauthLoading(false)
-    } catch (error) {
-      toast.error(error.message || 'Could not start Google sign-in')
-      setOauthLoading(false)
-    }
+    window.location.assign('/auth/oauth/google?return=/signup')
   }
 
   const passwordStrength = password ? getPasswordStrength(password) : null
