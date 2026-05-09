@@ -23,15 +23,6 @@ export default function ResetPasswordPage() {
   useEffect(() => {
     let cancelled = false
 
-    // PASSWORD_RECOVERY fires when exchangeCodeForSession succeeds below.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (cancelled) return
-      if (event === 'PASSWORD_RECOVERY') {
-        setIsValidToken(true)
-        setCheckingToken(false)
-      }
-    })
-
     async function init() {
       try {
         const params = new URLSearchParams(window.location.search)
@@ -56,8 +47,6 @@ export default function ResetPasswordPage() {
             setCheckingToken(false)
             return
           }
-          // Don't rely only on PASSWORD_RECOVERY — it is not guaranteed to fire in all
-          // runtimes; confirm via getSession() immediately after exchange.
           const { data: afterExchange } = await supabase.auth.getSession()
           if (cancelled) return
           setIsValidToken(!!afterExchange?.session)
@@ -81,7 +70,6 @@ export default function ResetPasswordPage() {
     void init()
     return () => {
       cancelled = true
-      subscription.unsubscribe()
     }
   }, [supabase])
 

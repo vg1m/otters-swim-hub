@@ -14,16 +14,8 @@ function shouldSendRecoveryToResetPage(pathname) {
   return true
 }
 
-/**
- * Global guard that catches password-recovery sessions regardless of where the link lands.
- *
- * Primary: Supabase fires PASSWORD_RECOVERY from onAuthStateChange when it processes any
- * recovery token (hash fragment, cookie, etc.). This is the official, config-agnostic signal.
- *
- * Fallback: on initial mount we call getSession() and decode the JWT amr claim to catch a
- * pre-existing recovery cookie (e.g. the user refreshes a page while the recovery session is
- * still alive and the browser client does not re-fire PASSWORD_RECOVERY).
- */
+/** Forwards recovery auth query params to /reset-password or /auth/callback, and redirects
+ *  stray recovery sessions (PASSWORD_RECOVERY or JWT `amr`) off public pages. */
 export default function RecoverySessionRedirect() {
   const pathname = usePathname()
   const supabase = useMemo(() => createClient(), [])
