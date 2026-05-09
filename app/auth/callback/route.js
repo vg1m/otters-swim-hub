@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/supabase/route-handler'
 import { getPublicOrigin } from '@/lib/utils/public-origin'
+import { accessTokenIndicatesPasswordRecovery } from '@/lib/utils/jwt-amr'
 
 function safeInternalPath(nextPath) {
   if (!nextPath || typeof nextPath !== 'string') return null
@@ -64,6 +65,19 @@ export async function GET(request) {
 
   if (!user) {
     return NextResponse.redirect(new URL('/login', origin))
+  }
+
+  const isRecoveryVerify = !!(token_hash && otpType === 'recovery')
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  const isRecoveryJwt =
+    !!(session?.access_token && accessTokenIndicatesPasswordRecovery(session.access_token))
+
+  if (isRecoveryVerify || isRecoveryJwt) {
+    const res = NextResponse.redirect(new URL('/reset-password', origin))
+    copyCookies(response, res)
+    return res
   }
 
   if (nextSafe) {

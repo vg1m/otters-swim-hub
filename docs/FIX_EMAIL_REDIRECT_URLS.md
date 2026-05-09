@@ -159,17 +159,43 @@ const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`
 ✅ **Do** test both production and localhost  
 ✅ **Do** redeploy after changing Vercel env vars  
 
+## Password reset (application behaviour)
+
+Forgot-password uses **`POST /api/auth/forgot-password`** ([`app/api/auth/forgot-password/route.js`](../app/api/auth/forgot-password/route.js)) with **`credentials: 'include'`** so PKCE verifier cookies align with **`GET /auth/callback`** ([`app/auth/callback/route.js`](../app/auth/callback/route.js)), similar to [`app/auth/oauth/google/route.js`](../app/auth/oauth/google/route.js).
+
+The [**`/reset-password` page**](../app/reset-password/page.jsx) parses the URL like [`app/auth/finish-invite/page.jsx`](../app/auth/finish-invite/page.jsx): **`?code=`** is forwarded to `/auth/callback?next=/reset-password`, **`token_hash` + `type`** likewise, and **`#access_token=…`** flows post to **`POST /auth/session-from-hash`** with **`next=/reset-password`**.
+
+**User guidance:** PKCE resets work most reliably when the user opens the email link **in the same browser (and profile)** they used on “Forgot password”. If Supabase rejects the exchange (e.g. missing code verifier), request a fresh link.
+
+Keep **`redirectTo`** as a single path (**`/reset-password` only**) in API code and in `resetPasswordForEmail`—do **not** nest **`?next=`** inside **`redirect_to`**, because that can break how GoTrue merges tokens (same constraint as coach invites).
+
+## Outlook, Safe Links, and SMTP2GO deliverability
+
+If reset messages **never arrive** for Outlook / Microsoft 365 while other providers receive them:
+
+1. **SMTP2GO (or any custom SMTP)**  
+   Confirm the sender domain has correct **SPF** and **DKIM** records per SMTP2GO’s dashboard, review **bounce / suppression** lists, and inspect delivery logs for Microsoft’s response codes.
+
+2. **Supabase**  
+   In the dashboard open **Authentication → Logs** around the send time.
+
+3. **Recipient mailbox**  
+   Check **Junk**, **focused vs other inbox**, and delays.
+
+4. **Safe Links / link scanners**  
+   Corporate email can prefetch or rewrite links (Microsoft Defender Safe Links). That can invalidate **one-time** reset links—users should tap the primary button once in a normal browser, or paste the underlying URL if permitted by policy.
+
 ## Files to Check
 
-None - this is a configuration fix, not code change.
+Application:
 
-Configuration locations:
-1. `.env.local` - Local development
-2. Vercel Dashboard - Production environment
-3. Supabase Dashboard - Email template Site URL
-4. Supabase Dashboard - Redirect URLs whitelist
+- [`app/api/auth/forgot-password/route.js`](../app/api/auth/forgot-password/route.js) — starts reset server-side (`redirect_to` origin from `getPublicOrigin`).
+- [`app/forgot-password/page.jsx`](../app/forgot-password/page.jsx) — calls the API route above.
+- [`app/reset-password/page.jsx`](../app/reset-password/page.jsx) — bridges tokens into a session.
 
-## Build Status
-✅ Build successful - no code changes needed!
+Configuration (still required for correct redirect hosts):
 
-This is a **configuration fix only** - update your Supabase and Vercel settings! 🚀
+1. `.env.local` — Local development
+2. Vercel — Production environment variables (`NEXT_PUBLIC_APP_URL`, etc.)
+3. Supabase — Site URL and **Redirect URLs** whitelist (must include production **`/auth/callback`** and **`/reset-password`**, plus localhost equivalents for dev)
+4. Supabase — Custom SMTP (e.g. SMTP2GO) and email templates using **`{{ .ConfirmationURL }}`**
