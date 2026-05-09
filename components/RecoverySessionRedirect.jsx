@@ -29,6 +29,36 @@ export default function RecoverySessionRedirect() {
   const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
+    // If GoTrue falls back to the Site URL root, the one-time auth params land on "/" (or
+    // another page). Forward them before RecoverySessionRedirect runs — otherwise we'd
+    // navigate to /reset-password without ?code= and the link is consumed / unusable.
+    if (typeof window !== 'undefined') {
+      const url = new URL(window.location.href)
+      const path = url.pathname || ''
+      // Don't steal ?code= from OAuth (/auth/callback) — same param name as password recovery PKCE.
+      if (!path.startsWith('/reset-password') && !path.startsWith('/auth/callback')) {
+        const code = url.searchParams.get('code')
+        const token_hash = url.searchParams.get('token_hash')
+        const type = url.searchParams.get('type')
+        if (code) {
+          const next = new URL('/reset-password', url.origin)
+          next.searchParams.set('code', code)
+          const err = url.searchParams.get('error') || url.searchParams.get('error_description')
+          if (err) next.searchParams.set('error', err)
+          window.location.replace(next.pathname + next.search)
+          return
+        }
+        if (token_hash && type) {
+          const next = new URL('/auth/callback', url.origin)
+          next.searchParams.set('token_hash', token_hash)
+          next.searchParams.set('type', type)
+          next.searchParams.set('next', '/reset-password')
+          window.location.replace(next.href)
+          return
+        }
+      }
+    }
+
     const redirectIfRecovery = () => {
       const path = typeof window !== 'undefined' ? window.location.pathname : pathname
       if (shouldSendRecoveryToResetPage(path)) {

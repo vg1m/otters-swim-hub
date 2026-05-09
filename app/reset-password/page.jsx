@@ -54,8 +54,14 @@ export default function ResetPasswordPage() {
               'This reset link has expired or already been used. Please request a new one.'
             )
             setCheckingToken(false)
+            return
           }
-          // On success PASSWORD_RECOVERY fires above and sets isValidToken.
+          // Don't rely only on PASSWORD_RECOVERY — it is not guaranteed to fire in all
+          // runtimes; confirm via getSession() immediately after exchange.
+          const { data: afterExchange } = await supabase.auth.getSession()
+          if (cancelled) return
+          setIsValidToken(!!afterExchange?.session)
+          setCheckingToken(false)
           return
         }
 
