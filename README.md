@@ -48,14 +48,14 @@ End-to-end club management:
 
 | Layer | Choice |
 |--------|--------|
-| App | **Next.js** (App Router), **React 18** |
+| App | **Next.js 16** (App Router), **React 18** |
 | Styling | **Tailwind CSS** 3.4 |
 | Data & auth | **Supabase** (PostgreSQL, Auth, RLS) |
 | Payments | **Paystack** (KES) |
 | PWA | **@ducanh2912/next-pwa** |
-| Notable libs | **date-fns**, **react-big-calendar**, **react-hot-toast**, **jspdf** |
+| Notable libs | **date-fns**, **react-big-calendar**, **react-hot-toast**, **jspdf**, **@vercel/analytics** |
 
-**Auth routing:** [`proxy.js`](proxy.js) runs Supabase session refresh (Next.js “proxy” convention; replaces deprecated `middleware` file name). Email/password sign-in posts to [`app/auth/login/route.js`](app/auth/login/route.js) so cookies are set via HTTP headers (better on mobile).
+**Auth routing:** Root [`middleware.js`](middleware.js) delegates to [`lib/supabase/middleware.js`](lib/supabase/middleware.js) for Supabase session refresh and route protection. (Next.js may move this file to a `proxy` convention in a future release; update when you adopt that migration.) Email/password sign-in posts to [`app/auth/login/route.js`](app/auth/login/route.js) so cookies are set via HTTP headers (better on mobile).
 
 ## Key features
 
@@ -86,6 +86,8 @@ End-to-end club management:
 - Service role only on server routes that require it  
 - HTTPS in production; secrets in environment variables only  
 - **Hosting incident response:** If your provider (e.g. Vercel) reports a breach affecting customer credentials, follow [docs/VERCEL_INCIDENT_RESPONSE.md](docs/VERCEL_INCIDENT_RESPONSE.md) — review activity, rotate Supabase/Paystack/cron secrets, redeploy, verify webhooks.
+- **Supabase redirects:** Include production and preview URLs for `/reset-password` (and OAuth paths) under Authentication → URL Configuration. Details: **[docs/FIX_EMAIL_REDIRECT_URLS.md](docs/FIX_EMAIL_REDIRECT_URLS.md)**.
+- **Password reset:** `forgot-password` → `reset-password` uses browser PKCE; **[`RecoverySessionRedirect`](components/RecoverySessionRedirect.jsx)** in **[`app/layout.js`](app/layout.js)** forwards `?code=` (and OTP params) when GoTrue lands on `Site URL` without the reset path — still require allowlisted redirects for correct email links.
 
 ## Installation
 
@@ -120,7 +122,7 @@ Add any other keys your deployment uses (e.g. cron secrets, Twilio, if enabled).
 
 ### 3. Database
 
-Apply **all** migrations in `supabase/migrations/` **in numeric order** (e.g. `001_…` through the latest `06x_…`). Use the Supabase SQL Editor or your migration workflow.
+Apply **all** numbered migrations in `supabase/migrations/` **in ascending numeric order** through the **highest-numbered file** present (ignore `CLEANUP_*` ad-hoc scripts unless you intend to run them). Use the Supabase SQL Editor or your migration workflow.
 
 - New environments must include historical fixes and feature migrations, not only an early subset.  
 - If you rely on short session codes in the schema, keep migration **`035_short_session_codes.sql`** and [docs/RUN_SESSION_CODE_MIGRATION.md](docs/RUN_SESSION_CODE_MIGRATION.md) in mind.  
@@ -144,7 +146,8 @@ otters-swim-hub/
 │   ├── admin/           # Dashboard, registrations, swimmers, squads, sessions,
 │   │                    # attendance, invoices, reports, meets, facilities, coaches
 │   ├── api/             # paystack, receipts, registration, link-registrations, cron, …
-│   ├── auth/            # login (server sign-in), OAuth callback
+│   ├── auth/            # POST login route, OAuth (google), PKCE/email callback,
+│   │                    # session-from-hash, set-password, finish-invite
 │   ├── coach/           # Coach dashboard
 │   ├── dashboard/       # Parent dashboard
 │   ├── invoices/        # Parent invoices
@@ -155,7 +158,7 @@ otters-swim-hub/
 │   └── page.js          # Marketing / landing
 ├── components/          # UI, layout, domain components (e.g. admin session fields)
 ├── lib/                 # supabase clients, paystack, utils, facilities helpers, cache
-├── proxy.js             # Session refresh + route protection wiring
+├── middleware.js        # Entry: session refresh + route protection → lib/supabase/middleware.js
 ├── supabase/
 │   ├── migrations/      # Numbered SQL migrations (run in order)
 │   └── scripts/       # Optional SQL utilities
@@ -170,13 +173,14 @@ See **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)** for Vercel, env vars, Supabase 
 Production checklist (short):
 
 - Live Paystack keys and matching `NEXT_PUBLIC_APP_URL`  
-- Supabase Auth URL + redirect allow list  
+- Supabase Auth URL + redirect allow list (include `/reset-password`; see [docs/FIX_EMAIL_REDIRECT_URLS.md](docs/FIX_EMAIL_REDIRECT_URLS.md))  
 - Cron or external scheduler if you use scheduled API routes (e.g. coach session pay)  
 
 ## Documentation index
 
 | Audience | Doc |
 |----------|-----|
+| Operators / Supabase redirects | [docs/FIX_EMAIL_REDIRECT_URLS.md](docs/FIX_EMAIL_REDIRECT_URLS.md), [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
 | Parents | [docs/PARENT_USER_JOURNEY.md](docs/PARENT_USER_JOURNEY.md) |
 | Admins | [docs/ADMIN_USER_JOURNEY.md](docs/ADMIN_USER_JOURNEY.md) |
 | Check-in history | [docs/CHECK_IN_SYSTEM.md](docs/CHECK_IN_SYSTEM.md), [docs/CHECK_IN_CODE_DEPRECATION.md](docs/CHECK_IN_CODE_DEPRECATION.md) |
@@ -191,7 +195,7 @@ Production checklist (short):
 - **Sessions & attendance** — Admin/coach-led attendance; calendar and recurrence supported  
 - **Facilities** — Pools, schedules, capacity rules; maps directions from addresses  
 - **Mobile UX** — Dashboards and many admin tables optimized for small screens  
-- **Auth** — Server-side email login route + `proxy.js` session handling  
+- **Auth** — Server-side email login route, [`middleware.js`](middleware.js) session refresh, Google OAuth routes under `app/auth/`; password reset via `/forgot-password` → `/reset-password` (PKCE) with recovery forwarding in [`app/layout.js`](app/layout.js).
 
 Roadmap items (e.g. richer email notifications) may be tracked in internal planning docs — see `docs/` and project boards.
 
