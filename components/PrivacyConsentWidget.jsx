@@ -33,7 +33,7 @@ export default function PrivacyConsentWidget() {
     }
 
     const script = document.createElement('script')
-    script.src = 'https://privacy.ke/widget/consent-widget.iife.js?v=8'
+    script.src = 'https://privacy.ke/widget/consent-widget.iife.js?v=11'
     script.async = true
 
     script.onload = () => {
