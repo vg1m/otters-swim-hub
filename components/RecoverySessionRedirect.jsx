@@ -27,8 +27,15 @@ export default function RecoverySessionRedirect() {
     if (typeof window !== 'undefined') {
       const url = new URL(window.location.href)
       const path = url.pathname || ''
-      // Don't steal ?code= from OAuth (/auth/callback) — same param name as password recovery PKCE.
-      if (!path.startsWith('/reset-password') && !path.startsWith('/auth/callback')) {
+      // Don't steal ?code= from OAuth: same param name as recovery PKCE.
+      // `/auth/callback` consumes server-stored OAuth verifiers; `/login` + `/signup`
+      // forward ?code= to `/auth/callback` in their own useEffects.
+      if (
+        !path.startsWith('/reset-password') &&
+        !path.startsWith('/auth/callback') &&
+        !path.startsWith('/login') &&
+        !path.startsWith('/signup')
+      ) {
         const code = url.searchParams.get('code')
         const token_hash = url.searchParams.get('token_hash')
         const type = url.searchParams.get('type')
