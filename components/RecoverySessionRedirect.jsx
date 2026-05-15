@@ -39,6 +39,12 @@ export default function RecoverySessionRedirect() {
         const code = url.searchParams.get('code')
         const token_hash = url.searchParams.get('token_hash')
         const type = url.searchParams.get('type')
+        // OAuth PKCE often lands on Site URL (/). Recovery must use /reset-password?code= (browser verifier).
+        // Prefer server callback for / — recovery should not rely on bare / if /reset-password is allowlisted.
+        if (code && (path === '/' || path === '')) {
+          window.location.replace(`${url.origin}/auth/callback${url.search}`)
+          return
+        }
         if (code) {
           const next = new URL('/reset-password', url.origin)
           next.searchParams.set('code', code)
@@ -67,7 +73,12 @@ export default function RecoverySessionRedirect() {
 
     const maybeRedirectFromSession = (session) => {
       if (!session?.access_token) return
-      if (!accessTokenIndicatesPasswordRecovery(session.access_token)) return
+      // Match /auth/callback: do not chase "recovery" if amr shows oauth (e.g. after Google sign-in).
+      if (
+        !accessTokenIndicatesPasswordRecovery(session.access_token, { disallowIfOauthInAmr: true })
+      ) {
+        return
+      }
       redirectIfRecovery()
     }
 
@@ -80,11 +91,7 @@ export default function RecoverySessionRedirect() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        redirectIfRecovery()
-        return
-      }
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       maybeRedirectFromSession(session)
     })
 
