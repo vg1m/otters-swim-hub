@@ -18,6 +18,23 @@ function copyCookies(fromResponse, toResponse) {
 
 const EMAIL_OTP_TYPES = new Set(['signup', 'invite', 'recovery', 'email', 'magiclink', 'email_change'])
 
+/** Must stay in sync with `app/auth/oauth/google/route.js` */
+const OAUTH_POST_LOGIN_COOKIE = 'otters_oauth_post_login'
+
+function clearOttersOAuthReturnCookie(toResponse, requestUrl) {
+  const cookieSecure =
+    requestUrl.protocol === 'https:' || process.env.NODE_ENV === 'production'
+  const host = requestUrl.hostname
+  const isProdHost = !(host === 'localhost' || host.endsWith('.local'))
+  toResponse.cookies.set(OAUTH_POST_LOGIN_COOKIE, '', {
+    path: '/',
+    maxAge: 0,
+    httpOnly: true,
+    secure: cookieSecure && isProdHost,
+    sameSite: 'lax',
+  })
+}
+
 export async function GET(request) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
@@ -25,6 +42,8 @@ export async function GET(request) {
   const otpType = requestUrl.searchParams.get('type')
   const nextParam = requestUrl.searchParams.get('next')
   const nextSafe = safeInternalPath(nextParam)
+  const cookieNavNext = safeInternalPath(request.cookies.get(OAUTH_POST_LOGIN_COOKIE)?.value)
+  const nextMerged = nextSafe || cookieNavNext
   const origin = getPublicOrigin(request)
 
   let usedInviteTokenHash = false
@@ -36,9 +55,11 @@ export async function GET(request) {
 
   if (token_hash && otpType) {
     if (!EMAIL_OTP_TYPES.has(otpType)) {
-      return NextResponse.redirect(
+      const invalid = NextResponse.redirect(
         new URL(`/login?error=${encodeURIComponent('Invalid confirmation link')}`, origin)
       )
+      clearOttersOAuthReturnCookie(invalid, requestUrl)
+      return invalid
     }
     usedInviteTokenHash = otpType === 'invite'
     const { error } = await supabase.auth.verifyOtp({
@@ -46,16 +67,20 @@ export async function GET(request) {
       type: otpType,
     })
     if (error) {
-      return NextResponse.redirect(
+      const errRedirect = NextResponse.redirect(
         new URL(`/login?error=${encodeURIComponent(error.message)}`, origin)
       )
+      clearOttersOAuthReturnCookie(errRedirect, requestUrl)
+      return errRedirect
     }
   } else if (code) {
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (error) {
-      return NextResponse.redirect(
+      const errRedirect = NextResponse.redirect(
         new URL(`/login?error=${encodeURIComponent(error.message)}`, origin)
       )
+      clearOttersOAuthReturnCookie(errRedirect, requestUrl)
+      return errRedirect
     }
   }
 
@@ -64,7 +89,9 @@ export async function GET(request) {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    return NextResponse.redirect(new URL('/login', origin))
+    const loginRedirect = NextResponse.redirect(new URL('/login', origin))
+    clearOttersOAuthReturnCookie(loginRedirect, requestUrl)
+    return loginRedirect
   }
 
   const isRecoveryVerify = !!(token_hash && otpType === 'recovery')
@@ -72,23 +99,29 @@ export async function GET(request) {
     data: { session },
   } = await supabase.auth.getSession()
   const isRecoveryJwt =
-    !!(session?.access_token && accessTokenIndicatesPasswordRecovery(session.access_token))
+    !!(
+      session?.access_token &&
+      accessTokenIndicatesPasswordRecovery(session.access_token, { disallowIfOauthInAmr: true })
+    )
 
   if (isRecoveryVerify || isRecoveryJwt) {
     const res = NextResponse.redirect(new URL('/reset-password', origin))
     copyCookies(response, res)
+    clearOttersOAuthReturnCookie(res, requestUrl)
     return res
   }
 
-  if (nextSafe) {
-    const res = NextResponse.redirect(new URL(nextSafe, origin))
+  if (nextMerged) {
+    const res = NextResponse.redirect(new URL(nextMerged, origin))
     copyCookies(response, res)
+    clearOttersOAuthReturnCookie(res, requestUrl)
     return res
   }
 
-  if (usedInviteTokenHash && !nextSafe) {
+  if (usedInviteTokenHash && !nextMerged) {
     const res = NextResponse.redirect(new URL('/auth/set-password', origin))
     copyCookies(response, res)
+    clearOttersOAuthReturnCookie(res, requestUrl)
     return res
   }
 
@@ -114,10 +147,12 @@ export async function GET(request) {
   else if (role === 'coach') path = '/coach'
 
   if (path === '/dashboard') {
+    clearOttersOAuthReturnCookie(response, requestUrl)
     return response
   }
 
   const final = NextResponse.redirect(new URL(path, origin))
   copyCookies(response, final)
+  clearOttersOAuthReturnCookie(final, requestUrl)
   return final
 }

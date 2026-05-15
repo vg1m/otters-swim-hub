@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/supabase/route-handler'
 import { getPublicOrigin } from '@/lib/utils/public-origin'
 
+/** Post-login redirect when `redirectTo` must not include query params (Supabase allowlist patterns). */
+const OAUTH_POST_LOGIN_COOKIE = 'otters_oauth_post_login'
+
 function safeInternalPath(nextPath) {
   if (!nextPath || typeof nextPath !== 'string') return null
   if (!nextPath.startsWith('/') || nextPath.startsWith('//')) return null
@@ -28,11 +31,27 @@ export async function GET(request) {
   const returnSafe = safeInternalPath(requestUrl.searchParams.get('return')) || '/login'
 
   const cookieJar = new NextResponse(null, { status: 200 })
+
+  const host = requestUrl.hostname
+  const cookieSecure =
+    requestUrl.protocol === 'https:' || process.env.NODE_ENV === 'production'
+  const isProdHost = !(host === 'localhost' || host.endsWith('.local'))
+
+  if (nextSafe) {
+    cookieJar.cookies.set(OAUTH_POST_LOGIN_COOKIE, nextSafe, {
+      path: '/',
+      httpOnly: true,
+      secure: cookieSecure && isProdHost,
+      sameSite: 'lax',
+      maxAge: 900,
+    })
+  }
+
   const supabase = createRouteHandlerClient(request, cookieJar)
 
-  const redirectTo = nextSafe
-    ? `${origin}/auth/callback?next=${encodeURIComponent(nextSafe)}`
-    : `${origin}/auth/callback`
+  // Bare callback URL matches allowlist entries like `https://domain/auth/callback**`.
+  // A `?next=` suffix is often rejected, so Supabase falls back to Site URL and breaks PKCE (same as recovery links).
+  const redirectTo = `${origin}/auth/callback`
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
