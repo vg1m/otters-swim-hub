@@ -21,48 +21,9 @@ export default function RecoverySessionRedirect() {
   const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
-    // If GoTrue falls back to the Site URL root, the one-time auth params land on "/" (or
-    // another page). Forward them before RecoverySessionRedirect runs — otherwise we'd
-    // navigate to /reset-password without ?code= and the link is consumed / unusable.
-    if (typeof window !== 'undefined') {
-      const url = new URL(window.location.href)
-      const path = url.pathname || ''
-      // Don't steal ?code= from OAuth: same param name as recovery PKCE.
-      // `/auth/callback` consumes server-stored OAuth verifiers; `/login` + `/signup`
-      // forward ?code= to `/auth/callback` in their own useEffects.
-      if (
-        !path.startsWith('/reset-password') &&
-        !path.startsWith('/auth/callback') &&
-        !path.startsWith('/login') &&
-        !path.startsWith('/signup')
-      ) {
-        const code = url.searchParams.get('code')
-        const token_hash = url.searchParams.get('token_hash')
-        const type = url.searchParams.get('type')
-        // OAuth PKCE often lands on Site URL (/). Recovery must use /reset-password?code= (browser verifier).
-        // Prefer server callback for / — recovery should not rely on bare / if /reset-password is allowlisted.
-        if (code && (path === '/' || path === '')) {
-          window.location.replace(`${url.origin}/auth/callback${url.search}`)
-          return
-        }
-        if (code) {
-          const next = new URL('/reset-password', url.origin)
-          next.searchParams.set('code', code)
-          const err = url.searchParams.get('error') || url.searchParams.get('error_description')
-          if (err) next.searchParams.set('error', err)
-          window.location.replace(next.pathname + next.search)
-          return
-        }
-        if (token_hash && type) {
-          const next = new URL('/auth/callback', url.origin)
-          next.searchParams.set('token_hash', token_hash)
-          next.searchParams.set('type', type)
-          next.searchParams.set('next', '/reset-password')
-          window.location.replace(next.href)
-          return
-        }
-      }
-    }
+    // Note: ?code= URL forwarding is handled server-side in middleware (lib/supabase/middleware.js)
+    // before any page renders, so the browser Supabase client (detectSessionInUrl:true) never
+    // auto-exchanges an OAuth code without the httpOnly PKCE verifier.
 
     const redirectIfRecovery = () => {
       const path = typeof window !== 'undefined' ? window.location.pathname : pathname
