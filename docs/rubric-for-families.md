@@ -20,11 +20,15 @@ Seven squads use the pathway from starters through to the performance stream. Ty
 
 Club staff assign and reassign squad coaches in the hub. Only those rostered assignments (including the swimmer’s named coach where set) unlock **Add / Edit evaluation** on the Rubric screen.
 
+**Important for Development swimmers:** The Rubric tab appears when a swimmer is assigned to **Development 1**, **Development 2**, or **Development 3** — not the umbrella squad “Development (1–3)”. Admins should pick the specific level in Admin → Swimmers.
+
 ---
 
 ## Squads **without** this rubric
 
 Some swimmers sit in umbrella squads used for billing or scheduling (such as generic Development, Elite, or Masters). Those squads do **not** show a Rubric tab in the hub. That is normal.
+
+Admins can turn rubrics on or off per squad under **Admin → Squads** (“Include progress rubric”). Pathway squads (Pups through Gold) have this enabled by default. **Custom squads** (any new slug) use the standard Development 2-style checklist automatically when rubrics are enabled — you do not need a separate rubric document per slug.
 
 ---
 
@@ -42,7 +46,7 @@ Some swimmers sit in umbrella squads used for billing or scheduling (such as gen
 ## If you are a parent
 
 1. Open your swimmer’s **Performance** screen and tap **Rubric** when present.
-2. Under **Progress History**, pick the month you want.
+2. Under **Progress History**, use **Progress over time** to see a chart of monthly averages (after at least two months of saved evaluations). Tap a month on the chart or use the month dropdown to view the full checklist for that month.
 3. You see badges for skills and habits the coach rated and attitude where saved. Saving rubrics stays with assigned coaches only.
 
 Secondary parents linked through the hub’s family sharing see the same swimmers as the primary parent.

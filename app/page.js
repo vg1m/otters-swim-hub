@@ -30,97 +30,145 @@ function FeatureList({ items }) {
   )
 }
 
-/** Branded graphic for the hub section: swim lanes + rhythm bars, not a generic UI clone */
+/** Parent-hub mock for the season section — matches family dashboard mocks below */
 function HubSeasonGraphic() {
-  const rhythm = [42, 68, 52, 88, 58, 92, 74]
+  const monthRhythm = [55, 72, 48, 80, 62]
+  const attendanceDays = [
+    { label: 'Mon', status: 'attended' },
+    { label: 'Tue', status: 'attended' },
+    { label: 'Wed', status: 'missed' },
+    { label: 'Thu', status: 'upcoming' },
+    { label: 'Sat', status: 'upcoming' },
+  ]
+  const statusStyles = {
+    attended: 'bg-green-600 text-white',
+    missed: 'bg-red-500 text-white',
+    upcoming: 'bg-blue-500 text-white',
+  }
+
   return (
-    <div className="relative w-full max-w-md mx-auto lg:mx-0 min-w-0">
+    <div
+      className="relative w-full max-w-md mx-auto lg:mx-0 min-w-0"
+      role="img"
+      aria-label="Example parent view: swimmer schedule, attendance, personal best, and fees"
+    >
       <div
-        className="absolute -inset-3 sm:-inset-6 md:-inset-8 bg-gradient-to-tr from-primary/20 via-primary/5 to-accent-lavender/25 dark:from-primary/30 dark:via-primary/10 dark:to-accent-lavender/10 rounded-[1.5rem] sm:rounded-[2rem] blur-xl sm:blur-2xl opacity-90"
+        className="absolute -inset-3 sm:-inset-6 bg-gradient-to-tr from-primary/15 via-primary/5 to-transparent dark:from-primary/25 dark:via-primary/10 rounded-[1.5rem] sm:rounded-[2rem] blur-xl sm:blur-2xl opacity-80"
         aria-hidden
       />
-      <div className="relative overflow-hidden rounded-2xl sm:rounded-[1.75rem] border border-stone-200/90 dark:border-gray-600/80 bg-gradient-to-b from-stone-50 via-white to-stone-100/90 dark:from-gray-900 dark:via-gray-950 dark:to-gray-900 shadow-soft ring-1 ring-black/[0.04] dark:ring-white/10 min-w-0">
-        <div className="absolute inset-0 pointer-events-none opacity-[0.22] dark:opacity-[0.18]" aria-hidden>
-          {[8, 22, 36, 50, 64, 78].map((top) => (
-            <div
-              key={top}
-              className="absolute left-0 right-0 h-px bg-primary dark:bg-primary-light"
-              style={{ top: `${top}%` }}
-            />
-          ))}
-        </div>
+      <div className="relative bg-stone-900 dark:bg-gray-950 rounded-[1.75rem] p-1.5 sm:p-2 shadow-soft ring-1 ring-white/10 min-w-0">
+        <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-5 sm:p-6 space-y-4 overflow-hidden">
+          <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-primary/[0.06] via-transparent to-transparent dark:from-primary/10 rounded-2xl" aria-hidden />
 
-        <div className="relative px-4 sm:px-6 pt-4 sm:pt-6 pb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-3 border-b border-stone-200/70 dark:border-gray-700/90">
-          <div className="flex items-start gap-2.5 sm:gap-3 min-w-0 flex-1">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black dark:bg-stone-100 flex items-center justify-center shrink-0 shadow-md">
-              <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-primary dark:bg-primary" />
+          <div className="relative flex items-start justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <span className="text-sm font-bold text-primary">AW</span>
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-stone-900 dark:text-gray-100 truncate">Amara Wanza</p>
+                <p className="text-[11px] text-stone-500 dark:text-gray-400">Age 10 · Dev 2</p>
+              </div>
             </div>
-            <div className="min-w-0 pt-0.5">
-              <p className="text-sm font-bold text-stone-900 dark:text-gray-100 tracking-tight leading-tight">
-                Season snapshot
-              </p>
-              <p className="text-[10px] sm:text-[11px] text-stone-500 dark:text-gray-400 leading-snug mt-1">
-                Training rhythm and progress, together in one place
-              </p>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-primary shrink-0 pt-0.5">
+              Otters
+            </span>
+          </div>
+
+          <div className="relative grid grid-cols-3 gap-2 text-center">
+            <div className="bg-primary/8 dark:bg-primary/15 rounded-xl py-2.5">
+              <p className="text-lg font-bold text-primary tabular-nums">12</p>
+              <p className="text-[10px] text-stone-500 dark:text-gray-400">Sessions</p>
+            </div>
+            <div className="bg-emerald-50/80 dark:bg-emerald-900/20 rounded-xl py-2.5">
+              <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">3</p>
+              <p className="text-[10px] text-stone-500 dark:text-gray-400">PBs</p>
+            </div>
+            <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl py-2.5">
+              <p className="text-lg font-bold text-amber-600 dark:text-amber-400 tabular-nums">1</p>
+              <p className="text-[10px] text-stone-500 dark:text-gray-400">Invoice</p>
             </div>
           </div>
-          <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-primary dark:text-primary-light shrink-0 sm:pt-1 self-start sm:self-auto">
-            Otters
-          </span>
-        </div>
 
-        <div className="relative px-4 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-5">
-          <div>
-            <p className="text-[10px] font-semibold text-stone-500 dark:text-gray-400 uppercase tracking-wider mb-2 sm:mb-3">
-              Check-ins · last seven sessions
+          <div className="relative flex items-center gap-2 bg-stone-50 dark:bg-gray-700/50 rounded-xl px-3 py-2.5 border border-stone-200/80 dark:border-gray-600/80">
+            <svg className="w-4 h-4 text-primary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] font-semibold text-stone-500 dark:text-gray-400 uppercase tracking-wide">
+                Next at the pool
+              </p>
+              <p className="text-[11px] font-semibold text-stone-900 dark:text-gray-100 mt-0.5">Mon 16 Mar · 16:00</p>
+              <p className="text-[11px] text-primary dark:text-primary truncate">School of Nations Pool</p>
+            </div>
+          </div>
+
+          <div className="relative">
+            <p className="text-[10px] font-semibold text-stone-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+              This week
             </p>
-            <div className="flex items-end gap-1 sm:gap-1.5 h-20 sm:h-28 px-0.5 min-h-[5rem]">
-              {rhythm.map((pct, i) => (
+            <div className="flex gap-1.5">
+              {attendanceDays.map((day) => (
+                <div key={day.label} className="flex-1 min-w-0 text-center">
+                  <div
+                    className={`aspect-square max-h-9 rounded-md flex items-center justify-center text-[10px] font-bold ${statusStyles[day.status]}`}
+                  >
+                    {day.label.charAt(0)}
+                  </div>
+                  <p className="text-[9px] text-stone-500 dark:text-gray-400 mt-1">{day.label}</p>
+                </div>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-3 justify-center mt-2.5 text-[10px] text-stone-500 dark:text-gray-400">
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-sm bg-green-600" /> Attended
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-sm bg-blue-500" /> Upcoming
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2 h-2 rounded-sm bg-red-500" /> Missed
+              </span>
+            </div>
+          </div>
+
+          <div className="relative">
+            <p className="text-[10px] font-semibold text-stone-500 dark:text-gray-400 uppercase tracking-wide mb-1.5">
+              Training rhythm · this month
+            </p>
+            <div className="flex items-end gap-1 h-12 px-0.5">
+              {monthRhythm.map((pct, i) => (
                 <div
                   key={i}
-                  className="flex-1 min-w-0 max-w-full rounded-t sm:rounded-t-md bg-gradient-to-t from-primary to-primary-light/85 dark:from-primary dark:to-primary-light shadow-sm"
+                  className="flex-1 min-w-0 rounded-t bg-gradient-to-t from-primary to-primary-light/85 dark:from-primary dark:to-primary/85"
                   style={{ height: `${pct}%` }}
                 />
               ))}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3 min-w-0">
-            <div className="rounded-xl sm:rounded-2xl bg-white/95 dark:bg-gray-800/95 border border-stone-200/90 dark:border-gray-600 p-3 sm:p-4 shadow-sm backdrop-blur-sm min-w-0">
-              <p className="text-[10px] font-semibold text-stone-500 dark:text-gray-400 uppercase tracking-wide">
-                Pool next
-              </p>
-              <p className="text-sm sm:text-base font-bold text-stone-900 dark:text-gray-100 mt-1 sm:mt-1.5 leading-tight">
-                Tue · 4:00
-              </p>
-              <p className="text-[10px] sm:text-[11px] text-primary dark:text-primary-light font-medium mt-1 leading-snug">
-                Competitive lane
-              </p>
+          <div className="relative grid grid-cols-2 gap-2.5">
+            <div className="rounded-xl border border-stone-200 dark:border-gray-600 p-3 bg-stone-50/80 dark:bg-gray-900/40 min-w-0">
+              <p className="text-[10px] font-semibold text-stone-500 dark:text-gray-400 uppercase tracking-wide">Fees</p>
+              <p className="text-sm font-bold text-stone-900 dark:text-gray-100 mt-1 leading-tight">Quarter 2 · due soon</p>
+              <p className="text-[10px] text-stone-600 dark:text-gray-400 mt-1">M-Pesa · Airtel · card</p>
             </div>
-            <div className="rounded-xl sm:rounded-2xl bg-gradient-to-br from-stone-100 to-stone-50 dark:from-gray-800/90 dark:to-gray-800/60 border border-stone-200/90 dark:border-gray-600 p-3 sm:p-4 shadow-sm min-w-0">
-              <p className="text-[10px] font-semibold text-stone-500 dark:text-gray-400 uppercase tracking-wide">
-                Your account
-              </p>
-              <p className="text-sm sm:text-base font-bold text-stone-900 dark:text-gray-100 mt-1 sm:mt-1.5 leading-snug">
-                Invoices, when it&apos;s time
-              </p>
-              <p className="text-[10px] sm:text-[11px] text-stone-600 dark:text-gray-400 font-medium mt-1 leading-snug">
-                See what&apos;s due and pay securely; details inside the hub
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 sm:gap-3 rounded-xl sm:rounded-2xl bg-primary/8 dark:bg-primary/15 border border-primary/15 dark:border-primary/25 px-3 sm:px-4 py-2.5 sm:py-3 min-w-0">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl bg-primary text-white flex items-center justify-center shrink-0 text-[10px] sm:text-xs font-bold shadow-sm">
-              PB
-            </div>
-            <div className="min-w-0">
-              <p className="text-[11px] sm:text-xs font-semibold text-stone-900 dark:text-gray-100 leading-snug">
-                100m free · 1:12.45
-              </p>
-              <p className="text-[10px] sm:text-[11px] text-stone-500 dark:text-gray-400 mt-0.5 leading-snug">
-                Personal best logged this month
-              </p>
+            <div className="flex items-center gap-2 rounded-xl bg-primary/8 dark:bg-primary/15 border border-primary/15 dark:border-primary/25 px-2.5 sm:px-3 py-2.5 min-w-0">
+              <div className="w-9 h-9 rounded-lg bg-primary text-white flex items-center justify-center shrink-0 text-[10px] font-bold">
+                PB
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] font-semibold text-stone-900 dark:text-gray-100 leading-snug">100m free · 1:12.45</p>
+                <p className="text-[10px] text-stone-500 dark:text-gray-400 mt-0.5">New PB this month</p>
+              </div>
+              <span className="text-[9px] font-semibold bg-amber-100 dark:bg-amber-900/35 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full shrink-0">
+                1 due
+              </span>
             </div>
           </div>
         </div>
@@ -145,12 +193,12 @@ export default function Home() {
 
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="max-w-3xl mx-auto text-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary dark:text-primary-light mb-5">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary dark:text-primary mb-5">
               Since 1987
             </p>
             <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-stone-900 dark:text-gray-100 mb-6 tracking-tightest leading-[1.08]">
               Welcome to{' '}
-              <span className="text-primary dark:text-primary-light">Otters Kenya</span>
+              <span className="text-primary dark:text-primary">Otters Kenya</span>
               {' '}
               <br className="hidden sm:block" />
               <span className="sm:ml-2">Swim Club</span>
@@ -178,7 +226,7 @@ export default function Home() {
             <div className="mt-12 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-stone-600 dark:text-gray-400">
               {['Competitive squads', 'Learn to swim', 'Fitness swimming'].map((label) => (
                 <div key={label} className="flex items-center gap-2">
-                  <svg className="w-5 h-5 text-primary dark:text-primary-light shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-5 h-5 text-primary dark:text-primary shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path
                       fillRule="evenodd"
                       d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
@@ -207,7 +255,7 @@ export default function Home() {
               </p>
               <h2 className="text-4xl lg:text-[2.75rem] font-bold text-stone-900 dark:text-gray-100 mb-5 tracking-tightest leading-tight">
                 One hub for your swimmer&apos;s{' '}
-                <span className="text-primary dark:text-primary-light">season</span>
+                <span className="text-primary dark:text-primary">season</span>
               </h2>
               <p className="text-lg text-stone-600 dark:text-gray-300 mb-8 leading-relaxed max-w-lg">
                 See the training rhythm, follow race times and coach notes, check attendance on the same
@@ -217,7 +265,7 @@ export default function Home() {
                 items={[
                   'Upcoming sessions and squad context at a glance',
                   'Progress, coach notes, and attendance calendar together',
-                  'M-Pesa, Airtel Money, and card payments for fees',
+                  'Secure online payments for training fees',
                   'Register new swimmers online when you join the club',
                 ]}
               />
@@ -236,7 +284,7 @@ export default function Home() {
               </p>
               <h2 className="text-4xl lg:text-[2.75rem] font-bold text-stone-900 dark:text-gray-100 mb-5 tracking-tightest leading-tight">
                 Progress and{' '}
-                <span className="text-primary dark:text-primary-light">attendance</span>, together
+                <span className="text-primary dark:text-primary">attendance</span>, together
               </h2>
               <p className="text-lg text-stone-600 dark:text-gray-300 mb-8 leading-relaxed max-w-lg">
                 Race times, personal bests, and coach feedback live alongside a month view of training
@@ -424,7 +472,7 @@ export default function Home() {
               </p>
               <h2 className="text-4xl lg:text-[2.75rem] font-bold text-stone-900 dark:text-gray-100 mb-5 tracking-tightest leading-tight">
                 Your family&apos;s{' '}
-                <span className="text-primary dark:text-primary-light">swimming hub</span>
+                <span className="text-primary dark:text-primary">swimming hub</span>
               </h2>
               <p className="text-lg text-stone-600 dark:text-gray-300 mb-8 leading-relaxed max-w-lg">
                 From the dashboard, jump into each swimmer&apos;s profile, pay what&apos;s due, and see what&apos;s
@@ -447,8 +495,8 @@ export default function Home() {
       <section id="contact" className="relative py-24 lg:py-28 overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary via-primary-dark to-primary-dark" />
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute top-0 right-0 w-96 h-96 bg-primary-light rounded-full blur-3xl opacity-20 animate-float" />
-          <div className="absolute bottom-0 left-0 w-96 h-96 bg-primary-light rounded-full blur-3xl opacity-20 animate-float-slow" />
+          <div className="absolute top-0 right-0 w-96 h-96 bg-primary/25 dark:bg-primary/20 rounded-full blur-3xl opacity-20 animate-float" />
+          <div className="absolute bottom-0 left-0 w-96 h-96 bg-primary/25 dark:bg-primary/20 rounded-full blur-3xl opacity-20 animate-float-slow" />
         </div>
 
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
@@ -456,7 +504,7 @@ export default function Home() {
             className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-black border border-white/20 mx-auto mb-8 shadow-lg"
             aria-hidden
           >
-            <div className="w-3 h-3 rounded-full bg-primary dark:bg-primary-light" />
+            <div className="w-3 h-3 rounded-full bg-primary dark:bg-primary" />
           </div>
 
           <h2 className="text-4xl lg:text-5xl xl:text-6xl font-bold mb-5 text-white tracking-tightest leading-tight">

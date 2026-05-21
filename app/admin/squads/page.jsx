@@ -43,6 +43,7 @@ export default function AdminSquadsPage() {
     monthly_fee: '',
     quarterly_fee: '',
     early_bird_eligible: false,
+    rubrics_enabled: false,
     description: '',
   })
 
@@ -86,6 +87,7 @@ export default function AdminSquadsPage() {
       monthly_fee: '',
       quarterly_fee: '',
       early_bird_eligible: false,
+      rubrics_enabled: false,
       description: '',
     })
     setShowModal(true)
@@ -101,6 +103,7 @@ export default function AdminSquadsPage() {
       monthly_fee: String(row.monthly_fee),
       quarterly_fee: row.quarterly_fee != null ? String(row.quarterly_fee) : '',
       early_bird_eligible: !!row.early_bird_eligible,
+      rubrics_enabled: !!row.rubrics_enabled,
       description: row.description || '',
     })
     setShowModal(true)
@@ -203,6 +206,7 @@ export default function AdminSquadsPage() {
         monthly_fee: monthly,
         quarterly_fee: quarterly,
         early_bird_eligible: form.early_bird_eligible,
+        rubrics_enabled: form.rubrics_enabled,
         description: form.description.trim() || null,
       }
       if (!selected) {
@@ -244,6 +248,11 @@ export default function AdminSquadsPage() {
         header: 'Early bird',
         accessor: 'early_bird_eligible',
         render: (r) => (r.early_bird_eligible ? 'Yes' : 'No'),
+      },
+      {
+        header: 'Rubric',
+        accessor: 'rubrics_enabled',
+        render: (r) => (r.rubrics_enabled ? 'Yes' : 'No'),
       },
       {
         header: 'Active',
@@ -440,6 +449,12 @@ export default function AdminSquadsPage() {
                               </p>
                             </div>
                             <div>
+                              <p className="text-gray-500 dark:text-gray-400 text-xs">Progress rubric</p>
+                              <p className="font-medium text-gray-900 dark:text-gray-100">
+                                {row.rubrics_enabled ? 'Yes' : 'No'}
+                              </p>
+                            </div>
+                            <div>
                               <p className="text-gray-500 dark:text-gray-400 text-xs">Sort order</p>
                               <p className="font-medium tabular-nums text-gray-900 dark:text-gray-100">
                                 {row.sort_order ?? 0}
@@ -588,6 +603,21 @@ export default function AdminSquadsPage() {
             />
             <span className="text-sm text-gray-800 dark:text-gray-200">
               Eligible for early-bird discount (monthly)
+            </span>
+          </label>
+          <label className="flex items-start gap-2 md:col-span-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={form.rubrics_enabled}
+              onChange={(e) => setForm({ ...form, rubrics_enabled: e.target.checked })}
+              className="rounded border-gray-300 mt-1"
+            />
+            <span className="text-sm text-gray-800 dark:text-gray-200">
+              <span className="font-medium">Include progress rubric</span>
+              <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                Shows monthly skills/habits rubric on Performance. New squads automatically receive the
+                Development 2 checklist. Pathway squads (Pups, Dev 1–3, etc.) keep their own rubrics.
+              </span>
             </span>
           </label>
           <Input

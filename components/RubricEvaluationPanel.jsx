@@ -2,7 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { RUBRIC_DATA, ATTITUDE_LABELS, hasRubric } from '@/lib/rubrics/rubric-data'
+import {
+  RUBRIC_DATA,
+  ATTITUDE_LABELS,
+  squadSupportsRubric,
+  resolveRubricDisplaySlug,
+} from '@/lib/rubrics/rubric-data'
 import toast from 'react-hot-toast'
 
 const RATING_OPTIONS = [
@@ -37,7 +42,7 @@ function avgColour(avg) {
   return 'text-amber-600 dark:text-amber-400'
 }
 
-export default function RubricEvaluationPanel({ swimmerId, squadSlug, onSaved }) {
+export default function RubricEvaluationPanel({ swimmerId, squadSlug, rubricsEnabled = true, onSaved }) {
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth() + 1)
@@ -49,12 +54,14 @@ export default function RubricEvaluationPanel({ swimmerId, squadSlug, onSaved })
   const [customInputs, setCustomInputs] = useState({})   // domainId → text being typed
   const [addingCustom, setAddingCustom] = useState({})   // domainId → bool
 
-  const rubric = RUBRIC_DATA[squadSlug]
+  const displaySlug = resolveRubricDisplaySlug(squadSlug)
+  const rubric = displaySlug ? RUBRIC_DATA[displaySlug] : null
   const monthDate = toMonthDate(year, month)
+  const [domainsReady, setDomainsReady] = useState(true)
 
   // Load DB milestone IDs and existing ratings for the selected month
   const loadRatings = useCallback(async () => {
-    if (!squadSlug || !hasRubric(squadSlug)) return
+    if (!squadSlug || !squadSupportsRubric({ slug: squadSlug, rubrics_enabled: rubricsEnabled })) return
     setLoadingRatings(true)
     const supabase = createClient()
 
@@ -67,6 +74,14 @@ export default function RubricEvaluationPanel({ swimmerId, squadSlug, onSaved })
         .order('sort_order')
 
       if (dErr) throw dErr
+
+      if (!domains?.length) {
+        setDomainsReady(false)
+        setMilestoneMap({})
+        setRatings({})
+        return
+      }
+      setDomainsReady(true)
 
       const map = {}
       for (const domain of domains || []) {
@@ -222,6 +237,15 @@ export default function RubricEvaluationPanel({ swimmerId, squadSlug, onSaved })
   }
 
   if (!rubric) return null
+
+  if (!domainsReady) {
+    return (
+      <div className="rounded-xl border border-dashed border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-950/20 px-4 py-6 text-center text-sm text-amber-800 dark:text-amber-200">
+        Rubric checklist is still being set up for this squad. Refresh the page in a moment, or toggle
+        &ldquo;Include progress rubric&rdquo; off and on in Admin → Squads.
+      </div>
+    )
+  }
 
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',

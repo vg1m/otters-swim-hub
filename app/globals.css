@@ -4,6 +4,11 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-pool-blue: #0066CC;
+  --color-pool-blue-muted: rgba(0, 102, 204, 0.72);
+}
+
 @layer base {
   html {
     @apply scroll-smooth;

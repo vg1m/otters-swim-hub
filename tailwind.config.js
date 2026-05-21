@@ -12,7 +12,7 @@ module.exports = {
         primary: {
           DEFAULT: '#0066CC', // Pool blue
           dark: '#004999',
-          light: '#38BDF8', // Lighter blue for dark mode
+          light: '#4DA3E8', // Lighter pool-blue tint (gradients / dark accents)
           50: '#E8F4F8',
           100: '#B8E0F5',
         },

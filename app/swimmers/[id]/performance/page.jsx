@@ -16,7 +16,7 @@ import PerformanceEntryModal from '@/components/PerformanceEntryModal'
 import CoachNoteModal from '@/components/CoachNoteModal'
 import RubricEvaluationPanel from '@/components/RubricEvaluationPanel'
 import RubricProgressView from '@/components/RubricProgressView'
-import { hasRubric } from '@/lib/rubrics/rubric-data'
+import { squadSupportsRubric } from '@/lib/rubrics/rubric-data'
 import { calculateAge } from '@/lib/utils/date-helpers'
 import {
   defaultAttendanceWindow,
@@ -112,7 +112,7 @@ export default function SwimmerPerformancePage() {
       // Load swimmer details
       const { data: swimmerData, error: swimmerError } = await supabase
         .from('swimmers')
-        .select('id, first_name, last_name, date_of_birth, gender, squad_id, status, parent_id, coach_id, squads(name, slug)')
+        .select('id, first_name, last_name, date_of_birth, gender, squad_id, status, parent_id, coach_id, squads(name, slug, rubrics_enabled)')
         .eq('id', swimmerId)
         .single()
 
@@ -497,7 +497,12 @@ export default function SwimmerPerformancePage() {
                 Attendance
               </button>
             )}
-            {hasRubric(swimmer?.squads?.slug ?? swimmer?.squads?.[0]?.slug) && (
+            {squadSupportsRubric(
+              (() => {
+                const rel = swimmer?.squads
+                return Array.isArray(rel) ? rel[0] : rel
+              })()
+            ) && (
               <button
                 type="button"
                 onClick={() => setActiveTab('rubric')}
@@ -733,6 +738,7 @@ export default function SwimmerPerformancePage() {
                     <RubricEvaluationPanel
                       swimmerId={swimmerId}
                       squadSlug={squadSlug}
+                      rubricsEnabled={!!squadRow?.rubrics_enabled}
                       onSaved={({ monthYear }) => {
                         setRubricSavedMonthYear(monthYear)
                         setRubricProgressRefreshNonce((n) => n + 1)
@@ -744,6 +750,7 @@ export default function SwimmerPerformancePage() {
                   <RubricProgressView
                     swimmerId={swimmerId}
                     squadSlug={squadSlug}
+                    rubricsEnabled={!!squadRow?.rubrics_enabled}
                     refreshNonce={rubricProgressRefreshNonce}
                     savedMonthYear={rubricSavedMonthYear}
                   />

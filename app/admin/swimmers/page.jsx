@@ -24,6 +24,7 @@ import { createSwimmerOnboardingInvoice } from '@/lib/invoices/create-swimmer-on
 import { requestInvoiceIssuedEmailNotification } from '@/lib/invoices/request-invoice-issued-email'
 import { insertNotification } from '@/lib/notifications/insert-notification'
 import toast from 'react-hot-toast'
+import { buildGroupedSquadSelectOptions, squadSupportsRubric } from '@/lib/rubrics/rubric-data'
 
 function renderParentChoiceCell(row) {
   return (
@@ -40,11 +41,17 @@ function renderParentChoiceCell(row) {
 
 function renderSquadCell(row) {
   const isUnderSix = row.date_of_birth && calculateAge(row.date_of_birth) < 6
+  const rubricOn = squadSupportsRubric(row.squads)
   return (
     <div className="flex flex-wrap items-center gap-1">
       <Badge variant={row.squads?.name ? 'info' : 'default'}>
         {row.squads?.name || 'Pending assignment'}
       </Badge>
+      {row.squads?.name && (
+        <Badge variant={rubricOn ? 'success' : 'default'} size="sm">
+          {rubricOn ? 'Rubric' : 'No rubric'}
+        </Badge>
+      )}
       {isUnderSix && (
         <Badge variant="success" size="sm">Under 6</Badge>
       )}
@@ -109,7 +116,7 @@ export default function SwimmersManagementPage() {
       // Load swimmers
       const { data, error } = await supabase
         .from('swimmers')
-        .select('*, squads(id, name)')
+        .select('*, squads(id, name, slug, rubrics_enabled)')
         .order('last_name', { ascending: true })
 
       if (error) throw error
@@ -125,7 +132,7 @@ export default function SwimmersManagementPage() {
 
       const { data: squadsData } = await supabase
         .from('squads')
-        .select('id, name')
+        .select('id, name, slug, rubrics_enabled')
         .eq('is_active', true)
         .order('sort_order')
         .order('name')
@@ -164,6 +171,16 @@ export default function SwimmersManagementPage() {
     return filtered
   }, [swimmers, searchTerm, statusFilter, squadFilter])
 
+  const groupedSquadOptions = useMemo(
+    () => buildGroupedSquadSelectOptions(squadList),
+    [squadList]
+  )
+
+  const selectedSquadSlug = useMemo(() => {
+    if (!editForm.squad_id) return null
+    return squadList.find((s) => s.id === editForm.squad_id)?.slug ?? null
+  }, [editForm.squad_id, squadList])
+
   const openEditModal = useCallback((swimmer) => {
     setSelectedSwimmer(swimmer)
     setEditForm({
@@ -182,7 +199,10 @@ export default function SwimmersManagementPage() {
   async function handleSaveEdit() {
     if (!selectedSwimmer) return
 
-    if (editForm.status === 'approved') {
+    const prevStatus = selectedSwimmer.status
+    const isNewApproval = editForm.status === 'approved' && prevStatus !== 'approved'
+
+    if (isNewApproval) {
       if (!editForm.squad_id) {
         toast.error('Assign a squad before approving')
         return
@@ -199,7 +219,6 @@ export default function SwimmersManagementPage() {
 
     setSaving(true)
     const supabase = createClient()
-    const prevStatus = selectedSwimmer.status
 
     try {
       const cleanedData = {
@@ -240,11 +259,15 @@ export default function SwimmersManagementPage() {
 
       if (selectedSwimmer.parent_id) {
         if (squadChanged && cleanedData.squad_id) {
+          const squadName =
+            squadList.find((s) => s.id === cleanedData.squad_id)?.name ?? 'their squad'
+          const swimmerName =
+            `${selectedSwimmer.first_name} ${selectedSwimmer.last_name}`.trim()
           await insertNotification(supabase, {
             parent_id: selectedSwimmer.parent_id,
             type: 'squad_assigned',
-            title: `${selectedSwimmer.first_name} assigned to a squad`,
-            body: `${selectedSwimmer.first_name} has been placed in a training squad.`,
+            title: `${swimmerName} assigned to ${squadName}`,
+            body: `${swimmerName} has been placed in ${squadName}.`,
             swimmer_id: selectedSwimmer.id,
           })
         }
@@ -612,12 +635,18 @@ export default function SwimmersManagementPage() {
           <Select
             label="Squad"
             value={editForm.squad_id || ''}
-            onChange={(e) => setEditForm({ ...editForm, squad_id: e.target.value })}
-            options={[
-              { value: '', label: 'Not assigned yet' },
-              ...squadList.map((s) => ({ value: s.id, label: s.name })),
-            ]}
-            helperText="Required before you can set status to Approved"
+            onChange={(e) => {
+              const v = e.target.value
+              if (v.startsWith('__')) return
+              setEditForm({ ...editForm, squad_id: v })
+            }}
+            options={groupedSquadOptions}
+            placeholder=""
+            helperText={
+              selectedSquadSlug === 'development'
+                ? 'Rubrics use Development 1 / 2 / 3 squads — assign the specific level for rubric tracking. Required before Approved.'
+                : 'Required before you can set status to Approved. Pathway squads support monthly progress rubrics.'
+            }
           />
           <Select
             label="Assigned Coach"

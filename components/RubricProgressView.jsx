@@ -1,19 +1,15 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { RUBRIC_DATA, ATTITUDE_LABELS, hasRubric } from '@/lib/rubrics/rubric-data'
-
-/** Normalise Postgres DATE / ISO string for yyyy-mm-dd comparison. */
-function monthYearKey(val) {
-  if (val == null || val === '') return ''
-  if (typeof val === 'string') return val.slice(0, 10)
-  try {
-    return new Date(val).toISOString().slice(0, 10)
-  } catch {
-    return String(val).slice(0, 10)
-  }
-}
+import {
+  RUBRIC_DATA,
+  ATTITUDE_LABELS,
+  squadSupportsRubric,
+  resolveRubricDisplaySlug,
+} from '@/lib/rubrics/rubric-data'
+import { buildMonthlyProgressStats, monthYearKey } from '@/lib/rubrics/rubric-progress-stats'
+import RubricProgressChart from '@/components/RubricProgressChart'
 
 /** Pick dropdown value after refetch; prefer coach-saved month, else keep selection if still valid. */
 function pickSelectedMonth(unique, hint, previous) {
@@ -43,7 +39,7 @@ const MONTH_NAMES = [
 
 function formatMonthLabel(dateStr) {
   if (!dateStr) return ''
-  const { year, month } = parseMonthDate(dateStr)
+  const { year, month } = parseMonthDate(monthYearKey(dateStr))
   return `${MONTH_NAMES[month - 1]} ${year}`
 }
 
@@ -65,15 +61,28 @@ function overallAverage(ratings) {
   return (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1)
 }
 
-export default function RubricProgressView({ swimmerId, squadSlug, refreshNonce = 0, savedMonthYear = null }) {
-  const rubric = RUBRIC_DATA[squadSlug]
+export default function RubricProgressView({
+  swimmerId,
+  squadSlug,
+  rubricsEnabled = true,
+  refreshNonce = 0,
+  savedMonthYear = null,
+}) {
+  const squad = { slug: squadSlug, rubrics_enabled: rubricsEnabled }
+  const displaySlug = resolveRubricDisplaySlug(squadSlug)
+  const rubric = displaySlug ? RUBRIC_DATA[displaySlug] : null
 
   const [availableMonths, setAvailableMonths] = useState([])
   const [selectedMonth, setSelectedMonth] = useState(null)
-  const [milestoneMap, setMilestoneMap] = useState({})  // key → { id, domain_id, is_custom }
-  const [ratings, setRatings] = useState({})             // milestone_id → { rating, is_na }
+  const [milestoneMap, setMilestoneMap] = useState({})
+  const [milestoneSectionById, setMilestoneSectionById] = useState(new Map())
+  const [ratings, setRatings] = useState({})
   const [attitudeRating, setAttitudeRating] = useState(null)
+  const [monthlyStats, setMonthlyStats] = useState([])
   const [loading, setLoading] = useState(false)
+  const [domainsReady, setDomainsReady] = useState(true)
+
+  const supportsRubric = squadSupportsRubric(squad)
 
   // Load month list whenever swimmer loads or coach saves an evaluation above
   useEffect(() => {
@@ -96,20 +105,34 @@ export default function RubricProgressView({ swimmerId, squadSlug, refreshNonce 
     }
   }, [swimmerId, refreshNonce, savedMonthYear])
 
-  // Load milestone map and ratings for selected month
+  // Load milestone map, selected-month ratings, and all-month stats for chart
   const loadRatings = useCallback(async () => {
-    if (!squadSlug || !hasRubric(squadSlug) || !swimmerId) return
+    if (!squadSlug || !supportsRubric || !swimmerId) return
     setLoading(true)
     const supabase = createClient()
 
     try {
-      const { data: domains } = await supabase
+      const { data: domains, error: dErr } = await supabase
         .from('rubric_domains')
         .select('id, domain_name, section, rubric_milestones(id, text, sort_order, is_custom)')
         .eq('squad_slug', squadSlug)
         .order('sort_order')
 
+      if (dErr) throw dErr
+
+      if (!domains?.length) {
+        setDomainsReady(false)
+        setMilestoneMap({})
+        setMilestoneSectionById(new Map())
+        setRatings({})
+        setMonthlyStats([])
+        setLoading(false)
+        return
+      }
+      setDomainsReady(true)
+
       const map = {}
+      const sectionById = new Map()
       for (const domain of domains || []) {
         for (const m of domain.rubric_milestones || []) {
           map[`${domain.section}::${domain.domain_name}::${m.text}`] = {
@@ -117,53 +140,102 @@ export default function RubricProgressView({ swimmerId, squadSlug, refreshNonce 
             domain_id: domain.id,
             is_custom: m.is_custom,
           }
+          sectionById.set(m.id, domain.section)
         }
       }
       setMilestoneMap(map)
-
-      if (!selectedMonth) { setLoading(false); return }
+      setMilestoneSectionById(sectionById)
 
       const milestoneIds = Object.values(map).map((v) => v.id)
-      if (milestoneIds.length === 0) { setRatings({}); setLoading(false); return }
 
-      const { data: ratingRows } = await supabase
-        .from('swimmer_milestone_ratings')
-        .select('milestone_id, rating, is_na')
-        .eq('swimmer_id', swimmerId)
-        .eq('month_year', selectedMonth)
-        .in('milestone_id', milestoneIds)
+      if (milestoneIds.length > 0) {
+        const { data: allRatingRows } = await supabase
+          .from('swimmer_milestone_ratings')
+          .select('milestone_id, rating, is_na, month_year')
+          .eq('swimmer_id', swimmerId)
+          .in('milestone_id', milestoneIds)
+          .order('month_year', { ascending: true })
 
-      const rMap = {}
-      for (const r of ratingRows || []) {
-        rMap[r.milestone_id] = { rating: r.rating, is_na: r.is_na }
+        const { data: allAttitudeRows } = await supabase
+          .from('swimmer_attitude_ratings')
+          .select('month_year, coach_rating')
+          .eq('swimmer_id', swimmerId)
+          .order('month_year', { ascending: true })
+
+        setMonthlyStats(
+          buildMonthlyProgressStats(allRatingRows || [], sectionById, allAttitudeRows || [])
+        )
+
+        if (selectedMonth) {
+          const { data: ratingRows } = await supabase
+            .from('swimmer_milestone_ratings')
+            .select('milestone_id, rating, is_na')
+            .eq('swimmer_id', swimmerId)
+            .eq('month_year', selectedMonth)
+            .in('milestone_id', milestoneIds)
+
+          const rMap = {}
+          for (const r of ratingRows || []) {
+            rMap[r.milestone_id] = { rating: r.rating, is_na: r.is_na }
+          }
+          setRatings(rMap)
+
+          const { data: attRow } = await supabase
+            .from('swimmer_attitude_ratings')
+            .select('coach_rating, self_rating, notes')
+            .eq('swimmer_id', swimmerId)
+            .eq('month_year', selectedMonth)
+            .maybeSingle()
+
+          setAttitudeRating(attRow ?? null)
+        } else {
+          setRatings({})
+          setAttitudeRating(null)
+        }
+      } else {
+        setRatings({})
+        setAttitudeRating(null)
+        setMonthlyStats([])
       }
-      setRatings(rMap)
-
-      const { data: attRow } = await supabase
-        .from('swimmer_attitude_ratings')
-        .select('coach_rating, self_rating, notes')
-        .eq('swimmer_id', swimmerId)
-        .eq('month_year', selectedMonth)
-        .maybeSingle()
-
-      setAttitudeRating(attRow ?? null)
     } catch (err) {
       console.error('RubricProgressView load error', err)
     } finally {
       setLoading(false)
     }
-  }, [squadSlug, swimmerId, selectedMonth])
+  }, [squadSlug, swimmerId, selectedMonth, supportsRubric])
 
-  useEffect(() => { loadRatings() }, [loadRatings])
+  useEffect(() => {
+    loadRatings()
+  }, [loadRatings])
+
+  const chartSelectedMonth = useMemo(
+    () => (selectedMonth ? monthYearKey(selectedMonth) : null),
+    [selectedMonth]
+  )
 
   function getMilestoneId(section, domain, text) {
     return milestoneMap[`${section}::${domain}::${text}`]?.id ?? null
   }
 
-  if (!rubric) {
+  function handleChartSelectMonth(monthYear) {
+    const match = availableMonths.find((m) => monthYearKey(m) === monthYearKey(monthYear))
+    if (match) setSelectedMonth(match)
+    else setSelectedMonth(monthYear)
+  }
+
+  if (!supportsRubric || !rubric) {
     return (
       <div className="text-center py-10 text-sm text-gray-400 dark:text-gray-500">
-        No rubric is defined for this squad yet.
+        No rubric is enabled for this squad yet.
+      </div>
+    )
+  }
+
+  if (!domainsReady) {
+    return (
+      <div className="rounded-xl border border-dashed border-amber-200 dark:border-amber-800/50 bg-amber-50/50 dark:bg-amber-950/20 px-4 py-6 text-center text-sm text-amber-800 dark:text-amber-200">
+        Rubric checklist is still being set up for this squad. Refresh the page in a moment, or toggle
+        &ldquo;Include progress rubric&rdquo; off and on in Admin → Squads.
       </div>
     )
   }
@@ -173,6 +245,12 @@ export default function RubricProgressView({ swimmerId, squadSlug, refreshNonce 
 
   return (
     <div className="space-y-5">
+      <RubricProgressChart
+        monthlyStats={monthlyStats}
+        selectedMonth={chartSelectedMonth}
+        onSelectMonth={handleChartSelectMonth}
+      />
+
       {/* Header: squad info + month selector */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -188,6 +266,7 @@ export default function RubricProgressView({ swimmerId, squadSlug, refreshNonce 
             value={selectedMonth ?? ''}
             onChange={(e) => setSelectedMonth(e.target.value)}
             className="text-sm border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-1.5 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100"
+            aria-label="Select evaluation month"
           >
             {availableMonths.map((m) => (
               <option key={m} value={m}>{formatMonthLabel(m)}</option>
@@ -215,7 +294,6 @@ export default function RubricProgressView({ swimmerId, squadSlug, refreshNonce 
 
       {!loading && selectedMonth && (
         <>
-          {/* Skills */}
           <ReadOnlySection
             title="Skills"
             sectionKey="skills"
@@ -225,7 +303,6 @@ export default function RubricProgressView({ swimmerId, squadSlug, refreshNonce 
             getMilestoneId={getMilestoneId}
           />
 
-          {/* Habits */}
           <ReadOnlySection
             title="Habits"
             sectionKey="habits"
@@ -235,7 +312,6 @@ export default function RubricProgressView({ swimmerId, squadSlug, refreshNonce 
             getMilestoneId={getMilestoneId}
           />
 
-          {/* Attitude */}
           <AttitudeDisplay attitude={attitudeRating} />
         </>
       )}
@@ -248,10 +324,8 @@ function ReadOnlySection({ title, sectionKey, domains, milestoneMap, ratings, ge
     <div className="space-y-3">
       <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{title}</h4>
       {domains.map((domainObj) => {
-        // Standard milestones
         const allMilestones = [...domainObj.milestones]
 
-        // Custom milestones for this domain
         const customOnes = Object.entries(milestoneMap)
           .filter(([k, v]) => k.startsWith(`${sectionKey}::${domainObj.domain}::`) && v.is_custom)
           .map(([k]) => k.split('::')[2])

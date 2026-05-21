@@ -39,9 +39,15 @@ const Select = forwardRef(({
         `}
         {...props}
       >
-        <option value="">{placeholder}</option>
+        {!options.some((o) => o.value === '') && (
+          <option value="">{placeholder}</option>
+        )}
         {options.map((option) => (
-          <option key={option.value} value={option.value}>
+          <option
+            key={`${option.value}-${option.label}`}
+            value={option.value}
+            disabled={option.disabled}
+          >
             {option.label}
           </option>
         ))}
