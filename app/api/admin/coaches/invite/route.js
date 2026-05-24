@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
+import { getAuthRedirectOrigin } from '@/lib/utils/public-origin'
 
 function normalizeEmail(raw) {
   return typeof raw === 'string' ? raw.trim().toLowerCase() : ''
@@ -8,18 +9,6 @@ function normalizeEmail(raw) {
 
 function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-}
-
-function siteOrigin() {
-  const base =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.NEXT_PUBLIC_VERCEL_URL ||
-    process.env.VERCEL_URL ||
-    ''
-  const trimmed = base.replace(/\/$/, '')
-  if (!trimmed) return ''
-  if (trimmed.startsWith('http')) return trimmed
-  return `https://${trimmed}`
 }
 
 /**
@@ -125,12 +114,12 @@ export async function POST(request) {
     )
   }
 
-  const origin = siteOrigin()
+  const origin = getAuthRedirectOrigin(request)
   /**
    * One path only (no "?next=" nested in redirect_to). Nested query strings on redirect_to break
    * how GoTrue merges the session (#access_token or ?code); next step defaults to set-password client-side.
    */
-  const redirectTo = origin ? `${origin}/auth/finish-invite` : undefined
+  const redirectTo = `${origin}/auth/finish-invite`
 
   const patchCoachProfile = async (userId) => {
     const { error: upErr } = await admin

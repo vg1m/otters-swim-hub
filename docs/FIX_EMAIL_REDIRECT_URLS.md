@@ -21,10 +21,13 @@ Email templates use the Site URL from Supabase project settings, which might be 
 
 ### Step 1: Update Environment Variable for Production
 
+**Production canonical host:** `https://otters.ke` (not `*.vercel.app`). Use this for Vercel env vars, Supabase Site URL, and auth redirect allowlist.
+
 **Create `.env.production` file:**
 ```env
 # Production Environment Variables
-NEXT_PUBLIC_APP_URL=https://otters-swim-hub.vercel.app
+NEXT_PUBLIC_APP_URL=https://otters.ke
+NEXT_PUBLIC_EMAIL_PUBLIC_URL=https://otters.ke
 
 # Supabase (same as .env.local)
 NEXT_PUBLIC_SUPABASE_URL=https://kgarfhqtbbvilqrswwca.supabase.co
@@ -37,9 +40,10 @@ PAYSTACK_SECRET_KEY=your-paystack-key
 
 **In Vercel Dashboard:**
 1. Go to Project Settings → Environment Variables
-2. Add `NEXT_PUBLIC_APP_URL` = `https://otters-swim-hub.vercel.app`
-3. Add all other secret keys (already done)
-4. Redeploy
+2. Set `NEXT_PUBLIC_APP_URL` = `https://otters.ke` (Production)
+3. Set `NEXT_PUBLIC_EMAIL_PUBLIC_URL` = `https://otters.ke` (Production, optional but recommended)
+4. Add all other secret keys (already done)
+5. Redeploy
 
 ### Step 2: Update Supabase Email Settings
 
@@ -50,7 +54,7 @@ PAYSTACK_SECRET_KEY=your-paystack-key
 2. Under "Configuration"
 3. Change **Site URL** from:
    - ❌ `http://localhost:3000`
-   - ✅ `https://otters-swim-hub.vercel.app`
+   - ✅ `https://otters.ke`
 4. Save
 
 #### B. Update Redirect URLs
@@ -58,13 +62,17 @@ PAYSTACK_SECRET_KEY=your-paystack-key
 2. Under "Redirect URLs"
 3. Add production URLs:
    ```
-   https://otters-swim-hub.vercel.app/auth/callback
-   https://otters-swim-hub.vercel.app/reset-password
-   https://otters-swim-hub.vercel.app/dashboard
+   https://otters.ke/auth/callback
+   https://otters.ke/auth/finish-invite
+   https://otters.ke/auth/set-password
+   https://otters.ke/reset-password
+   https://otters.ke/dashboard
    ```
 4. Keep localhost for local dev:
    ```
    http://localhost:3000/auth/callback
+   http://localhost:3000/auth/finish-invite
+   http://localhost:3000/auth/set-password
    http://localhost:3000/reset-password
    http://localhost:3000/dashboard
    ```
@@ -84,22 +92,57 @@ PAYSTACK_SECRET_KEY=your-paystack-key
 
 The `{{ .ConfirmationURL }}` uses your Site URL automatically.
 
+#### D. Coach invite opens the homepage (`https://otters.ke/`)
+
+**Symptom:** Coach clicks **Accept the invite** and lands on the marketing homepage with no password prompt.
+
+**Cause:** Supabase’s verify step could not use `redirect_to=https://otters.ke/auth/finish-invite` (URL not on the **Redirect URLs** allowlist), so GoTrue fell back to **Site URL** (`/`). Tokens may appear only in the URL hash (`#access_token=…`).
+
+**Fix:**
+
+1. Add **`https://otters.ke/auth/finish-invite`** to **Redirect URLs** (see step B above) and set **Site URL** to `https://otters.ke`.
+2. **Re-send the coach invite** from `/admin/coaches` — old emails keep the old redirect.
+3. Copy the raw link from the new email and confirm it contains `redirect_to=…%2Fauth%2Ffinish-invite` (when using `{{ .ConfirmationURL }}`).
+
+**App-side hardening (already in repo):**
+
+- [`lib/supabase/middleware.js`](../lib/supabase/middleware.js) forwards invite `token_hash` and finish-invite `?code=` to `/auth/callback?next=/auth/set-password`.
+- [`components/AuthEmailLinkBridge.jsx`](../components/AuthEmailLinkBridge.jsx) forwards hash tokens on `/` to `/auth/finish-invite`.
+- [`app/auth/callback/route.js`](../app/auth/callback/route.js) detects invite sessions (PKCE or `token_hash`) and routes to `/auth/set-password`.
+
+**Optional — more reliable invite button** (Supabase **Invite user** template):
+
+```html
+<a href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=invite&next=%2Fauth%2Fset-password">
+  Accept the invite
+</a>
+```
+
+This hits your app directly with invite type + next, avoiding `redirect_to` ambiguity.
+
 ## Verification
 
 ### Test 1: Signup Email
 1. Sign up new user on production
 2. Check email
 3. Click confirmation link
-4. **Expected:** Opens `https://otters-swim-hub.vercel.app/...` ✅
+4. **Expected:** Opens `https://otters.ke/...` ✅
 
 ### Test 2: Password Reset Email
 1. Click "Forgot Password" on production
 2. Enter email
 3. Check email
 4. Click reset link
-5. **Expected:** Opens `https://otters-swim-hub.vercel.app/reset-password` ✅
+5. **Expected:** Opens `https://otters.ke/reset-password` ✅
 
-### Test 3: Local Development Still Works
+### Test 3: Coach invite email
+1. Admin sends a **new** invite from `https://otters.ke/admin/coaches` (fresh test email).
+2. Copy the raw link from the email — confirm `redirect_to=…finish-invite` if using `{{ .ConfirmationURL }}`.
+3. Click once in a normal browser (not an email link scanner preview).
+4. **Expected:** `/auth/finish-invite` or `/auth/callback` → **`/auth/set-password`** → coach saves password → **`/coach`**
+5. **Must not:** stop on **`https://otters.ke/`** with no password prompt.
+
+### Test 4: Local Development Still Works
 1. Sign up user on localhost
 2. Check email
 3. **Expected:** Opens `http://localhost:3000/...` ✅
@@ -113,7 +156,7 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 ### Production (Vercel)
 ```env
-NEXT_PUBLIC_APP_URL=https://otters-swim-hub.vercel.app
+NEXT_PUBLIC_APP_URL=https://otters.ke
 ```
 
 ### In Code

@@ -3,6 +3,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { sendCoachSessionPayEmail } from '@/lib/utils/send-email'
 import { getSessionEndUtc } from '@/lib/utils/session-timezone'
 import { formatInTimeZone } from 'date-fns-tz'
+import { notifyCoachSessionPayRecorded } from '@/lib/notifications/notify-coach-session-pay'
 
 function unauthorized() {
   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -94,6 +95,13 @@ async function runCoachSessionPayJob() {
       console.error('coach-session-pay: insert', insErr)
       continue
     }
+
+    await notifyCoachSessionPayRecorded(supabase, {
+      coachId: coach.id,
+      sessionId: session.id,
+      amountKes: rate,
+      sessionDateLabel: sessionDateStr,
+    })
 
     processed += 1
     const coachEmail = coach.email

@@ -202,6 +202,52 @@ export default function CoachManagementPage() {
         }
       }
 
+      const assignmentRow = data[0]
+      if (assignmentRow?.id && assignForm.coach_id) {
+        try {
+          if (assignmentType === 'squad') {
+            const squad = squadList.find((s) => s.id === assignForm.squad_id)
+            await fetch('/api/admin/staff-notifications/dispatch', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                recipient_id: assignForm.coach_id,
+                role: 'coach',
+                type: 'coach_assignment_squad',
+                title: `New squad assignment: ${squad?.name || 'Squad'}`,
+                body: `You are now assigned to coach ${squad?.name || 'a squad'}.`,
+                dedupe_key: `assignment:${assignmentRow.id}`,
+                coach_assignment_id: assignmentRow.id,
+                sendEmail: true,
+              }),
+            })
+          } else {
+            const sw = swimmers.find((s) => s.id === assignForm.swimmer_id)
+            await fetch('/api/admin/staff-notifications/dispatch', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({
+                recipient_id: assignForm.coach_id,
+                role: 'coach',
+                type: 'coach_assignment_swimmer',
+                title: `New swimmer assignment: ${sw ? `${sw.first_name} ${sw.last_name}` : 'Swimmer'}`,
+                body: sw
+                  ? `You are now assigned to ${sw.first_name} ${sw.last_name}.`
+                  : 'You have a new individual swimmer assignment.',
+                dedupe_key: `assignment:${assignmentRow.id}`,
+                coach_assignment_id: assignmentRow.id,
+                swimmer_id: sw?.id,
+                sendEmail: true,
+              }),
+            })
+          }
+        } catch (notifyErr) {
+          console.warn('Coach assignment staff notification failed (non-fatal):', notifyErr)
+        }
+      }
+
       setShowAssignModal(false)
       setSelectedCoach(null)
       

@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 
 const SET_PASSWORD = '/auth/set-password'
-const MAX_FRAGMENT_WAIT_MS = 600
+const MAX_FRAGMENT_WAIT_MS = 1500
 const FRAGMENT_POLL_MS = 50
+const ERROR_DEBOUNCE_MS = 400
 
 /**
  * After Supabase `/auth/v1/verify`, the session is usually appended as a URL **hash**
@@ -19,6 +20,7 @@ export default function FinishInvitePage() {
 
   useEffect(() => {
     let cancelled = false
+    let errorTimer = null
 
     function parseCurrent() {
       const url = new URL(window.location.href)
@@ -39,33 +41,54 @@ export default function FinishInvitePage() {
       }
     }
 
+    function hasAuthParams(snap) {
+      return Boolean(
+        snap.rawHash ||
+          snap.code ||
+          (snap.token_hash && snap.type)
+      )
+    }
+
+    function showError(text) {
+      if (cancelled) return
+      errorTimer = setTimeout(() => {
+        if (cancelled) return
+        setWorking(false)
+        setMessage(text)
+      }, ERROR_DEBOUNCE_MS)
+    }
+
+    async function waitForAuthParams() {
+      let snap = parseCurrent()
+      let waited = 0
+      while (!cancelled && !hasAuthParams(snap) && waited < MAX_FRAGMENT_WAIT_MS) {
+        await new Promise((r) => setTimeout(r, FRAGMENT_POLL_MS))
+        waited += FRAGMENT_POLL_MS
+        snap = parseCurrent()
+      }
+      if (!cancelled && !hasAuthParams(snap)) {
+        await new Promise((r) => setTimeout(r, 200))
+        snap = parseCurrent()
+      }
+      return snap
+    }
+
     async function run() {
+      setWorking(true)
+      setMessage('Confirming your invite…')
+
       try {
-        let snap = parseCurrent()
-        let waited = 0
-        while (
-          !cancelled &&
-          !snap.rawHash &&
-          !snap.code &&
-          !(snap.token_hash && snap.type) &&
-          waited < MAX_FRAGMENT_WAIT_MS
-        ) {
-          await new Promise((r) => setTimeout(r, FRAGMENT_POLL_MS))
-          waited += FRAGMENT_POLL_MS
-          snap = parseCurrent()
-        }
+        const snap = await waitForAuthParams()
 
         if (cancelled) return
 
         if (snap.err) {
-          setWorking(false)
-          setMessage(decodeURIComponent(snap.err.replace(/\+/g, ' ')))
+          showError(decodeURIComponent(snap.err.replace(/\+/g, ' ')))
           return
         }
 
         if (snap.hashError) {
-          setWorking(false)
-          setMessage(decodeURIComponent(snap.hashError.replace(/\+/g, ' ')))
+          showError(decodeURIComponent(snap.hashError.replace(/\+/g, ' ')))
           return
         }
 
@@ -86,8 +109,7 @@ export default function FinishInvitePage() {
         }
 
         if (!snap.rawHash) {
-          setWorking(false)
-          setMessage(
+          showError(
             'This link did not include a sign-in token. That often happens if the invite link was opened twice, previewed by email security software, or the destination URL was shortened. Ask an admin for a fresh invite and open it once from a normal browser (Chrome, Safari, or Edge)—tap the button in the email rather than copying only part of the link.'
           )
           return
@@ -96,8 +118,7 @@ export default function FinishInvitePage() {
         window.history.replaceState(null, '', window.location.pathname + window.location.search)
 
         if (!snap.access_token || !snap.refresh_token) {
-          setWorking(false)
-          setMessage(
+          showError(
             'Could not confirm the invite from this link. Tap the invitation link directly in your email, or contact an admin for a new invite.'
           )
           return
@@ -121,6 +142,8 @@ export default function FinishInvitePage() {
           //
         }
 
+        if (cancelled) return
+
         if (!res.ok || !data?.ok) {
           throw new Error(data?.error || 'Could not activate your invite')
         }
@@ -128,8 +151,7 @@ export default function FinishInvitePage() {
         window.location.replace(typeof data.next === 'string' ? data.next : SET_PASSWORD)
       } catch (e) {
         if (!cancelled) {
-          setWorking(false)
-          setMessage(e.message || 'Something went wrong')
+          showError(e.message || 'Something went wrong')
         }
       }
     }
@@ -137,6 +159,7 @@ export default function FinishInvitePage() {
     void run()
     return () => {
       cancelled = true
+      if (errorTimer) clearTimeout(errorTimer)
     }
   }, [])
 

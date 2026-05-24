@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { CONSENT_POLICY_TEXT } from '@/lib/constants/consent-policy'
 import { calculateAge } from '@/lib/utils/date-helpers'
+import { notifyAllAdmins } from '@/lib/notifications/notify-all-admins'
 
 /**
  * Public registration: creates pending swimmers (no squad, no payment).
@@ -170,6 +171,19 @@ export async function POST(request) {
       console.info(
         'Registration: shareHubAccess requested but no existing profile for email; invite skipped until parent account exists'
       )
+    }
+
+    for (const swimmer of createdSwimmers) {
+      await notifyAllAdmins(supabase, {
+        type: 'registration_pending',
+        title: `New registration: ${swimmer.first_name} ${swimmer.last_name}`,
+        body: swimmer.squad_id
+          ? 'Review and approve in Registrations when ready.'
+          : 'Assign a squad in Swimmer Management, then approve in Registrations.',
+        dedupe_key: `registration:${swimmer.id}`,
+        swimmer_id: swimmer.id,
+        sendEmail: true,
+      })
     }
 
     return NextResponse.json({

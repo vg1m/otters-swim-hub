@@ -5,6 +5,7 @@ import { ThemeProvider } from '@/contexts/ThemeContext'
 import SessionTimeoutWatcher from '@/components/SessionTimeoutWatcher'
 import PrivacyConsentWidget from '@/components/PrivacyConsentWidget'
 import RecoverySessionRedirect from '@/components/RecoverySessionRedirect'
+import AuthEmailLinkBridge from '@/components/AuthEmailLinkBridge'
 
 export const metadata = {
   title: 'Otters Kenya Academy of Swimming Limited',
@@ -47,6 +48,7 @@ export default function RootLayout({ children }) {
           <div className="grain-overlay"></div>
           <SessionTimeoutWatcher />
           <RecoverySessionRedirect />
+          <AuthEmailLinkBridge />
           <PrivacyConsentWidget />
           {children}
           <Toaster 

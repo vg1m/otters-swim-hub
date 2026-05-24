@@ -67,7 +67,7 @@ function HubSeasonGraphic() {
               </div>
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-stone-900 dark:text-gray-100 truncate">Amara Wanza</p>
-                <p className="text-[11px] text-stone-500 dark:text-gray-400">Age 10 · Dev 2</p>
+                <p className="text-[11px] text-stone-500 dark:text-gray-400">Age 10 · Dev 3</p>
               </div>
             </div>
             <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-primary shrink-0 pt-0.5">
@@ -177,6 +177,468 @@ function HubSeasonGraphic() {
   )
 }
 
+/** Performance page mock — rubric progress chart + attendance on one screen */
+function ProgressAttendanceGraphic() {
+  const attendanceDays = [
+    { label: 'Mon', status: 'attended' },
+    { label: 'Tue', status: 'attended' },
+    { label: 'Wed', status: 'missed' },
+    { label: 'Thu', status: 'upcoming' },
+    { label: 'Sat', status: 'upcoming' },
+  ]
+  const statusStyles = {
+    attended: 'bg-green-600 text-white',
+    missed: 'bg-red-500 text-white',
+    upcoming: 'bg-primary text-white',
+  }
+
+  const chartMonths = [
+    { label: 'Nov', avg: 2.4, attitude: 3.5, selected: false },
+    { label: 'Dec', avg: 2.7, attitude: 3.8, selected: false },
+    { label: 'Jan', avg: 2.9, attitude: 4.0, selected: false },
+    { label: 'Feb', avg: 3.1, attitude: 4.2, selected: false },
+    { label: 'Mar', avg: 3.2, attitude: 4.4, selected: true },
+  ]
+
+  const milestones = [
+    { name: 'Streamline kick', rating: '4', style: 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300' },
+    { name: 'Bilateral breathing', rating: '3', style: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
+    { name: 'Punctuality', rating: '3', style: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' },
+  ]
+
+  const maxSkill = 4
+  const maxAttitude = 5
+  const chartHeight = 100
+  const barWidth = 28
+  const gap = 8
+  const paddingLeft = 22
+  const paddingRight = 8
+  const paddingTop = 6
+  const paddingBottom = 22
+  const plotHeight = chartHeight - paddingTop - paddingBottom
+  const totalWidth =
+    paddingLeft + paddingRight + chartMonths.length * barWidth + (chartMonths.length - 1) * gap
+
+  return (
+    <div
+      className="relative w-full max-w-md mx-auto lg:mx-0 min-w-0"
+      role="img"
+      aria-label="Example performance view: squad rubric progress over time and weekly attendance"
+    >
+      <div
+        className="absolute -inset-3 sm:-inset-6 bg-gradient-to-tr from-primary/15 via-primary/5 to-transparent dark:from-primary/25 dark:via-primary/10 rounded-[1.5rem] sm:rounded-[2rem] blur-xl sm:blur-2xl opacity-80"
+        aria-hidden
+      />
+      <div className="relative bg-stone-900 dark:bg-gray-950 rounded-[1.75rem] p-1.5 sm:p-2 shadow-soft ring-1 ring-white/10 min-w-0">
+        <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-5 sm:p-6 space-y-4 overflow-hidden">
+          <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-primary/[0.06] via-transparent to-transparent dark:from-primary/10 rounded-2xl" aria-hidden />
+
+          <div className="relative flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+              <span className="text-sm font-bold text-primary">AW</span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-stone-900 dark:text-gray-100 truncate">Amara Wanza</p>
+              <p className="text-[11px] text-stone-500 dark:text-gray-400">Age 10 · Dev 3</p>
+            </div>
+          </div>
+
+          <div className="relative flex flex-wrap gap-1 bg-stone-100 dark:bg-gray-900/80 p-1 rounded-lg">
+            {['Race times', 'Coach notes', 'Attendance', 'Rubric'].map((tab) => (
+              <span
+                key={tab}
+                className={`px-2.5 sm:px-3 py-1.5 rounded-md text-xs font-medium ${
+                  tab === 'Rubric'
+                    ? 'font-semibold bg-white dark:bg-gray-700 text-stone-900 dark:text-gray-100 shadow-sm'
+                    : 'text-stone-500 dark:text-gray-400'
+                }`}
+              >
+                {tab}
+              </span>
+            ))}
+          </div>
+
+          <div className="relative rounded-xl border border-stone-200 dark:border-gray-700 bg-stone-50/50 dark:bg-gray-800/50 overflow-hidden">
+            <div className="px-3 pt-3 pb-1 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-semibold text-stone-900 dark:text-gray-100">Progress over time</p>
+              <div className="flex flex-wrap gap-2.5 text-[9px] text-stone-500 dark:text-gray-400">
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-sm bg-primary/80" aria-hidden />
+                  Skills & habits
+                </span>
+                <span className="inline-flex items-center gap-1">
+                  <span className="w-2 h-0.5 bg-amber-500 dark:bg-amber-400" aria-hidden />
+                  Coach attitude
+                </span>
+              </div>
+            </div>
+            <div className="overflow-x-auto px-1 pb-2">
+              <svg width={totalWidth} height={chartHeight} className="min-w-full" aria-hidden>
+                {[1, 2, 3, 4].map((tick) => {
+                  const y = paddingTop + plotHeight * (1 - tick / maxSkill)
+                  return (
+                    <g key={tick}>
+                      <line
+                        x1={paddingLeft}
+                        y1={y}
+                        x2={totalWidth - paddingRight}
+                        y2={y}
+                        stroke="currentColor"
+                        strokeOpacity={0.08}
+                        className="text-stone-900 dark:text-gray-100"
+                      />
+                      <text
+                        x={paddingLeft - 4}
+                        y={y + 3}
+                        textAnchor="end"
+                        className="fill-stone-400 dark:fill-gray-500 text-[8px]"
+                      >
+                        {tick}
+                      </text>
+                    </g>
+                  )
+                })}
+                {chartMonths.map((point, i) => {
+                  const x = paddingLeft + i * (barWidth + gap)
+                  const centerX = x + barWidth / 2
+                  const barH = (point.avg / maxSkill) * plotHeight
+                  const barY = paddingTop + plotHeight - barH
+                  const attY = paddingTop + plotHeight * (1 - point.attitude / maxAttitude)
+                  const prev = i > 0 ? chartMonths[i - 1] : null
+                  const prevCenterX = i > 0 ? paddingLeft + (i - 1) * (barWidth + gap) + barWidth / 2 : null
+                  const prevAttY = prev
+                    ? paddingTop + plotHeight * (1 - prev.attitude / maxAttitude)
+                    : null
+
+                  return (
+                    <g key={point.label}>
+                      {prevAttY != null && prevCenterX != null && (
+                        <line
+                          x1={prevCenterX}
+                          y1={prevAttY}
+                          x2={centerX}
+                          y2={attY}
+                          stroke="currentColor"
+                          strokeWidth={1.5}
+                          className="text-amber-500 dark:text-amber-400"
+                          strokeOpacity={0.7}
+                        />
+                      )}
+                      <rect
+                        x={x + 3}
+                        y={barY}
+                        width={barWidth - 6}
+                        height={Math.max(barH, 2)}
+                        rx={2}
+                        fill={point.selected ? 'var(--color-pool-blue)' : 'var(--color-pool-blue-muted)'}
+                      />
+                      <circle
+                        cx={centerX}
+                        cy={attY}
+                        r={point.selected ? 4.5 : 3.5}
+                        className={
+                          point.selected
+                            ? 'fill-amber-500 stroke-white dark:fill-amber-400 dark:stroke-gray-900'
+                            : 'fill-amber-400 stroke-white dark:fill-amber-500/80 dark:stroke-gray-800'
+                        }
+                        strokeWidth={1.5}
+                      />
+                      <text
+                        x={centerX}
+                        y={chartHeight - 5}
+                        textAnchor="middle"
+                        className={`text-[8px] ${point.selected ? 'font-semibold' : 'fill-stone-500 dark:fill-gray-400'}`}
+                        fill={point.selected ? 'var(--color-pool-blue)' : undefined}
+                      >
+                        {point.label}
+                      </text>
+                    </g>
+                  )
+                })}
+              </svg>
+            </div>
+          </div>
+
+          <div className="relative flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-[10px] text-stone-500 dark:text-gray-400">Development 3 · Ages 10–11</p>
+              <p className="text-xs font-semibold text-primary dark:text-primary mt-0.5">Overall average: 3.2 / 4</p>
+            </div>
+            <span className="text-[10px] font-medium border border-stone-200 dark:border-gray-600 rounded-lg px-2.5 py-1 bg-white dark:bg-gray-800 text-stone-700 dark:text-gray-200">
+              March
+            </span>
+          </div>
+
+          <div className="relative space-y-1.5">
+            {milestones.map((m) => (
+              <div key={m.name} className="flex items-center justify-between gap-2 text-[11px]">
+                <span className="text-stone-700 dark:text-gray-300 truncate">{m.name}</span>
+                <span className={`shrink-0 w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold ${m.style}`}>
+                  {m.rating}
+                </span>
+              </div>
+            ))}
+            <p className="text-[10px] text-stone-500 dark:text-gray-400 pt-0.5">
+              Coach attitude: <span className="font-semibold text-amber-600 dark:text-amber-400">4 / 5</span>
+            </p>
+          </div>
+
+          <div className="relative border-t border-stone-200/80 dark:border-gray-700/80 pt-3">
+            <p className="text-[10px] font-semibold text-stone-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+              Attendance · same page
+            </p>
+            <div className="flex gap-1.5">
+              {attendanceDays.map((day) => (
+                <div key={day.label} className="flex-1 min-w-0 text-center">
+                  <div
+                    className={`aspect-square max-h-8 rounded-md flex items-center justify-center text-[10px] font-bold ${statusStyles[day.status]}`}
+                  >
+                    {day.label.charAt(0)}
+                  </div>
+                  <p className="text-[9px] text-stone-500 dark:text-gray-400 mt-1">{day.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Family dashboard mock — multi-swimmer hub with rubric snapshot on pathway swimmers */
+function FamilyHubGraphic() {
+  const amaraChart = [
+    { label: 'Nov', avg: 2.4, attitude: 3.5, selected: false },
+    { label: 'Dec', avg: 2.7, attitude: 3.8, selected: false },
+    { label: 'Jan', avg: 2.9, attitude: 4.0, selected: false },
+    { label: 'Feb', avg: 3.1, attitude: 4.2, selected: false },
+    { label: 'Mar', avg: 3.2, attitude: 4.4, selected: true },
+  ]
+
+  const maxSkill = 4
+  const maxAttitude = 5
+  const chartHeight = 72
+  const barWidth = 22
+  const gap = 6
+  const paddingLeft = 18
+  const paddingRight = 6
+  const paddingTop = 4
+  const paddingBottom = 16
+  const plotHeight = chartHeight - paddingTop - paddingBottom
+  const totalWidth = paddingLeft + paddingRight + amaraChart.length * barWidth + (amaraChart.length - 1) * gap
+
+  return (
+    <div
+      className="relative w-full max-w-md mx-auto lg:mx-0 min-w-0"
+      role="img"
+      aria-label="Example family dashboard: swimmers, rubric progress, attendance, invoices, and next session"
+    >
+      <div
+        className="absolute -inset-3 sm:-inset-6 bg-gradient-to-tr from-primary/15 via-primary/5 to-transparent dark:from-primary/25 dark:via-primary/10 rounded-[1.5rem] sm:rounded-[2rem] blur-xl sm:blur-2xl opacity-80"
+        aria-hidden
+      />
+      <div className="relative bg-stone-900 dark:bg-gray-950 rounded-[1.75rem] p-1.5 sm:p-2 shadow-soft ring-1 ring-white/10 min-w-0">
+        <div className="relative bg-white dark:bg-gray-800 rounded-2xl p-5 sm:p-6 space-y-4 overflow-hidden">
+          <div className="absolute inset-0 pointer-events-none bg-gradient-to-b from-primary/[0.06] via-transparent to-transparent dark:from-primary/10 rounded-2xl" aria-hidden />
+
+          <div className="relative flex items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-stone-900 dark:text-gray-100">My Dashboard</h3>
+            <span className="text-[11px] text-stone-400 dark:text-gray-500">Welcome back</span>
+          </div>
+
+          <div className="relative grid grid-cols-3 gap-2 text-center">
+            <div className="bg-primary/8 dark:bg-primary/15 rounded-xl py-2.5">
+              <p className="text-lg font-bold text-primary tabular-nums">2</p>
+              <p className="text-[10px] text-stone-500 dark:text-gray-400">Swimmers</p>
+            </div>
+            <div className="bg-emerald-50/80 dark:bg-emerald-900/20 rounded-xl py-2.5">
+              <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">12</p>
+              <p className="text-[10px] text-stone-500 dark:text-gray-400">Sessions</p>
+            </div>
+            <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl py-2.5">
+              <p className="text-lg font-bold text-amber-600 dark:text-amber-400 tabular-nums">1</p>
+              <p className="text-[10px] text-stone-500 dark:text-gray-400">Invoice</p>
+            </div>
+          </div>
+
+          <div className="relative flex items-center gap-2 rounded-xl border border-amber-200/80 dark:border-amber-800/50 bg-amber-50/70 dark:bg-amber-900/15 px-3 py-2">
+            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 shrink-0">Due</span>
+            <p className="text-[11px] text-amber-900 dark:text-amber-100 min-w-0 truncate">
+              Quarter 2 training fees · secure checkout ready
+            </p>
+          </div>
+
+          <div className="relative border border-stone-200 dark:border-gray-700 rounded-xl p-3 space-y-2.5 bg-stone-50/40 dark:bg-gray-900/20">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                  <span className="text-[11px] font-bold text-primary">AW</span>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-stone-900 dark:text-gray-100 truncate">Amara Wanza</p>
+                  <p className="text-[11px] text-stone-500 dark:text-gray-400">Age 10 · Dev 3</p>
+                </div>
+              </div>
+              <span className="text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-900/35 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded-full shrink-0">
+                Approved
+              </span>
+            </div>
+
+            <p className="text-[11px] text-stone-600 dark:text-gray-400">
+              3 of 4 scheduled days with attendance (to date)
+            </p>
+
+            <div className="rounded-lg border border-stone-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 px-2 pt-2 pb-1">
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <p className="text-[10px] font-semibold text-stone-700 dark:text-gray-300">Progress over time</p>
+                <p className="text-[9px] text-stone-500 dark:text-gray-400">Rubric · Mar</p>
+              </div>
+              <div className="overflow-x-auto">
+                <svg width={totalWidth} height={chartHeight} className="min-w-full" aria-hidden>
+                  {[1, 2, 3, 4].map((tick) => {
+                    const y = paddingTop + plotHeight * (1 - tick / maxSkill)
+                    return (
+                      <line
+                        key={tick}
+                        x1={paddingLeft}
+                        y1={y}
+                        x2={totalWidth - paddingRight}
+                        y2={y}
+                        stroke="currentColor"
+                        strokeOpacity={0.06}
+                        className="text-stone-900 dark:text-gray-100"
+                      />
+                    )
+                  })}
+                  {amaraChart.map((point, i) => {
+                    const x = paddingLeft + i * (barWidth + gap)
+                    const centerX = x + barWidth / 2
+                    const barH = (point.avg / maxSkill) * plotHeight
+                    const barY = paddingTop + plotHeight - barH
+                    const attY = paddingTop + plotHeight * (1 - point.attitude / maxAttitude)
+                    const prev = i > 0 ? amaraChart[i - 1] : null
+                    const prevCenterX = i > 0 ? paddingLeft + (i - 1) * (barWidth + gap) + barWidth / 2 : null
+                    const prevAttY = prev
+                      ? paddingTop + plotHeight * (1 - prev.attitude / maxAttitude)
+                      : null
+
+                    return (
+                      <g key={point.label}>
+                        {prevAttY != null && prevCenterX != null && (
+                          <line
+                            x1={prevCenterX}
+                            y1={prevAttY}
+                            x2={centerX}
+                            y2={attY}
+                            stroke="currentColor"
+                            strokeWidth={1.25}
+                            className="text-amber-500 dark:text-amber-400"
+                            strokeOpacity={0.65}
+                          />
+                        )}
+                        <rect
+                          x={x + 2}
+                          y={barY}
+                          width={barWidth - 4}
+                          height={Math.max(barH, 2)}
+                          rx={2}
+                          fill={point.selected ? 'var(--color-pool-blue)' : 'var(--color-pool-blue-muted)'}
+                        />
+                        <circle
+                          cx={centerX}
+                          cy={attY}
+                          r={point.selected ? 3.5 : 2.5}
+                          className="fill-amber-500 dark:fill-amber-400"
+                        />
+                        <text
+                          x={centerX}
+                          y={chartHeight - 3}
+                          textAnchor="middle"
+                          className={`text-[7px] ${point.selected ? 'font-semibold' : 'fill-stone-500 dark:fill-gray-400'}`}
+                          fill={point.selected ? 'var(--color-pool-blue)' : undefined}
+                        >
+                          {point.label}
+                        </text>
+                      </g>
+                    )
+                  })}
+                </svg>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap gap-2 text-[10px]">
+              <span className="font-semibold text-primary dark:text-primary bg-primary/8 dark:bg-primary/15 px-2 py-0.5 rounded-md">
+                Rubric 3.2 / 4
+              </span>
+              <span className="text-stone-600 dark:text-gray-400 bg-stone-100 dark:bg-gray-700/50 px-2 py-0.5 rounded-md">
+                Coach attitude 4 / 5
+              </span>
+            </div>
+
+            <div className="h-8 rounded-lg bg-primary text-white text-[11px] font-semibold flex items-center justify-center">
+              Progress and attendance
+            </div>
+          </div>
+
+          <div className="relative border border-stone-200 dark:border-gray-700 rounded-xl p-3 space-y-2.5">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center shrink-0">
+                  <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-300">KM</span>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-stone-900 dark:text-gray-100 truncate">Kofi Maina</p>
+                  <p className="text-[11px] text-stone-500 dark:text-gray-400">Age 7 · Pups</p>
+                </div>
+              </div>
+              <span className="text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-900/35 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded-full shrink-0">
+                Approved
+              </span>
+            </div>
+            <p className="text-[11px] text-stone-600 dark:text-gray-400">
+              2 of 3 scheduled days with attendance (to date)
+            </p>
+            <div className="flex gap-1.5">
+              {['M', 'T', 'W', 'S'].map((day, i) => (
+                <div
+                  key={day}
+                  className={`flex-1 aspect-square max-h-7 rounded-md flex items-center justify-center text-[9px] font-bold ${
+                    i === 2 ? 'bg-red-500 text-white' : i === 3 ? 'bg-primary text-white' : 'bg-green-600 text-white'
+                  }`}
+                >
+                  {day}
+                </div>
+              ))}
+            </div>
+            <div className="h-8 rounded-lg bg-primary text-white text-[11px] font-semibold flex items-center justify-center">
+              Progress and attendance
+            </div>
+          </div>
+
+          <div className="relative flex items-center gap-2 bg-stone-50 dark:bg-gray-700/50 rounded-xl px-3 py-2.5 border border-stone-200/80 dark:border-gray-600/80">
+            <svg className="w-4 h-4 text-primary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+            <div className="min-w-0">
+              <p className="text-[10px] font-semibold text-stone-500 dark:text-gray-400 uppercase tracking-wide">
+                Next at the pool
+              </p>
+              <p className="text-[11px] font-semibold text-stone-900 dark:text-gray-100 mt-0.5">Mon 16 Mar · 16:00–17:30</p>
+              <p className="text-[11px] text-primary dark:text-primary truncate">School of Nations Pool</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Home() {
   return (
     <>
@@ -224,7 +686,7 @@ export default function Home() {
               </Link>
             </div>
             <div className="mt-12 flex flex-wrap items-center justify-center gap-x-8 gap-y-3 text-sm text-stone-600 dark:text-gray-400">
-              {['Competitive squads', 'Learn to swim', 'Fitness swimming'].map((label) => (
+              {['Elite & pathway', 'Learn to swim', 'Fitness swimming'].map((label) => (
                 <div key={label} className="flex items-center gap-2">
                   <svg className="w-5 h-5 text-primary dark:text-primary shrink-0" fill="currentColor" viewBox="0 0 20 20">
                     <path
@@ -287,103 +749,21 @@ export default function Home() {
                 <span className="text-primary dark:text-primary">attendance</span>, together
               </h2>
               <p className="text-lg text-stone-600 dark:text-gray-300 mb-8 leading-relaxed max-w-lg">
-                Race times, personal bests, and coach feedback live alongside a month view of training
-                attendance so you always know how the season is going.
+                Race times, personal bests, and coach feedback live alongside squad rubric evaluations and
+                training attendance so you always know how the season is going.
               </p>
               <FeatureList
                 items={[
                   'Race times and PB history in one table',
-                  'Coach notes with technique, fitness, and achievements',
-                  'Attendance tab on the same page as performance, no extra app',
-                  'Month navigation with attended, missed, and upcoming days',
+                  'Squad rubric with progress-over-time chart',
+                  'Skills, habits, and coach attitude in one view',
+                  'Attendance on the same page as performance, no extra app',
                 ]}
               />
             </div>
 
             <div>
-              <div className="bg-stone-900 dark:bg-gray-950 rounded-[1.75rem] p-1.5 sm:p-2 shadow-soft ring-1 ring-white/10">
-                <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 sm:p-6 space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                      <span className="text-sm font-bold text-primary">AW</span>
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-stone-900 dark:text-gray-100 truncate">Amara Wanza</p>
-                      <p className="text-[11px] text-stone-500 dark:text-gray-400">Age 10 · Competitive</p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-1 bg-stone-100 dark:bg-gray-900/80 p-1 rounded-lg">
-                    <span className="px-3 py-1.5 rounded-md text-xs font-medium text-stone-500 dark:text-gray-400">
-                      Race times
-                    </span>
-                    <span className="px-3 py-1.5 rounded-md text-xs font-medium text-stone-500 dark:text-gray-400">
-                      Coach notes
-                    </span>
-                    <span className="px-3 py-1.5 rounded-md text-xs font-semibold bg-white dark:bg-gray-700 text-stone-900 dark:text-gray-100 shadow-sm">
-                      Attendance
-                    </span>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-[11px] font-semibold text-stone-500 dark:text-gray-400 uppercase tracking-wide">
-                        March 2026
-                      </p>
-                      <div className="flex gap-1">
-                        <span className="w-6 h-6 rounded text-[10px] flex items-center justify-center text-stone-400 border border-stone-200 dark:border-gray-600">
-                          ‹
-                        </span>
-                        <span className="w-6 h-6 rounded text-[10px] flex items-center justify-center text-stone-400 border border-stone-200 dark:border-gray-600">
-                          ›
-                        </span>
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-7 gap-1 text-center text-[9px] font-medium text-stone-400 dark:text-gray-500 mb-1">
-                      {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-                        <span key={`${d}-${i}`}>{d}</span>
-                      ))}
-                    </div>
-                    <div className="grid grid-cols-7 gap-1">
-                      {[
-                        { d: ' ', c: '' },
-                        { d: ' ', c: '' },
-                        { d: ' ', c: '' },
-                        { d: ' ', c: '' },
-                        { d: ' ', c: '' },
-                        { d: ' ', c: '' },
-                        { d: '1', c: 'bg-blue-500 text-white' },
-                        { d: '2', c: 'bg-green-600 text-white' },
-                        { d: '3', c: 'bg-green-600 text-white' },
-                        { d: '4', c: 'bg-stone-100 dark:bg-gray-700 text-stone-400' },
-                        { d: '5', c: 'bg-red-500 text-white' },
-                        { d: '6', c: 'bg-green-600 text-white' },
-                        { d: '7', c: 'bg-blue-500 text-white' },
-                      ].map((cell, i) => (
-                        <div
-                          key={i}
-                          className={`aspect-square rounded-md flex items-center justify-center text-[10px] font-medium ${
-                            cell.c || 'text-transparent'
-                          }`}
-                        >
-                          {cell.d.trim() ? cell.d : ''}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex flex-wrap gap-3 justify-center mt-3 text-[10px] text-stone-500 dark:text-gray-400">
-                      <span className="flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-sm bg-green-600" /> Attended
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-sm bg-blue-500" /> Upcoming
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-sm bg-red-500" /> Missed
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <ProgressAttendanceGraphic />
             </div>
           </div>
         </div>
@@ -394,76 +774,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-14 lg:gap-20 items-center">
             <div className="order-2 lg:order-1">
-              <div className="bg-stone-900 dark:bg-gray-950 rounded-[1.75rem] p-1.5 sm:p-2 shadow-soft ring-1 ring-white/10">
-                <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 sm:p-6 space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-stone-900 dark:text-gray-100">My Dashboard</h3>
-                    <span className="text-[11px] text-stone-400 dark:text-gray-500">Welcome back</span>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2 text-center">
-                    <div className="bg-primary/8 dark:bg-primary/15 rounded-xl py-2.5">
-                      <p className="text-lg font-bold text-primary tabular-nums">2</p>
-                      <p className="text-[10px] text-stone-500 dark:text-gray-400">Swimmers</p>
-                    </div>
-                    <div className="bg-emerald-50/80 dark:bg-emerald-900/20 rounded-xl py-2.5">
-                      <p className="text-lg font-bold text-emerald-700 dark:text-emerald-400 tabular-nums">12</p>
-                      <p className="text-[10px] text-stone-500 dark:text-gray-400">Sessions</p>
-                    </div>
-                    <div className="bg-amber-50 dark:bg-amber-900/20 rounded-xl py-2.5">
-                      <p className="text-lg font-bold text-amber-600 dark:text-amber-400 tabular-nums">1</p>
-                      <p className="text-[10px] text-stone-500 dark:text-gray-400">Invoice</p>
-                    </div>
-                  </div>
-
-                  <div className="border border-stone-200 dark:border-gray-700 rounded-xl p-3 space-y-2.5">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-semibold text-stone-900 dark:text-gray-100">Amara Wanza</p>
-                        <p className="text-[11px] text-stone-500 dark:text-gray-400">Age 10 · Competitive squad</p>
-                      </div>
-                      <span className="text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-900/35 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded-full shrink-0">
-                        Approved
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-stone-600 dark:text-gray-400">3 of 4 scheduled days with attendance (to date)</p>
-                    <div className="h-8 rounded-lg bg-primary text-white text-[11px] font-semibold flex items-center justify-center">
-                      Progress and attendance
-                    </div>
-                  </div>
-
-                  <div className="border border-stone-200 dark:border-gray-700 rounded-xl p-3 space-y-2.5">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="text-sm font-semibold text-stone-900 dark:text-gray-100">Kofi Maina</p>
-                        <p className="text-[11px] text-stone-500 dark:text-gray-400">Age 7 · Learn to swim</p>
-                      </div>
-                      <span className="text-[10px] font-semibold bg-emerald-100 dark:bg-emerald-900/35 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded-full shrink-0">
-                        Approved
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-stone-600 dark:text-gray-400">2 of 3 scheduled days with attendance (to date)</p>
-                    <div className="h-8 rounded-lg bg-primary text-white text-[11px] font-semibold flex items-center justify-center">
-                      Progress and attendance
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 bg-stone-50 dark:bg-gray-700/50 rounded-xl px-3 py-2.5">
-                    <svg className="w-4 h-4 text-primary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                      />
-                    </svg>
-                    <div className="min-w-0">
-                      <p className="text-[11px] font-semibold text-stone-700 dark:text-gray-300">Mon 16 Mar · 16:00–17:30</p>
-                      <p className="text-[11px] text-stone-400 dark:text-gray-500 truncate">School of Nations Pool</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <FamilyHubGraphic />
             </div>
 
             <div className="order-1 lg:order-2 animate-reveal">
@@ -475,15 +786,15 @@ export default function Home() {
                 <span className="text-primary dark:text-primary">swimming hub</span>
               </h2>
               <p className="text-lg text-stone-600 dark:text-gray-300 mb-8 leading-relaxed max-w-lg">
-                From the dashboard, jump into each swimmer&apos;s profile, pay what&apos;s due, and see what&apos;s
-                next at the pool without juggling spreadsheets or threads.
+                From the dashboard, jump into each swimmer&apos;s profile, see rubric progress and attendance at a
+                glance, pay what&apos;s due, and see what&apos;s next at the pool without juggling spreadsheets or threads.
               </p>
               <FeatureList
                 items={[
                   'All swimmers under your account in one view',
-                  'Training schedule highlights and session details',
-                  'Invoices and Paystack checkout when fees are due',
-                  'A single path into progress, notes, and attendance',
+                  'Rubric progress snapshots for pathway squads',
+                  'Invoices and secure checkout when fees are due',
+                  'One tap into progress, rubric, notes, and attendance',
                 ]}
               />
             </div>

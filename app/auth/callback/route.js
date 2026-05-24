@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/supabase/route-handler'
 import { getPublicOrigin } from '@/lib/utils/public-origin'
-import { accessTokenIndicatesPasswordRecovery } from '@/lib/utils/jwt-amr'
+import {
+  accessTokenIndicatesInvite,
+  accessTokenIndicatesPasswordRecovery,
+  userIndicatesPendingInvite,
+} from '@/lib/utils/jwt-amr'
 
 function safeInternalPath(nextPath) {
   if (!nextPath || typeof nextPath !== 'string') return null
@@ -119,6 +123,21 @@ export async function GET(request) {
   }
 
   if (usedInviteTokenHash && !nextMerged) {
+    const res = NextResponse.redirect(new URL('/auth/set-password', origin))
+    copyCookies(response, res)
+    clearOttersOAuthReturnCookie(res, requestUrl)
+    return res
+  }
+
+  const isInviteSession =
+    otpType === 'invite' ||
+    userIndicatesPendingInvite(user) ||
+    !!(
+      session?.access_token &&
+      accessTokenIndicatesInvite(session.access_token, { disallowIfOauthInAmr: true })
+    )
+
+  if (isInviteSession && !nextMerged) {
     const res = NextResponse.redirect(new URL('/auth/set-password', origin))
     copyCookies(response, res)
     clearOttersOAuthReturnCookie(res, requestUrl)

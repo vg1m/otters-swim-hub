@@ -30,6 +30,23 @@ Your admin account is created by the system administrator with:
 └────────────────────────────────────┘
 ```
 
+### Notifications (admin & coach)
+**Paths**: `/admin/notifications` (admins) · `/coach/notifications` (coaches)
+
+**Nav badge**: Unread count from the `staff_notifications` feed (same pattern as parent notifications).
+
+**Alerts (computed on the page):**
+- Admins: pending registrations, swimmers needing a squad, outstanding invoice totals
+- Coaches: recent assignments and session pay activity
+
+**Persisted feed events (MVP):**
+- **Admins** — new registration submitted (`registration_pending`)
+- **Coaches** — squad or swimmer assignment, session pay recorded (in-app; pay stub email still sent separately by cron)
+
+**Email:** Optional SMTP2GO delivery when `SMTP2GO_API_KEY` is set. Set `STAFF_NOTIFICATIONS_EMAIL=0` to disable staff emails in staging. Session pay uses in-app notification only to avoid duplicate pay emails.
+
+**Apply migration:** Run `supabase/migrations/080_staff_notifications.sql` on your Supabase project before using this feature.
+
 ## 👥 Managing Registrations
 
 ### 3. View Pending Registrations

@@ -164,13 +164,29 @@ Coaches **do not** use the parent `/signup` or `/register` flow.
 
 1. Admin opens **`/admin/coaches`** and clicks **Add coach**.
 2. Enter **email** and **full name** (optional phone). The app calls `POST /api/admin/coaches/invite` (requires `SUPABASE_SERVICE_ROLE_KEY` on the server).
-3. **New email**: Supabase sends an invite. The API sets `redirect_to` to **`/auth/finish-invite`** (no nested `?next=` query—nested redirects can prevent session tokens being appended). Tokens from the implicit hash or PKCE `code` become **auth cookies** on that page; the coach then sets a password at **`/auth/set-password`**.
-   - In **Supabase → Authentication → URL configuration**, add your site origin’s **`/auth/finish-invite`** and **`/auth/set-password`** (and wildcards if you use them) to **Redirect URLs**.
+3. **New email**: Supabase sends an invite. The API sets `redirect_to` to **`https://otters.ke/auth/finish-invite`** (origin from the admin’s public hostname via `getAuthRedirectOrigin`; no nested `?next=` query—nested redirects can prevent session tokens being appended). Tokens from the implicit hash or PKCE `code` become **auth cookies** on that page; the coach then sets a password at **`/auth/set-password`**.
+   - **Vercel (Production):** `NEXT_PUBLIC_APP_URL=https://otters.ke` and optionally `NEXT_PUBLIC_EMAIL_PUBLIC_URL=https://otters.ke`. Redeploy after changing env vars.
+   - In **Supabase → Authentication → URL configuration**, set **Site URL** to `https://otters.ke` and add to **Redirect URLs**:
+     - `https://otters.ke/auth/finish-invite`
+     - `https://otters.ke/auth/set-password`
+     - `https://otters.ke/auth/callback`
+     - `https://otters.ke/reset-password`
+   - Keep `http://localhost:3000/...` equivalents for local dev.
    - Optional but recommended: in **Auth → Email templates → Invite user**, use a link that hits your app with `token_hash` so the server can verify without relying on the hash (see [Supabase email templates → Redirecting server-side](https://supabase.com/docs/guides/auth/auth-email-templates)):  
      `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=invite&next=%2Fauth%2Fset-password`
 4. **Existing parent** with the same email: their profile is upgraded to `role = 'coach'`; they keep their existing login.
 
 Then use **Assign** on the same page for squads or swimmers.
+
+### Troubleshooting: invite opens homepage
+
+If the coach lands on **`https://otters.ke/`** instead of set-password:
+
+1. **Supabase → Authentication → URL configuration:** add `https://otters.ke/auth/finish-invite` to **Redirect URLs**; **Site URL** = `https://otters.ke`.
+2. **Re-send the invite** (old emails are not updated).
+3. Prefer the direct callback button in the **Invite user** template (see step 3 above) so the link is  
+   `{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=invite&next=%2Fauth%2Fset-password`.
+4. The app also bridges hash tokens on `/` via [`AuthEmailLinkBridge.jsx`](../components/AuthEmailLinkBridge.jsx) — deploy the latest build if you still see the homepage after fixing Supabase.
 
 ## Manual role update (emergency / support only)
 
