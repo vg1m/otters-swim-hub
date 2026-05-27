@@ -1,6 +1,7 @@
 'use client'
 
 import { format } from 'date-fns'
+import { getAttendanceOccurrenceDateKey } from '@/lib/attendance/attendance-date-key'
 
 export default function AttendanceCalendar({ swimmerId, attendance }) {
   // Generate last 14 days
@@ -14,11 +15,7 @@ export default function AttendanceCalendar({ swimmerId, attendance }) {
     const dateStr = format(date, 'yyyy-MM-dd')
     
     // Check if there's an attendance record for this date
-    const record = attendance.find(a => {
-      if (!a.training_sessions?.session_date) return false
-      const sessionDateStr = format(new Date(a.training_sessions.session_date), 'yyyy-MM-dd')
-      return sessionDateStr === dateStr
-    })
+    const record = attendance.find((a) => getAttendanceOccurrenceDateKey(a) === dateStr)
     
     if (record) return 'attended'
     if (date > new Date()) return 'upcoming'

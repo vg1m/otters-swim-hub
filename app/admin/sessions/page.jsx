@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useMemo } from 'react'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
@@ -10,15 +11,28 @@ import Footer from '@/components/Footer'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
-import { formatDate, formatDateTime } from '@/lib/utils/date-helpers'
-import { buildRecurrencePattern, parseRecurrencePattern, formatRecurrencePattern, getWeekday, getOrdinalWeek, expandRecurringSessions } from '@/lib/utils/recurrence'
+import { formatDate, formatDateTime, combineSessionDateAndTime } from '@/lib/utils/date-helpers'
+import {
+  buildRecurrencePattern,
+  parseRecurrencePattern,
+  formatRecurrencePattern,
+  getWeekday,
+  getOrdinalWeek,
+  expandRecurringSessions,
+} from '@/lib/utils/recurrence'
 import toast from 'react-hot-toast'
-import { Calendar, dateFnsLocalizer } from 'react-big-calendar'
-import { format, parse, startOfWeek, getDay, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns'
+import { dateFnsLocalizer } from 'react-big-calendar'
+import { format, parse, startOfWeek, getDay } from 'date-fns'
+import {
+  adminCalendarFetchBounds,
+  fetchSessionsForCalendarWindow,
+  fetchSessionExceptionsForWindow,
+} from '@/lib/sessions/calendar-window'
 import { enUS } from 'date-fns/locale/en-US'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import { getSquadCalendarEventProps } from '@/lib/utils/squad-calendar'
 import SessionFormFields from '@/components/admin/SessionFormFields'
+import { requestSessionScheduleNotify } from '@/lib/sessions/request-session-schedule-notify'
 
 /** One pill per squad colour family (calendar events still resolve slug → colour). */
 const SQUAD_LEGEND_CHIPS = [
@@ -28,6 +42,18 @@ const SQUAD_LEGEND_CHIPS = [
   { label: 'Masters', cls: 'rbc-squad-masters' },
   { label: 'Other / unassigned', cls: 'rbc-squad-default' },
 ]
+
+const Calendar = dynamic(
+  () => import('react-big-calendar').then((mod) => mod.Calendar),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex min-h-[320px] items-center justify-center text-sm text-gray-500 dark:text-gray-400">
+        Loading calendar…
+      </div>
+    ),
+  }
+)
 
 const localizer = dateFnsLocalizer({
   format,
@@ -114,6 +140,7 @@ export default function SessionsPage() {
   const [squadList, setSquadList] = useState([])
   const [coachList, setCoachList] = useState([])
   const [loading, setLoading] = useState(true)
+  const [sessionsLoading, setSessionsLoading] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [selectedSession, setSelectedSession] = useState(null)
@@ -126,6 +153,10 @@ export default function SessionsPage() {
   const [windowSize, setWindowSize] = useState(null)
   const [selectedEvent, setSelectedEvent] = useState(null)
   const [moreEvents, setMoreEvents] = useState(null)
+  const [sessionExceptions, setSessionExceptions] = useState([])
+  const [editScope, setEditScope] = useState(null)
+  const [editingOccurrenceDate, setEditingOccurrenceDate] = useState(null)
+  const [scopeChoice, setScopeChoice] = useState(null)
 
   const calendarHeight = useMemo(() => {
     if (!windowSize) return 680
@@ -163,14 +194,37 @@ export default function SessionsPage() {
       }
     }
     
-    // Load data immediately if we have user (even if profile still loading)
-    if (user && !sessions.length) {
-      loadSessions()
+    // Load static lists once
+    if (user) {
       loadFacilities()
       loadSquads()
       loadCoaches()
     }
   }, [user, profile, authLoading])
+
+  const calendarBounds = useMemo(
+    () => adminCalendarFetchBounds(calendarDate),
+    [calendarDate]
+  )
+
+  useEffect(() => {
+    if (!user) {
+      setLoading(false)
+      return
+    }
+    const role = profile?.role ?? profileCache.get(user.id)?.role
+    if (role && role !== 'admin') {
+      setLoading(false)
+      return
+    }
+    loadSessionsForCalendar(calendarBounds)
+  }, [
+    user,
+    profile?.role,
+    calendarBounds.windowStartStr,
+    calendarBounds.windowEndStr,
+    calendarBounds.fetchEndStr,
+  ])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -206,51 +260,123 @@ export default function SessionsPage() {
   }, [])
 
   const calendarEvents = useMemo(() => {
-    const windowStart = startOfMonth(subMonths(calendarDate, 1))
-    const windowEnd   = endOfMonth(addMonths(calendarDate, 2))
-    return expandRecurringSessions(sessions, windowStart, windowEnd).map((s) => ({
-      id:       s.id + '_' + s.session_date,
-      title:    (s.training_session_squads?.map((ts) => ts.squads?.name).filter(Boolean).join(', ') || 'No squad'),
-      start:    new Date(`${s.session_date}T${s.start_time}`),
-      end:      new Date(`${s.session_date}T${s.end_time}`),
-      resource: s,
-    }))
-  }, [sessions, calendarDate])
+    const expanded = expandRecurringSessions(
+      sessions,
+      calendarBounds.windowStart,
+      calendarBounds.windowEnd,
+      sessionExceptions
+    )
+    return expanded
+      .map((s) => {
+        let start = combineSessionDateAndTime(s.session_date, s.start_time)
+        let end = combineSessionDateAndTime(s.session_date, s.end_time)
+        if (Number.isNaN(start.getTime())) return null
+        if (Number.isNaN(end.getTime()) || end <= start) {
+          end = new Date(start.getTime() + 60 * 60 * 1000)
+        }
+        return {
+          id: s.id + '_' + s.session_date,
+          title:
+            s.training_session_squads?.map((ts) => ts.squads?.name).filter(Boolean).join(', ') ||
+            'No squad',
+          start,
+          end,
+          resource: s,
+        }
+      })
+      .filter(Boolean)
+  }, [sessions, calendarBounds, sessionExceptions])
 
-  async function loadSessions() {
+  function getOccurrenceDate(session) {
+    return session?.occurrence_date || session?.session_date
+  }
+
+  function buildSessionFormFromEvent(session, { forSeriesEdit = false } = {}) {
+    const parsed = parseRecurrencePattern(session.recurrence_pattern)
+    const anchor =
+      session.series_anchor_date ||
+      sessions.find((s) => s.id === session.id)?.session_date ||
+      session.session_date
+    const displayDate = forSeriesEdit ? anchor : getOccurrenceDate(session)
+    return {
+      session_date: displayDate,
+      start_time: session.start_time,
+      end_time: session.end_time,
+      pool_location: session.pool_location,
+      facility_id: session.facility_id || '',
+      coach_id: session.coach_id || '',
+      squad_ids: session.training_session_squads?.map((ts) => ts.squad_id) || [],
+      is_recurring: session.is_recurring || false,
+      recurrence_type: parsed.type,
+      recurrence_weekday: parsed.options.weekday || '',
+      recurrence_ordinal: parsed.options.ordinal || '',
+      recurrence_day_type: parsed.options.day_type || 'first',
+      recurrence_annually_date: parsed.options.date || '',
+      recurrence_custom_interval: parsed.options.interval || '1',
+      recurrence_custom_unit: parsed.options.unit || 'week',
+      recurrence_custom_weekdays: parsed.options.weekdays || [],
+      recurrence_end_date: session.recurrence_end_date || '',
+    }
+  }
+
+  async function loadSessionsForCalendar(bounds) {
     const supabase = createClient()
-    setLoading(true)
+    const isFirstLoad = sessions.length === 0 && loading
+    if (isFirstLoad) {
+      setLoading(true)
+    } else {
+      setSessionsLoading(true)
+    }
 
     try {
-      const { data, error } = await supabase
-        .from('training_sessions')
-        .select('*, training_session_squads(squad_id, squads(id, name, slug))')
-        .order('session_date', { ascending: false })
-        .order('start_time', { ascending: false })
-        .limit(50)
+      const [sessionsRes, exceptionsRes] = await Promise.all([
+        fetchSessionsForCalendarWindow(
+          supabase,
+          bounds.windowStartStr,
+          bounds.fetchEndStr,
+          undefined,
+          { displayEndStr: bounds.windowEndStr }
+        ),
+        fetchSessionExceptionsForWindow(
+          supabase,
+          bounds.windowStartStr,
+          bounds.windowEndStr
+        ),
+      ])
 
-      if (error) throw error
-      setSessions(data || [])
+      if (sessionsRes.error) throw sessionsRes.error
+      const rows = sessionsRes.data || []
+      setSessions(rows)
+
+      if (exceptionsRes.error) {
+        console.error('Error loading session exceptions:', exceptionsRes.error)
+        setSessionExceptions([])
+      } else {
+        setSessionExceptions(exceptionsRes.data || [])
+      }
     } catch (error) {
       console.error('Error loading sessions:', error)
       toast.error('Failed to load sessions')
     } finally {
       setLoading(false)
+      setSessionsLoading(false)
     }
+  }
+
+  /** Reload calendar data after create/edit/delete (keeps current visible range). */
+  function loadSessions() {
+    return loadSessionsForCalendar(calendarBounds)
   }
 
   async function loadCoaches() {
     const supabase = createClient()
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, full_name, per_session_rate_kes')
-        .in('role', ['coach', 'admin'])
-        .order('full_name')
+      const { data, error } = await supabase.rpc('list_assignable_coaches')
       if (error) throw error
       setCoachList(data || [])
     } catch (error) {
       console.error('Error loading coaches:', error)
+      setCoachList([])
     }
   }
 
@@ -287,6 +413,12 @@ export default function SessionsPage() {
   }
 
   async function handleCreateSession() {
+    const role = profile?.role ?? (user ? profileCache.get(user.id)?.role : null)
+    if (role !== 'admin') {
+      toast.error('Only admins can create training sessions')
+      return
+    }
+
     if (!sessionForm.session_date || !sessionForm.start_time || !sessionForm.end_time || sessionForm.squad_ids.length === 0) {
       toast.error('Please fill in all required fields including at least one squad')
       return
@@ -309,6 +441,15 @@ export default function SessionsPage() {
       (!Array.isArray(sessionForm.recurrence_custom_weekdays) || sessionForm.recurrence_custom_weekdays.length === 0)
     ) {
       toast.error('Pick at least one day of the week')
+      return
+    }
+
+    if (
+      sessionForm.is_recurring &&
+      sessionForm.recurrence_end_date &&
+      sessionForm.recurrence_end_date < sessionForm.session_date
+    ) {
+      toast.error('Recurrence end date must be on or after the session start date')
       return
     }
 
@@ -370,33 +511,44 @@ export default function SessionsPage() {
         recurrencePattern = buildRecurrencePattern(sessionForm.recurrence_type, options)
       }
 
-      const { data: newSession, error } = await supabase
-        .from('training_sessions')
-        .insert({
+      const res = await fetch('/api/admin/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
           session_date: sessionForm.session_date,
           start_time: sessionForm.start_time,
           end_time: sessionForm.end_time,
           pool_location: poolLocation,
           facility_id: facilityId,
-          coach_id: sessionForm.coach_id || user.id,
+          coach_id: sessionForm.coach_id || user?.id || null,
+          squad_ids: sessionForm.squad_ids,
           is_recurring: sessionForm.is_recurring,
           recurrence_pattern: recurrencePattern,
-          recurrence_end_date: sessionForm.is_recurring && sessionForm.recurrence_end_date ? sessionForm.recurrence_end_date : null,
-        })
-        .select()
-        .single()
+          recurrence_end_date:
+            sessionForm.is_recurring && sessionForm.recurrence_end_date
+              ? sessionForm.recurrence_end_date
+              : null,
+        }),
+      })
 
-      if (error) throw error
-
-      // Insert squad associations
-      if (sessionForm.squad_ids.length > 0) {
-        const { error: squadError } = await supabase
-          .from('training_session_squads')
-          .insert(sessionForm.squad_ids.map(squad_id => ({ session_id: newSession.id, squad_id })))
-        if (squadError) throw squadError
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        const msg =
+          res.status === 401
+            ? 'Session expired — sign in again as admin'
+            : res.status === 403
+              ? 'Only admins can create training sessions'
+              : payload.error || 'Failed to create session'
+        throw new Error(msg)
       }
 
       toast.success('Training session created successfully')
+      const createdDate = sessionForm.session_date
+      if (createdDate) {
+        const focus = parse(createdDate, 'yyyy-MM-dd', new Date())
+        if (!Number.isNaN(focus.getTime())) setCalendarDate(focus)
+      }
       setShowCreateModal(false)
       setShowCustomPool(false)
       setCustomPoolName('')
@@ -421,10 +573,168 @@ export default function SessionsPage() {
       loadSessions()
     } catch (error) {
       console.error('Error creating session:', error)
-      toast.error('Failed to create session')
+      toast.error(error?.message || 'Failed to create session')
     } finally {
       setSaving(false)
     }
+  }
+
+  async function handleSaveOccurrenceOverride() {
+    if (!editingSession || !editingOccurrenceDate) return
+
+    if (!sessionForm.session_date || !sessionForm.start_time || !sessionForm.end_time || sessionForm.squad_ids.length === 0) {
+      toast.error('Please fill in all required fields including at least one squad')
+      return
+    }
+
+    if (!showCustomPool && !sessionForm.facility_id) {
+      toast.error('Please select a pool location')
+      return
+    }
+
+    setSaving(true)
+    const supabase = createClient()
+
+    try {
+      let facilityId = sessionForm.facility_id
+      let poolLocation = sessionForm.pool_location
+
+      if (showCustomPool && customPoolName) {
+        const { data: newFacility, error: facilityError } = await supabase
+          .from('facilities')
+          .insert({ name: customPoolName, lanes: 6, pool_length: 25, address: '' })
+          .select()
+          .single()
+        if (facilityError) throw facilityError
+        facilityId = newFacility.id
+        poolLocation = newFacility.name
+        await loadFacilities()
+      }
+
+      const { data: existing } = await supabase
+        .from('training_session_exceptions')
+        .select('id')
+        .eq('session_id', editingSession.id)
+        .eq('occurrence_date', editingOccurrenceDate)
+        .maybeSingle()
+
+      const payload = {
+        session_id: editingSession.id,
+        occurrence_date: editingOccurrenceDate,
+        status: 'override',
+        start_time: sessionForm.start_time,
+        end_time: sessionForm.end_time,
+        coach_id: sessionForm.coach_id || null,
+        facility_id: facilityId || null,
+        pool_location: poolLocation,
+      }
+
+      let exceptionId = existing?.id
+      if (existing?.id) {
+        const { error } = await supabase
+          .from('training_session_exceptions')
+          .update(payload)
+          .eq('id', existing.id)
+        if (error) throw error
+      } else {
+        const { data: inserted, error } = await supabase
+          .from('training_session_exceptions')
+          .insert(payload)
+          .select('id')
+          .single()
+        if (error) throw error
+        exceptionId = inserted.id
+      }
+
+      await supabase
+        .from('training_session_exception_squads')
+        .delete()
+        .eq('exception_id', exceptionId)
+
+      if (sessionForm.squad_ids.length > 0) {
+        const { error: squadErr } = await supabase
+          .from('training_session_exception_squads')
+          .insert(sessionForm.squad_ids.map((squad_id) => ({ exception_id: exceptionId, squad_id })))
+        if (squadErr) throw squadErr
+      }
+
+      toast.success('This occurrence updated (series unchanged)')
+      requestSessionScheduleNotify({
+        sessionId: editingSession.id,
+        changeKind: 'session_occurrence_updated',
+        occurrenceDate: editingOccurrenceDate,
+        squadIds: sessionForm.squad_ids,
+      })
+      setShowEditModal(false)
+      setEditingSession(null)
+      setEditScope(null)
+      setEditingOccurrenceDate(null)
+      loadSessions()
+    } catch (error) {
+      console.error('Error saving occurrence override:', error)
+      toast.error('Failed to update this occurrence')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleCancelOccurrence(session, occurrenceDate) {
+    const supabase = createClient()
+    try {
+      const { data: existing } = await supabase
+        .from('training_session_exceptions')
+        .select('id')
+        .eq('session_id', session.id)
+        .eq('occurrence_date', occurrenceDate)
+        .maybeSingle()
+
+      if (existing?.id) {
+        const { error } = await supabase
+          .from('training_session_exceptions')
+          .update({ status: 'cancelled' })
+          .eq('id', existing.id)
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('training_session_exceptions').insert({
+          session_id: session.id,
+          occurrence_date: occurrenceDate,
+          status: 'cancelled',
+        })
+        if (error) throw error
+      }
+
+      toast.success('This occurrence cancelled')
+      requestSessionScheduleNotify({
+        sessionId: session.id,
+        changeKind: 'session_occurrence_cancelled',
+        occurrenceDate,
+        squadIds: (session.training_session_squads || []).map((l) => l.squad_id).filter(Boolean),
+      })
+      setSelectedEvent(null)
+      loadSessions()
+    } catch (error) {
+      console.error('Error cancelling occurrence:', error)
+      toast.error('Failed to cancel this occurrence')
+    }
+  }
+
+  function handleSaveEdit() {
+    if (editScope === 'occurrence') {
+      handleSaveOccurrenceOverride()
+    } else {
+      handleEditSession()
+    }
+  }
+
+  function openEditModal(session, scope) {
+    const baseSession = sessions.find((s) => s.id === session.id) || session
+    setEditingSession(baseSession)
+    setEditScope(scope)
+    setEditingOccurrenceDate(scope === 'occurrence' ? getOccurrenceDate(session) : null)
+    setShowCustomPool(!session.facility_id)
+    setCustomPoolName(!session.facility_id ? session.pool_location : '')
+    setSessionForm(buildSessionFormFromEvent(session, { forSeriesEdit: scope === 'series' }))
+    setShowEditModal(true)
   }
 
   async function handleEditSession() {
@@ -539,9 +849,16 @@ export default function SessionsPage() {
         if (squadError) throw squadError
       }
 
-      toast.success('Session updated successfully')
+      toast.success('Entire series updated successfully')
+      requestSessionScheduleNotify({
+        sessionId: editingSession.id,
+        changeKind: 'session_series_updated',
+        squadIds: sessionForm.squad_ids,
+      })
       setShowEditModal(false)
       setEditingSession(null)
+      setEditScope(null)
+      setEditingOccurrenceDate(null)
       setShowCustomPool(false)
       setCustomPoolName('')
       loadSessions()
@@ -553,27 +870,45 @@ export default function SessionsPage() {
     }
   }
 
-  async function handleDeleteSession(session) {
-    if (!confirm(`Delete session on ${formatDate(session.session_date)}?`)) {
+  async function handleDeleteEntireSeries(session) {
+    if (!confirm(`Delete the entire recurring series (all dates)?`)) {
       return
     }
 
     const supabase = createClient()
+    const squadIds = (session.training_session_squads || [])
+      .map((l) => l.squad_id)
+      .filter(Boolean)
 
     try {
-      const { error} = await supabase
+      const { error } = await supabase
         .from('training_sessions')
         .delete()
         .eq('id', session.id)
 
       if (error) throw error
 
-      toast.success('Session deleted')
+      toast.success('Series deleted')
+      requestSessionScheduleNotify({
+        sessionId: session.id,
+        changeKind: 'session_deleted',
+        squadIds,
+      })
+      setSelectedEvent(null)
       loadSessions()
     } catch (error) {
       console.error('Error deleting session:', error)
       toast.error('Failed to delete session')
     }
+  }
+
+  function requestDelete(session) {
+    if (session.is_recurring) {
+      setScopeChoice({ action: 'delete', session })
+      return
+    }
+    if (!confirm(`Delete session on ${formatDate(getOccurrenceDate(session))}?`)) return
+    handleDeleteEntireSeries(session)
   }
 
   if (authLoading || loading) {
@@ -611,6 +946,14 @@ export default function SessionsPage() {
             Click a session to open details. Click a time slot to create a session for that date.
           </p>
 
+          {!sessionsLoading && sessions.length === 0 && (
+            <Card className="mb-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400 text-center py-4">
+                No sessions in this date range. Create a session or move the calendar to another month.
+              </p>
+            </Card>
+          )}
+
           {/* Squad colour legend: one pill per family (not per DB squad row) */}
           <div className="flex flex-wrap gap-2 mb-4">
             {SQUAD_LEGEND_CHIPS.map(({ label, cls }) => (
@@ -625,7 +968,8 @@ export default function SessionsPage() {
               calendarView === 'week' || calendarView === 'day'
                 ? ' admin-sessions-calendar--week-scroll'
                 : ''
-            }`}
+            }${sessionsLoading ? ' opacity-60 pointer-events-none' : ''}`}
+            aria-busy={sessionsLoading}
           >
             <Calendar
               localizer={localizer}
@@ -741,8 +1085,9 @@ export default function SessionsPage() {
               variant="secondary"
               onClick={() => {
                 const session = selectedEvent
+                const date = getOccurrenceDate(session)
                 setSelectedEvent(null)
-                router.push(`/admin/sessions/${session.id}/attendance`)
+                router.push(`/admin/sessions/${session.id}/attendance?date=${encodeURIComponent(date)}`)
               }}
             >
               Manage Attendance
@@ -752,30 +1097,11 @@ export default function SessionsPage() {
               onClick={() => {
                 const session = selectedEvent
                 setSelectedEvent(null)
-                setEditingSession(session)
-                setShowCustomPool(!session.facility_id)
-                setCustomPoolName(!session.facility_id ? session.pool_location : '')
-                const parsed = parseRecurrencePattern(session.recurrence_pattern)
-                setSessionForm({
-                  session_date: session.session_date,
-                  start_time: session.start_time,
-                  end_time: session.end_time,
-                  pool_location: session.pool_location,
-                  facility_id: session.facility_id || '',
-                  coach_id: session.coach_id || '',
-                  squad_ids: session.training_session_squads?.map((ts) => ts.squad_id) || [],
-                  is_recurring: session.is_recurring || false,
-                  recurrence_type: parsed.type,
-                  recurrence_weekday: parsed.options.weekday || '',
-                  recurrence_ordinal: parsed.options.ordinal || '',
-                  recurrence_day_type: parsed.options.day_type || 'first',
-                  recurrence_annually_date: parsed.options.date || '',
-                  recurrence_custom_interval: parsed.options.interval || '1',
-                  recurrence_custom_unit: parsed.options.unit || 'week',
-                  recurrence_custom_weekdays: parsed.options.weekdays || [],
-                  recurrence_end_date: session.recurrence_end_date || '',
-                })
-                setShowEditModal(true)
+                if (session.is_recurring) {
+                  setScopeChoice({ action: 'edit', session })
+                } else {
+                  openEditModal(session, 'series')
+                }
               }}
             >
               Edit
@@ -785,7 +1111,7 @@ export default function SessionsPage() {
               onClick={() => {
                 const session = selectedEvent
                 setSelectedEvent(null)
-                handleDeleteSession(session)
+                requestDelete(session)
               }}
             >
               Delete
@@ -796,15 +1122,28 @@ export default function SessionsPage() {
         {selectedEvent && (
           <div className="space-y-4">
             <p className="text-sm text-gray-600 dark:text-gray-400 rounded-lg bg-gray-50 dark:bg-gray-900/50 px-3 py-2 border border-gray-100 dark:border-gray-700">
-              <span className="font-medium text-gray-800 dark:text-gray-200">Edit</span> opens the full form to
-              change date, time, squads, pool, and recurrence. Use{' '}
-              <span className="font-medium text-gray-800 dark:text-gray-200">Manage attendance</span> for the
-              register.
+              {selectedEvent.is_recurring ? (
+                <>
+                  <span className="font-medium text-gray-800 dark:text-gray-200">Edit</span> or{' '}
+                  <span className="font-medium text-gray-800 dark:text-gray-200">Delete</span> lets you change{' '}
+                  <strong>only this date</strong> or the <strong>entire series</strong>. Use{' '}
+                  <span className="font-medium text-gray-800 dark:text-gray-200">Manage attendance</span> for this
+                  calendar date.
+                </>
+              ) : (
+                <>
+                  <span className="font-medium text-gray-800 dark:text-gray-200">Edit</span> changes this session.
+                  Use <span className="font-medium text-gray-800 dark:text-gray-200">Manage attendance</span> for the
+                  register.
+                </>
+              )}
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Date</p>
-                <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100">{formatDate(selectedEvent.session_date)}</p>
+                <p className="mt-1 text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  {formatDate(getOccurrenceDate(selectedEvent))}
+                </p>
               </div>
               <div>
                 <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">Time</p>
@@ -835,6 +1174,56 @@ export default function SessionsPage() {
                   : <span className="text-sm text-gray-500 dark:text-gray-400">No squad assigned</span>
                 }
               </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Edit scope: this occurrence vs entire series */}
+      <Modal
+        isOpen={!!scopeChoice}
+        onClose={() => setScopeChoice(null)}
+        title={scopeChoice?.action === 'delete' ? 'Delete recurring session' : 'Edit recurring session'}
+        size="sm"
+      >
+        {scopeChoice && (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              {formatDate(getOccurrenceDate(scopeChoice.session))} —{' '}
+              {formatRecurrencePattern(scopeChoice.session.recurrence_pattern)}
+            </p>
+            <div className="flex flex-col gap-2">
+              <Button
+                fullWidth
+                variant="secondary"
+                onClick={() => {
+                  const { action, session } = scopeChoice
+                  setScopeChoice(null)
+                  const date = getOccurrenceDate(session)
+                  if (action === 'edit') {
+                    openEditModal(session, 'occurrence')
+                  } else {
+                    if (!confirm(`Cancel only the session on ${formatDate(date)}?`)) return
+                    handleCancelOccurrence(session, date)
+                  }
+                }}
+              >
+                {scopeChoice.action === 'delete' ? 'This occurrence only' : 'Edit this occurrence only'}
+              </Button>
+              <Button
+                fullWidth
+                onClick={() => {
+                  const { action, session } = scopeChoice
+                  setScopeChoice(null)
+                  if (action === 'edit') {
+                    openEditModal(session, 'series')
+                  } else {
+                    handleDeleteEntireSeries(session)
+                  }
+                }}
+              >
+                {scopeChoice.action === 'delete' ? 'Entire series' : 'Edit entire series'}
+              </Button>
             </div>
           </div>
         )}
@@ -891,10 +1280,16 @@ export default function SessionsPage() {
         onClose={() => {
           setShowEditModal(false)
           setEditingSession(null)
+          setEditScope(null)
+          setEditingOccurrenceDate(null)
           setShowCustomPool(false)
           setCustomPoolName('')
         }}
-        title="Edit Training Session"
+        title={
+          editScope === 'occurrence' && editingOccurrenceDate
+            ? `Edit occurrence — ${formatDate(editingOccurrenceDate)}`
+            : 'Edit entire series'
+        }
         size="lg"
         footer={
           <div className="flex gap-3 justify-end">
@@ -911,7 +1306,7 @@ export default function SessionsPage() {
               Cancel
             </Button>
             <Button
-              onClick={handleEditSession}
+              onClick={handleSaveEdit}
               loading={saving}
             >
               Save Changes
@@ -929,6 +1324,8 @@ export default function SessionsPage() {
           setShowCustomPool={setShowCustomPool}
           customPoolName={customPoolName}
           setCustomPoolName={setCustomPoolName}
+          hideRecurrence={editScope === 'occurrence'}
+          lockSessionDate={editScope === 'occurrence'}
         />
       </Modal>
 

@@ -30,10 +30,77 @@ async function findAuthUserIdByEmail(adminAuth, email, maxPages = 25) {
 }
 
 /**
+ * Assign head coach for a squad: profile.coach_squad_id + squad-level coach_assignments row.
+ */
+async function assignCoachPrimarySquad(admin, coachId, squadId) {
+  const { data: squad, error: squadErr } = await admin
+    .from('squads')
+    .select('id, name')
+    .eq('id', squadId)
+    .maybeSingle()
+
+  if (squadErr || !squad) {
+    throw new Error('Invalid or inactive squad')
+  }
+
+  const { data: existingHead, error: headErr } = await admin
+    .from('coach_assignments')
+    .select('coach_id, profiles(full_name)')
+    .eq('squad_id', squadId)
+    .is('swimmer_id', null)
+    .maybeSingle()
+
+  if (headErr) {
+    console.error('coach invite: squad head lookup', headErr)
+    throw new Error('Failed to verify squad head coach')
+  }
+
+  if (existingHead && existingHead.coach_id !== coachId) {
+    const name = existingHead.profiles?.full_name || 'another coach'
+    const err = new Error(
+      `${squad.name} already has head coach ${name}. Remove or reassign them first.`
+    )
+    err.status = 409
+    throw err
+  }
+
+  const { error: profileErr } = await admin
+    .from('profiles')
+    .update({ coach_squad_id: squadId, updated_at: new Date().toISOString() })
+    .eq('id', coachId)
+
+  if (profileErr) {
+    console.error('coach invite: coach_squad_id', profileErr)
+    throw new Error(profileErr.message || 'Failed to set primary squad')
+  }
+
+  await admin
+    .from('coach_assignments')
+    .delete()
+    .eq('coach_id', coachId)
+    .is('swimmer_id', null)
+
+  if (existingHead?.coach_id === coachId) {
+    return
+  }
+
+  const { error: insertErr } = await admin.from('coach_assignments').insert({
+    coach_id: coachId,
+    squad_id: squadId,
+    swimmer_id: null,
+  })
+
+  if (insertErr) {
+    console.error('coach invite: squad assignment', insertErr)
+    throw new Error(insertErr.message || 'Failed to create squad head assignment')
+  }
+}
+
+/**
  * POST /api/admin/coaches/invite
  * Admin-only. Invites a new coach by email or promotes an existing parent account to coach.
  *
- * Body: { email: string, full_name: string, phone_number?: string }
+ * Body: { email: string, full_name: string, phone_number?: string, coach_squad_id: string }
  */
 export async function POST(request) {
   let body
@@ -55,6 +122,12 @@ export async function POST(request) {
   }
   if (!fullName) {
     return NextResponse.json({ error: 'Full name is required' }, { status: 400 })
+  }
+
+  const coachSquadId =
+    typeof body?.coach_squad_id === 'string' ? body.coach_squad_id.trim() : ''
+  if (!coachSquadId) {
+    return NextResponse.json({ error: 'Primary squad is required' }, { status: 400 })
   }
 
   const supabaseUser = await createClient()
@@ -137,6 +210,8 @@ export async function POST(request) {
       console.error('coach invite: profile coach update', upErr)
       throw new Error(upErr.message || 'Failed to set coach role on profile')
     }
+
+    await assignCoachPrimarySquad(admin, userId, coachSquadId)
   }
 
   try {
@@ -147,7 +222,7 @@ export async function POST(request) {
         mode: 'promoted',
         userId: existingProfile.id,
         message:
-          'Existing account was upgraded to coach. They can sign in with their current credentials.',
+          'Existing account was upgraded to coach with primary squad assigned. They can sign in with their current credentials.',
       })
     }
 
@@ -216,9 +291,10 @@ export async function POST(request) {
     })
   } catch (e) {
     console.error('coach invite:', e)
+    const status = e?.status === 409 ? 409 : 500
     return NextResponse.json(
       { error: e?.message || 'Unexpected error creating coach' },
-      { status: 500 }
+      { status }
     )
   }
 }

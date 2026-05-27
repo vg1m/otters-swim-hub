@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, memo, useRef, useMemo, useCallback } from 'react'
+import { useEffect, useState, memo, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -16,10 +16,14 @@ import { formatKES } from '@/lib/utils/currency'
 import {
   defaultAttendanceWindow,
   expandScheduledSessionsInWindow,
-  fetchTrainingSessionsForAttendanceWindow,
+  fetchParentSwimmerScheduleBundle,
+  collectSwimmerSquadIds,
   sessionMatchesSwimmerSquad,
+  sessionMatchesAnySwimmerSquad,
 } from '@/lib/parent/swimmerSchedule'
 import { fetchParentIdsForDataAccess } from '@/lib/parent/effective-parent-ids'
+import { getAttendanceOccurrenceDateKey } from '@/lib/attendance/attendance-date-key'
+import { useRefreshOnVisible } from '@/hooks/useRefreshOnVisible'
 import { useParentUnreadNotificationsCount } from '@/hooks/useParentUnreadNotificationsCount'
 import { UnreadNotificationIndicator } from '@/components/UnreadNotificationIndicator'
 import toast from 'react-hot-toast'
@@ -39,15 +43,14 @@ export default function ParentDashboard() {
   const [attendanceBySwimmer, setAttendanceBySwimmer] = useState({})
   const [loading, setLoading] = useState(true)
   const [selectedSession, setSelectedSession] = useState(null)
-  const dataLoadedRef = useRef(false)
 
-  const loadDashboardData = useCallback(async () => {
+  const loadDashboardData = useCallback(async ({ silent = false } = {}) => {
     const supabase = createClient()
-    setLoading(true)
-    console.log('Starting to load dashboard data...')
+    if (!silent) setLoading(true)
 
     try {
-      const { now, windowStart, windowEnd, windowEndStr } = defaultAttendanceWindow()
+      const { now, windowStart, windowEnd, windowStartStr, windowEndStr } =
+        defaultAttendanceWindow()
       const todayStr = now.toISOString().split('T')[0]
       const parentIds = await fetchParentIdsForDataAccess(supabase, user.id)
 
@@ -74,8 +77,13 @@ export default function ParentDashboard() {
       // window end so expandRecurringSessions can materialise every occurrence
       // that lands in our ±6-month window, including recurring bases whose
       // origin date predates the window.
-      const [sessionsResult, invoicesResult, attendanceResult] = await Promise.all([
-        fetchTrainingSessionsForAttendanceWindow(supabase, windowEndStr),
+      const [scheduleBundle, invoicesResult, attendanceResult] = await Promise.all([
+        fetchParentSwimmerScheduleBundle(
+          supabase,
+          swimmersList,
+          windowStartStr,
+          windowEndStr
+        ),
         
         supabase
           .from('invoices')
@@ -92,6 +100,7 @@ export default function ParentDashboard() {
               .from('attendance')
               .select(`
                 *,
+                occurrence_date,
                 training_sessions (session_date)
               `)
               .in('swimmer_id', swimmerIds)
@@ -103,15 +112,16 @@ export default function ParentDashboard() {
       // Expand recurring sessions across the ±6-month window once. This is
       // the canonical schedule used by the attendance calendar, the next-session
       // line on swimmer cards, and the Upcoming Training Sessions list.
-      if (sessionsResult.error) {
-        console.error('Error loading sessions:', sessionsResult.error)
+      if (scheduleBundle.error) {
+        console.error('Error loading sessions:', scheduleBundle.error)
         setScheduledSessions([])
         setUpcomingSessions([])
       } else {
         const expanded = expandScheduledSessionsInWindow(
-          sessionsResult.data || [],
+          scheduleBundle.sessions || [],
           windowStart,
-          windowEnd
+          windowEnd,
+          scheduleBundle.exceptions
         )
         setScheduledSessions(expanded)
         setUpcomingSessions(expanded.filter((s) => s.session_date >= todayStr))
@@ -145,43 +155,44 @@ export default function ParentDashboard() {
       console.error('Error loading dashboard:', error)
       toast.error('Failed to load dashboard data')
     } finally {
-      console.log('Dashboard data loaded, setting loading to false')
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [user])
 
+  const isParent = profile?.role === 'parent'
+
   useEffect(() => {
-    console.log('Dashboard effect:', { authLoading, user: !!user, profile })
-    
     if (!authLoading) {
       if (!user) {
-        console.log('No user, redirecting to login')
         router.push('/login')
         return
       }
       if (profile?.role === 'admin') {
-        console.log('Admin user, redirecting to /admin')
         router.push('/admin')
         return
       }
       if (profile?.role === 'coach') {
-        console.log('Coach user, redirecting to /coach')
         router.push('/coach')
         return
       }
-      if (!dataLoadedRef.current && user) {
-        console.log('Loading dashboard data...')
-        dataLoadedRef.current = true
+      if (isParent) {
         loadDashboardData()
       }
     }
-  }, [user, profile, authLoading, loadDashboardData])
+  }, [user, profile?.role, authLoading, isParent, loadDashboardData, router])
+
+  useRefreshOnVisible(
+    () => loadDashboardData({ silent: true }),
+    isParent && Boolean(user?.id)
+  )
 
   // Memoize filtered upcoming sessions to avoid re-computation (desktop: session cards + modal)
-  const displaySessions = useMemo(
-    () => upcomingSessions.slice(0, 4),
-    [upcomingSessions]
-  )
+  const displaySessions = useMemo(() => {
+    const squadIds = collectSwimmerSquadIds(swimmers)
+    return upcomingSessions
+      .filter((s) => sessionMatchesAnySwimmerSquad(s, squadIds))
+      .slice(0, 4)
+  }, [upcomingSessions, swimmers])
 
   const notificationCount = useMemo(() => {
     const invoiceCount = outstandingInvoices.length
@@ -505,7 +516,7 @@ const SwimmerCard = memo(function SwimmerCard({ swimmer, sessions, scheduledSess
     }
     let pastAttended = 0
     for (const d of pastDates) {
-      if (attendance.some((a) => attendanceDateKey(a) === d)) pastAttended += 1
+      if (attendance.some((a) => getAttendanceOccurrenceDateKey(a) === d)) pastAttended += 1
     }
     return `${pastAttended} of ${pastDates.size} scheduled day${pastDates.size === 1 ? '' : 's'} with attendance (to date)`
   }, [attendance, swimmerScheduled, swimmer.squad_id, checkInCount])

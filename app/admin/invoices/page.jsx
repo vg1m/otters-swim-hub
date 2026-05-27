@@ -19,15 +19,10 @@ import { formatDate } from '@/lib/utils/date-helpers'
 import toast from 'react-hot-toast'
 import { insertNotification } from '@/lib/notifications/insert-notification'
 import { requestInvoiceIssuedEmailNotification } from '@/lib/invoices/request-invoice-issued-email'
-
-/** Matches `invoice_line_items.fee_type` CHECK (migrations 041 + 055). */
-const LINE_ITEM_FEE_TYPES = [
-  { value: 'monthly_training', label: 'Monthly training' },
-  { value: 'quarterly_training', label: 'Quarterly training' },
-  { value: 'registration', label: 'Registration' },
-  { value: 'drop_in', label: 'Drop-in' },
-  { value: 'early_bird_discount', label: 'Early bird discount' },
-]
+import {
+  ADMIN_CREATABLE_FEE_TYPES,
+  feeTypeLabel,
+} from '@/lib/invoices/line-item-fee-types'
 
 function invoiceErrorMessage(error) {
   if (!error) return 'Unknown error'
@@ -710,7 +705,8 @@ export default function InvoicesPage() {
           <div className="border-t pt-4">
             <h3 className="font-semibold mb-3">Line Items</h3>
             {invoiceForm.line_items.map((item, index) => (
-              <div key={index} className="grid grid-cols-12 gap-2 mb-3 items-end">
+              <div key={index} className="mb-3">
+              <div className="grid grid-cols-12 gap-2 items-end">
                 <div className="col-span-12 md:col-span-5">
                   <Input
                     placeholder="Description"
@@ -723,7 +719,7 @@ export default function InvoicesPage() {
                     label="Fee type"
                     value={item.fee_type || 'monthly_training'}
                     onChange={(e) => updateLineItem(index, 'fee_type', e.target.value)}
-                    options={LINE_ITEM_FEE_TYPES}
+                    options={ADMIN_CREATABLE_FEE_TYPES}
                     placeholder=""
                   />
                 </div>
@@ -758,6 +754,12 @@ export default function InvoicesPage() {
                     </button>
                   )}
                 </div>
+              </div>
+              {item.fee_type === 'other' && (
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  One-off charge — use description for Transport, Hotel, etc.
+                </p>
+              )}
               </div>
             ))}
             <Button fullWidth className="sm:w-auto" size="sm" variant="secondary" onClick={addLineItem}>
@@ -868,6 +870,7 @@ export default function InvoicesPage() {
                 <thead>
                   <tr className="border-b border-gray-200 dark:border-gray-700">
                     <th className="text-left text-sm font-medium text-gray-700 dark:text-gray-300 py-2">Description</th>
+                    <th className="text-left text-sm font-medium text-gray-700 dark:text-gray-300 py-2">Fee type</th>
                     <th className="text-right text-sm font-medium text-gray-700 dark:text-gray-300 py-2">Amount</th>
                     <th className="text-right text-sm font-medium text-gray-700 dark:text-gray-300 py-2">Qty</th>
                     <th className="text-right text-sm font-medium text-gray-700 dark:text-gray-300 py-2">Total</th>
@@ -877,6 +880,7 @@ export default function InvoicesPage() {
                   {selectedInvoice.invoice_line_items?.map((item, index) => (
                     <tr key={index} className="border-b border-gray-200 dark:border-gray-700">
                       <td className="text-sm text-gray-900 dark:text-gray-100 py-2">{item.description}</td>
+                      <td className="text-sm text-gray-600 dark:text-gray-400 py-2">{feeTypeLabel(item.fee_type)}</td>
                       <td className="text-sm text-gray-900 dark:text-gray-100 py-2 text-right">{formatKES(item.amount)}</td>
                       <td className="text-sm text-gray-900 dark:text-gray-100 py-2 text-right">{item.quantity}</td>
                       <td className="text-sm text-gray-900 dark:text-gray-100 py-2 text-right font-semibold">

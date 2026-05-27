@@ -16,6 +16,7 @@ import Badge from '@/components/ui/Badge'
 import Input from '@/components/ui/Input'
 import CoachDeliveryReviewPanel from '@/components/admin/CoachDeliveryReviewPanel'
 import { insertNotification } from '@/lib/notifications/insert-notification'
+import { findSquadHeadConflict } from '@/lib/coaches/squad-primary-coach'
 import toast from 'react-hot-toast'
 
 export default function CoachManagementPage() {
@@ -48,7 +49,10 @@ export default function CoachManagementPage() {
     email: '',
     full_name: '',
     phone_number: '',
+    coach_squad_id: '',
   })
+
+  const squadSelectOptions = squadList.map((s) => ({ value: s.id, label: s.name }))
   const [saving, setSaving] = useState(false)
   const [coachTab, setCoachTab] = useState('roster')
 
@@ -280,8 +284,24 @@ export default function CoachManagementPage() {
   async function handleInviteCoach() {
     const email = addCoachForm.email?.trim() || ''
     const fullName = addCoachForm.full_name?.trim() || ''
+    const coachSquadId = addCoachForm.coach_squad_id?.trim() || ''
     if (!email || !fullName) {
       toast.error('Email and full name are required')
+      return
+    }
+    if (!coachSquadId) {
+      toast.error('Primary squad is required')
+      return
+    }
+
+    const conflict = findSquadHeadConflict(assignments, coachSquadId)
+    if (conflict) {
+      const headName =
+        conflict.profiles?.full_name ||
+        coaches.find((c) => c.id === conflict.coach_id)?.full_name ||
+        'another coach'
+      const squadName = squadList.find((s) => s.id === coachSquadId)?.name || 'this squad'
+      toast.error(`${squadName} already has head coach ${headName}. Choose another squad.`)
       return
     }
 
@@ -294,6 +314,7 @@ export default function CoachManagementPage() {
           email,
           full_name: fullName,
           phone_number: addCoachForm.phone_number?.trim() || undefined,
+          coach_squad_id: coachSquadId,
         }),
       })
       const data = await res.json().catch(() => ({}))
@@ -302,7 +323,7 @@ export default function CoachManagementPage() {
       }
       toast.success(data.message || 'Coach saved')
       setShowAddCoachModal(false)
-      setAddCoachForm({ email: '', full_name: '', phone_number: '' })
+      setAddCoachForm({ email: '', full_name: '', phone_number: '', coach_squad_id: '' })
       await loadAllData()
     } catch (error) {
       console.error('Add coach:', error)
@@ -367,6 +388,23 @@ export default function CoachManagementPage() {
       return
     }
 
+    const newSquadId = editCoachForm.coach_squad_id?.trim() || ''
+    if (!newSquadId) {
+      toast.error('Primary squad is required')
+      return
+    }
+
+    const conflict = findSquadHeadConflict(assignments, newSquadId, selectedCoach.id)
+    if (conflict) {
+      const headName =
+        conflict.profiles?.full_name ||
+        coaches.find((c) => c.id === conflict.coach_id)?.full_name ||
+        'another coach'
+      const squadName = squadList.find((s) => s.id === newSquadId)?.name || 'this squad'
+      toast.error(`${squadName} already has head coach ${headName}.`)
+      return
+    }
+
     let perSessionRateKes = null
     const rateRaw = editCoachForm.per_session_rate_kes?.trim() ?? ''
     if (rateRaw !== '') {
@@ -387,7 +425,7 @@ export default function CoachManagementPage() {
         .update({
           full_name: editCoachForm.full_name,
           email: editCoachForm.email,
-          coach_squad_id: editCoachForm.coach_squad_id || null,
+          coach_squad_id: newSquadId,
           per_session_rate_kes: perSessionRateKes,
         })
         .eq('id', selectedCoach.id)
@@ -403,6 +441,21 @@ export default function CoachManagementPage() {
         )
         throw error
       }
+
+      const { error: delAssignErr } = await supabase
+        .from('coach_assignments')
+        .delete()
+        .eq('coach_id', selectedCoach.id)
+        .is('swimmer_id', null)
+
+      if (delAssignErr) throw delAssignErr
+
+      const { error: insertAssignErr } = await supabase.from('coach_assignments').insert({
+        coach_id: selectedCoach.id,
+        squad_id: newSquadId,
+        swimmer_id: null,
+      })
+      if (insertAssignErr) throw insertAssignErr
 
       toast.success('Coach details updated successfully')
       setShowEditCoachModal(false)
@@ -427,6 +480,38 @@ export default function CoachManagementPage() {
   function openViewAssignmentsModal(coach) {
     setSelectedCoach(coach)
     setShowViewAssignmentsModal(true)
+  }
+
+  async function handleDeleteCoachAccount(coach) {
+    const workload = getCoachWorkload(coach.id)
+    if (workload.total > 0) {
+      toast.error('Remove all assignments and swimmer links before deleting the account.')
+      return
+    }
+    if (
+      !confirm(
+        `Permanently delete ${coach.full_name}'s account (${coach.email})?\n\nThis cannot be undone.`
+      )
+    ) {
+      return
+    }
+
+    try {
+      const res = await fetch('/api/admin/coaches/remove', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ coach_id: coach.id }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(json.error || 'Failed to delete coach account')
+      }
+      toast.success(json.message || 'Coach account deleted')
+      await loadAllData()
+    } catch (error) {
+      console.error('Error deleting coach account:', error)
+      toast.error(error?.message || 'Failed to delete coach account')
+    }
   }
 
   async function handleRemoveCoach(coach) {
@@ -584,6 +669,15 @@ export default function CoachManagementPage() {
           <Button size="sm" variant="danger" onClick={() => handleRemoveCoach(row)}>
             Remove
           </Button>
+          {getCoachWorkload(row.id).total === 0 && (
+            <Button
+              size="sm"
+              variant="danger"
+              onClick={() => handleDeleteCoachAccount(row)}
+            >
+              Delete account
+            </Button>
+          )}
         </div>
       ),
     },
@@ -807,7 +901,7 @@ export default function CoachManagementPage() {
         onClose={() => {
           if (!saving) {
             setShowAddCoachModal(false)
-            setAddCoachForm({ email: '', full_name: '', phone_number: '' })
+            setAddCoachForm({ email: '', full_name: '', phone_number: '', coach_squad_id: '' })
           }
         }}
         title="Add coach"
@@ -819,7 +913,7 @@ export default function CoachManagementPage() {
               variant="secondary"
               onClick={() => {
                 setShowAddCoachModal(false)
-                setAddCoachForm({ email: '', full_name: '', phone_number: '' })
+                setAddCoachForm({ email: '', full_name: '', phone_number: '', coach_squad_id: '' })
               }}
               disabled={saving}
             >
@@ -835,6 +929,7 @@ export default function CoachManagementPage() {
           <p className="text-sm text-gray-600 dark:text-gray-400">
             For someone new we send them an invitation by email so they can set up their Otters coach login.
             If that email already has a parent account with us, we switch it to coach and they keep signing in as before—no invitation email needed.
+            Each coach must have a <strong>primary squad</strong> (head coach for that squad).
           </p>
           <Input
             label="Email"
@@ -858,6 +953,15 @@ export default function CoachManagementPage() {
             value={addCoachForm.phone_number}
             onChange={(e) => setAddCoachForm((p) => ({ ...p, phone_number: e.target.value }))}
             placeholder="07..."
+          />
+          <Select
+            label="Primary squad"
+            required
+            value={addCoachForm.coach_squad_id}
+            onChange={(e) => setAddCoachForm((p) => ({ ...p, coach_squad_id: e.target.value }))}
+            options={squadSelectOptions}
+            placeholder="Select squad"
+            helperText="Head coach for this squad. Squads that already have a head coach cannot be selected twice."
           />
         </div>
       </Modal>
@@ -1009,14 +1113,13 @@ export default function CoachManagementPage() {
             placeholder="coach@example.com"
           />
           <Select
-            label="Primary Squad"
+            label="Primary squad"
+            required
             value={editCoachForm.coach_squad_id}
             onChange={(e) => setEditCoachForm({ ...editCoachForm, coach_squad_id: e.target.value })}
-            options={[
-              { value: '', label: 'Not Set' },
-              ...squadList.map(s => ({ value: s.id, label: s.name }))
-            ]}
-            helperText="Primary squad for this coach"
+            options={squadSelectOptions}
+            placeholder="Select squad"
+            helperText="Head coach for this squad. Swimmers in this squad auto-assign to this coach."
           />
           <Input
             label="Per session rate (KES)"

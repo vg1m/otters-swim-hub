@@ -62,6 +62,8 @@ export default function SessionFormFields({
   setShowCustomPool,
   customPoolName,
   setCustomPoolName,
+  hideRecurrence = false,
+  lockSessionDate = false,
 }) {
   const patch = (updates) => setSessionForm((prev) => ({ ...prev, ...updates }))
 
@@ -146,6 +148,8 @@ export default function SessionFormFields({
           required
           value={sessionForm.session_date}
           onChange={(e) => patch({ session_date: e.target.value })}
+          disabled={lockSessionDate}
+          helperText={lockSessionDate ? 'Date is fixed for this occurrence in the series.' : undefined}
         />
       </div>
 
@@ -270,6 +274,8 @@ export default function SessionFormFields({
       </div>
 
       {/* Recurring toggle */}
+      {!hideRecurrence && (
+      <>
       <div className="sm:col-span-2 pt-3 border-t border-gray-200 dark:border-gray-700">
         <label className="flex items-center gap-3 cursor-pointer">
           <input
@@ -464,6 +470,8 @@ export default function SessionFormFields({
             />
           </div>
         </>
+      )}
+      </>
       )}
     </div>
   )

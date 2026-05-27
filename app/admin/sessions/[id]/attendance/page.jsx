@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter, useParams } from 'next/navigation'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { profileCache } from '@/lib/cache/profile-cache'
@@ -16,7 +16,9 @@ import toast from 'react-hot-toast'
 export default function SessionAttendancePage() {
   const router = useRouter()
   const params = useParams()
+  const searchParams = useSearchParams()
   const sessionId = params.id
+  const [occurrenceDate, setOccurrenceDate] = useState(null)
   const { user, profile, loading: authLoading } = useAuth()
   const [session, setSession] = useState(null)
   const [swimmers, setSwimmers] = useState([])
@@ -38,17 +40,26 @@ export default function SessionAttendancePage() {
     }
     
     // Load data immediately if we have user and sessionId
-    if (user && sessionId && !dataLoaded) {
+    if (user && sessionId) {
+      setDataLoaded(false)
       loadSessionData()
     }
-  }, [user, authLoading, sessionId])
+  }, [user, authLoading, sessionId, searchParams?.get('date')])
+
+  function resolveOccurrenceDate(sessionData, dateParam) {
+    if (!sessionData?.is_recurring) return null
+    if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) return dateParam
+    const today = new Date().toISOString().slice(0, 10)
+    return today
+  }
 
   async function loadSessionData() {
-    if (dataLoaded) return
     const supabase = createClient()
     setLoading(true)
 
     try {
+      const dateParam = searchParams?.get('date')
+
       // Load session with squads
       const { data: sessionData, error: sessionError } = await supabase
         .from('training_sessions')
@@ -60,6 +71,9 @@ export default function SessionAttendancePage() {
         console.error('Session fetch error:', sessionError)
         throw sessionError
       }
+
+      const resolvedOccurrence = resolveOccurrenceDate(sessionData, dateParam)
+      setOccurrenceDate(resolvedOccurrence)
 
       let leadCoachFullName = null
       if (sessionData.coach_id) {
@@ -106,11 +120,19 @@ export default function SessionAttendancePage() {
       }
       setSwimmers(swimmersData || [])
 
-      // Load existing attendance
-      const { data: attendanceData, error: attendanceError } = await supabase
+      // Load existing attendance (scoped to occurrence for recurring series)
+      let attendanceQuery = supabase
         .from('attendance')
         .select('*')
         .eq('session_id', sessionId)
+
+      if (sessionData.is_recurring && resolvedOccurrence) {
+        attendanceQuery = attendanceQuery.eq('occurrence_date', resolvedOccurrence)
+      } else if (!sessionData.is_recurring) {
+        attendanceQuery = attendanceQuery.is('occurrence_date', null)
+      }
+
+      const { data: attendanceData, error: attendanceError } = await attendanceQuery
 
       if (attendanceError) {
         console.error('Attendance fetch error:', attendanceError)
@@ -199,24 +221,16 @@ export default function SessionAttendancePage() {
     const supabase = createClient()
 
     try {
-      // Prepare inserts and deletes
+      const occurrenceKey =
+        session?.is_recurring && occurrenceDate ? occurrenceDate : null
+
       const toInsert = []
-      const toDelete = []
+      const keptSwimmerIds = new Set()
 
       Object.entries(attendance).forEach(([swimmerId, att]) => {
-        if (!att) {
-          // Was checked in, now unchecked - delete
-          const existing = swimmers.find(s => s.id === swimmerId)
-          if (existing) {
-            // Find the attendance id to delete
-            const { data } = supabase
-              .from('attendance')
-              .select('id')
-              .eq('session_id', sessionId)
-              .eq('swimmer_id', swimmerId)
-            toDelete.push(swimmerId)
-          }
-        } else if (att.new) {
+        if (!att) return
+        keptSwimmerIds.add(swimmerId)
+        if (att.new) {
           const { coach_id: creditCoachId } = coachCreditForNewCheckIn()
           if (!creditCoachId) {
             toast.error('Assign a lead coach to this session before recording coach check-ins.')
@@ -228,17 +242,44 @@ export default function SessionAttendancePage() {
             checked_in_by: 'coach',
             coach_id: creditCoachId,
             check_in_time: new Date().toISOString(),
+            occurrence_date: occurrenceKey,
           })
         }
       })
 
+      let existingQuery = supabase
+        .from('attendance')
+        .select('swimmer_id')
+        .eq('session_id', sessionId)
+
+      if (occurrenceKey) {
+        existingQuery = existingQuery.eq('occurrence_date', occurrenceKey)
+      } else {
+        existingQuery = existingQuery.is('occurrence_date', null)
+      }
+
+      const { data: existingRows, error: existingErr } = await existingQuery
+      if (existingErr) throw existingErr
+
+      const toDelete = (existingRows || [])
+        .map((r) => r.swimmer_id)
+        .filter((id) => !keptSwimmerIds.has(id))
+
       // Delete unchecked
       if (toDelete.length > 0) {
-        const { error: deleteError } = await supabase
+        let deleteQuery = supabase
           .from('attendance')
           .delete()
           .eq('session_id', sessionId)
           .in('swimmer_id', toDelete)
+
+        if (occurrenceKey) {
+          deleteQuery = deleteQuery.eq('occurrence_date', occurrenceKey)
+        } else {
+          deleteQuery = deleteQuery.is('occurrence_date', null)
+        }
+
+        const { error: deleteError } = await deleteQuery
 
         if (deleteError) throw deleteError
       }
@@ -284,10 +325,11 @@ export default function SessionAttendancePage() {
   const checkedInCount = Object.values(attendance).filter(Boolean).length
   const cachedProfile = user ? profileCache.get(user.id) : null
   const userRole = profile?.role || cachedProfile?.role
+  const displayDate = occurrenceDate || session.session_date
   const backHref =
     userRole === 'coach'
       ? '/coach'
-      : `/admin/sessions?date=${encodeURIComponent(session.session_date)}`
+      : `/admin/sessions?date=${encodeURIComponent(displayDate)}`
   const backLabel = userRole === 'coach' ? 'Back to coach dashboard' : 'Back to sessions calendar'
 
   function checkInByline(att) {
@@ -328,8 +370,13 @@ export default function SessionAttendancePage() {
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Session Attendance</h1>
             <p className="text-gray-600 dark:text-gray-400 mt-2">
-              {formatDate(session.session_date)} - {session.start_time} to {session.end_time}
+              {formatDate(displayDate)} - {session.start_time} to {session.end_time}
             </p>
+            {session.is_recurring && !searchParams?.get('date') && (
+              <p className="text-sm text-amber-700 dark:text-amber-400 mt-1">
+                No date in link — showing today&apos;s occurrence. Open attendance from the calendar for a specific date.
+              </p>
+            )}
             <p className="text-gray-600 dark:text-gray-400">
               {session.training_session_squads?.map(ts => ts.squads?.name).filter(Boolean).join(', ') || 'No squad'} · {session.pool_location}
             </p>

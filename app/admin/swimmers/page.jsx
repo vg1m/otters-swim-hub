@@ -25,6 +25,10 @@ import { requestInvoiceIssuedEmailNotification } from '@/lib/invoices/request-in
 import { insertNotification } from '@/lib/notifications/insert-notification'
 import toast from 'react-hot-toast'
 import { buildGroupedSquadSelectOptions, squadSupportsRubric } from '@/lib/rubrics/rubric-data'
+import {
+  buildSquadPrimaryCoachMap,
+  getPrimaryCoachForSquad,
+} from '@/lib/coaches/squad-primary-coach'
 
 function renderParentChoiceCell(row) {
   return (
@@ -90,6 +94,12 @@ export default function SwimmersManagementPage() {
   const [editForm, setEditForm] = useState({})
   const [saving, setSaving] = useState(false)
   const [squadList, setSquadList] = useState([])
+  const [squadHeadAssignments, setSquadHeadAssignments] = useState([])
+
+  const squadPrimaryCoachMap = useMemo(
+    () => buildSquadPrimaryCoachMap(squadHeadAssignments),
+    [squadHeadAssignments]
+  )
 
   useEffect(() => {
     // Optimistic auth check - use cached profile if available
@@ -138,6 +148,13 @@ export default function SwimmersManagementPage() {
         .order('name')
 
       setSquadList(squadsData || [])
+
+      const { data: headData } = await supabase
+        .from('coach_assignments')
+        .select('squad_id, coach_id, swimmer_id, profiles(full_name)')
+        .is('swimmer_id', null)
+
+      setSquadHeadAssignments(headData || [])
     } catch (error) {
       console.error('Error loading swimmers:', error)
       toast.error('Failed to load swimmers')
@@ -181,20 +198,50 @@ export default function SwimmersManagementPage() {
     return squadList.find((s) => s.id === editForm.squad_id)?.slug ?? null
   }, [editForm.squad_id, squadList])
 
-  const openEditModal = useCallback((swimmer) => {
-    setSelectedSwimmer(swimmer)
-    setEditForm({
-      first_name: swimmer.first_name,
-      last_name: swimmer.last_name,
-      date_of_birth: swimmer.date_of_birth,
-      gender: swimmer.gender,
-      squad_id: swimmer.squad_id || '',
-      status: swimmer.status,
-      coach_id: swimmer.coach_id || '',
-      gala_events_opt_in: swimmer.gala_events_opt_in || false,
+  const squadHeadForEdit = useMemo(
+    () => getPrimaryCoachForSquad(squadPrimaryCoachMap, editForm.squad_id),
+    [squadPrimaryCoachMap, editForm.squad_id]
+  )
+
+  const coachSelectOptions = useMemo(() => {
+    const headId = squadHeadForEdit?.coachId
+    const list = [...coaches].sort((a, b) => {
+      if (a.id === headId) return -1
+      if (b.id === headId) return 1
+      return (a.full_name || '').localeCompare(b.full_name || '')
     })
-    setShowEditModal(true)
-  }, [])
+    return [
+      { value: '', label: 'No coach assigned' },
+      ...list.map((c) => {
+        const sn = c.squads?.name
+        const isHead = c.id === headId
+        return {
+          value: c.id,
+          label: `${c.full_name}${isHead ? ' (squad head)' : sn ? ` (${sn})` : ''}`,
+        }
+      }),
+    ]
+  }, [coaches, squadHeadForEdit])
+
+  const openEditModal = useCallback(
+    (swimmer) => {
+      setSelectedSwimmer(swimmer)
+      const squadId = swimmer.squad_id || ''
+      const head = getPrimaryCoachForSquad(squadPrimaryCoachMap, squadId)
+      setEditForm({
+        first_name: swimmer.first_name,
+        last_name: swimmer.last_name,
+        date_of_birth: swimmer.date_of_birth,
+        gender: swimmer.gender,
+        squad_id: squadId,
+        status: swimmer.status,
+        coach_id: swimmer.coach_id || head?.coachId || '',
+        gala_events_opt_in: swimmer.gala_events_opt_in || false,
+      })
+      setShowEditModal(true)
+    },
+    [squadPrimaryCoachMap]
+  )
 
   async function handleSaveEdit() {
     if (!selectedSwimmer) return
@@ -638,7 +685,12 @@ export default function SwimmersManagementPage() {
             onChange={(e) => {
               const v = e.target.value
               if (v.startsWith('__')) return
-              setEditForm({ ...editForm, squad_id: v })
+              const head = getPrimaryCoachForSquad(squadPrimaryCoachMap, v)
+              setEditForm({
+                ...editForm,
+                squad_id: v,
+                coach_id: head?.coachId || '',
+              })
             }}
             options={groupedSquadOptions}
             placeholder=""
@@ -649,20 +701,17 @@ export default function SwimmersManagementPage() {
             }
           />
           <Select
-            label="Assigned Coach"
+            label="Assigned coach"
             value={editForm.coach_id || ''}
             onChange={(e) => setEditForm({ ...editForm, coach_id: e.target.value })}
-            options={[
-              { value: '', label: 'No Coach Assigned' },
-              ...coaches.map((c) => {
-                const sn = c.squads?.name
-                return {
-                  value: c.id,
-                  label: `${c.full_name}${sn ? ` (${sn})` : ''}`,
-                }
-              }),
-            ]}
-            helperText="Manually assign coach based on availability"
+            options={coachSelectOptions}
+            helperText={
+              editForm.squad_id && !squadHeadForEdit
+                ? 'No head coach for this squad — assign one under Coach Management first.'
+                : squadHeadForEdit
+                  ? `Auto-filled from squad head: ${squadHeadForEdit.fullName}. They fill the monthly rubric.`
+                  : 'Select a squad to auto-assign the head coach.'
+            }
           />
           <Select
             label="Status"

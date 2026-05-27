@@ -18,6 +18,7 @@ import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
 import SessionDetailsModal from '@/components/SessionDetailsModal'
 import { formatRecurrencePattern } from '@/lib/utils/recurrence'
+import { getAttendanceOccurrenceDateKey } from '@/lib/attendance/attendance-date-key'
 
 const STATUS_CONFIG = {
   attended: {
@@ -87,12 +88,8 @@ export default function AttendanceCalendarView({
   const attendanceByDate = useMemo(() => {
     const map = new Map()
     for (const a of attendance) {
-      const raw = a?.training_sessions?.session_date
-      if (!raw) continue
-      const key =
-        typeof raw === 'string'
-          ? raw.slice(0, 10)
-          : format(new Date(raw), 'yyyy-MM-dd')
+      const key = getAttendanceOccurrenceDateKey(a)
+      if (!key) continue
       if (!map.has(key)) map.set(key, [])
       map.get(key).push(a)
     }

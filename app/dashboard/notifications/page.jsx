@@ -20,6 +20,7 @@ const TYPE_META = {
   payment_received:  { icon: '💰', label: 'Payment' },
   squad_assigned:    { icon: '🏊', label: 'Squad' },
   coach_assigned:    { icon: '👤', label: 'Coach' },
+  session_schedule_changed: { icon: '📅', label: 'Schedule' },
 }
 
 function timeAgo(dateStr) {

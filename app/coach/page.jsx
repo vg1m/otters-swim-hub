@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -12,7 +12,14 @@ import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
+import { addDays, format, startOfDay } from 'date-fns'
 import { calculateAge, formatDate, formatSessionTime } from '@/lib/utils/date-helpers'
+import { expandRecurringSessions } from '@/lib/utils/recurrence'
+import {
+  TRAINING_SESSION_SELECT_COACH,
+  fetchSessionExceptionsForSessionIds,
+} from '@/lib/sessions/calendar-window'
+import { useRefreshOnVisible } from '@/hooks/useRefreshOnVisible'
 import { buildDirectionsUrlFromLabel } from '@/lib/facilities/directions'
 import {
   KpiSwimmersIcon,
@@ -36,21 +43,8 @@ export default function CoachDashboard() {
   const [swimmerSearch, setSwimmerSearch] = useState('')
   const [swimmerSquadFilter, setSwimmerSquadFilter] = useState('all')
 
-  useEffect(() => {
-    if (!authLoading) {
-      if (!user || profile?.role !== 'coach') {
-        router.push('/login')
-        return
-      }
-    }
-    
-    if (user && profile?.role === 'coach') {
-      loadCoachData()
-    }
-  }, [user, profile, authLoading])
-
-  async function loadCoachData() {
-    setLoading(true)
+  const loadCoachData = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true)
     const supabase = createClient()
 
     try {
@@ -117,18 +111,39 @@ export default function CoachDashboard() {
       }
       setAssignedSquadCount(squadsInCoachingScope.size)
 
-      // My Schedule: same squads as above; also sessions where this coach is the lead coach.
-      const today = new Date().toISOString().split('T')[0]
-      const scheduleEnd = new Date(
-        Date.now() + COACH_SCHEDULE_DAYS * 24 * 60 * 60 * 1000
-      )
-        .toISOString()
-        .split('T')[0]
-
-      const squadIdsForSchedule = squadsInCoachingScope
+      // My Schedule: squad sessions + lead-coach sessions, expanded for recurrence.
+      const scheduleStart = startOfDay(new Date())
+      const scheduleEnd = addDays(scheduleStart, COACH_SCHEDULE_DAYS)
+      const windowStartStr = format(scheduleStart, 'yyyy-MM-dd')
+      const windowEndStr = format(scheduleEnd, 'yyyy-MM-dd')
+      const todayStr = windowStartStr
 
       const sessionById = new Map()
-      const squadIdList = [...squadIdsForSchedule]
+      const squadIdList = [...squadsInCoachingScope]
+
+      async function loadSessionsForIds(sessionIds) {
+        if (!sessionIds.length) return
+        const [recRes, oneRes] = await Promise.all([
+          supabase
+            .from('training_sessions')
+            .select(TRAINING_SESSION_SELECT_COACH)
+            .in('id', sessionIds)
+            .eq('is_recurring', true)
+            .lte('session_date', windowEndStr),
+          supabase
+            .from('training_sessions')
+            .select(TRAINING_SESSION_SELECT_COACH)
+            .in('id', sessionIds)
+            .or('is_recurring.eq.false,is_recurring.is.null')
+            .gte('session_date', windowStartStr)
+            .lte('session_date', windowEndStr),
+        ])
+        if (recRes.error) console.warn('Coach schedule:', recRes.error)
+        if (oneRes.error) console.warn('Coach schedule:', oneRes.error)
+        for (const row of [...(recRes.data || []), ...(oneRes.data || [])]) {
+          sessionById.set(row.id, row)
+        }
+      }
 
       if (squadIdList.length > 0) {
         const { data: sessionSquadLinks } = await supabase
@@ -137,34 +152,23 @@ export default function CoachDashboard() {
           .in('squad_id', squadIdList)
 
         const sessionIds = [...new Set(sessionSquadLinks?.map((l) => l.session_id) || [])]
-
-        if (sessionIds.length > 0) {
-          const { data: fromSquads, error: fromSqErr } = await supabase
-            .from('training_sessions')
-            .select('*, training_session_squads(squad_id, squads(name))')
-            .in('id', sessionIds)
-            .gte('session_date', today)
-            .lte('session_date', scheduleEnd)
-            .order('session_date')
-            .order('start_time')
-          if (fromSqErr) {
-            console.warn('Coach schedule (squads):', fromSqErr)
-          } else {
-            for (const row of fromSquads || []) {
-              sessionById.set(row.id, row)
-            }
-          }
-        }
+        await loadSessionsForIds(sessionIds)
       }
 
-      const { data: fromLeadCoach, error: fromCoachErr } = await supabase
+      const { data: leadRecurring } = await supabase
         .from('training_sessions')
-        .select('*, training_session_squads(squad_id, squads(name))')
+        .select(TRAINING_SESSION_SELECT_COACH)
         .eq('coach_id', user.id)
-        .gte('session_date', today)
-        .lte('session_date', scheduleEnd)
-        .order('session_date')
-        .order('start_time')
+        .eq('is_recurring', true)
+        .lte('session_date', windowEndStr)
+      const { data: leadOneOff, error: fromCoachErr } = await supabase
+        .from('training_sessions')
+        .select(TRAINING_SESSION_SELECT_COACH)
+        .eq('coach_id', user.id)
+        .or('is_recurring.eq.false,is_recurring.is.null')
+        .gte('session_date', windowStartStr)
+        .lte('session_date', windowEndStr)
+      const fromLeadCoach = [...(leadRecurring || []), ...(leadOneOff || [])]
       if (fromCoachErr) {
         console.warn('Coach schedule (lead coach):', fromCoachErr)
       } else {
@@ -173,31 +177,64 @@ export default function CoachDashboard() {
         }
       }
 
-      const sessionsData = Array.from(sessionById.values()).sort((a, b) => {
-        if (a.session_date !== b.session_date) {
-          return String(a.session_date).localeCompare(String(b.session_date))
-        }
-        return String(a.start_time || '').localeCompare(String(b.start_time || ''))
-      })
+      const sessionIds = [...sessionById.keys()]
+      const { data: exceptions, error: exErr } = await fetchSessionExceptionsForSessionIds(
+        supabase,
+        sessionIds,
+        windowStartStr,
+        windowEndStr
+      )
+      if (exErr) console.warn('Coach schedule exceptions:', exErr)
+
+      const expanded = expandRecurringSessions(
+        Array.from(sessionById.values()),
+        scheduleStart,
+        scheduleEnd,
+        exceptions || []
+      )
+      const sessionsData = expanded
+        .filter((s) => s.session_date >= windowStartStr && s.session_date <= windowEndStr)
+        .sort((a, b) => {
+          if (a.session_date !== b.session_date) {
+            return String(a.session_date).localeCompare(String(b.session_date))
+          }
+          return String(a.start_time || '').localeCompare(String(b.start_time || ''))
+        })
 
       setUpcomingSessions(sessionsData)
 
-      // Calculate stats
-      const todayStr = new Date().toISOString().split('T')[0]
-      const todaySessions = sessionsData?.filter(s => s.session_date === todayStr).length || 0
+      const todaySessions =
+        sessionsData.filter((s) => s.session_date === todayStr).length || 0
 
       setStats({
         totalSwimmers: uniqueSwimmers.length,
         todaySessions,
-        totalSessions: sessionsData?.length || 0,
+        totalSessions: sessionsData.length,
       })
     } catch (error) {
       console.error('Error loading coach data:', error)
       toast.error('Failed to load dashboard data')
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
-  }
+  }, [user])
+
+  const isCoach = profile?.role === 'coach'
+
+  useEffect(() => {
+    if (!authLoading) {
+      if (!user || !isCoach) {
+        router.push('/login')
+        return
+      }
+      loadCoachData()
+    }
+  }, [user, authLoading, isCoach, loadCoachData, router])
+
+  useRefreshOnVisible(
+    () => loadCoachData({ silent: true }),
+    isCoach && Boolean(user?.id)
+  )
 
   const coachSwimmerSquadOptions = useMemo(() => {
     const byId = new Map()
@@ -523,7 +560,11 @@ export default function CoachDashboard() {
                       size="sm" 
                       variant="secondary" 
                       fullWidth
-                      onClick={() => router.push(`/admin/sessions/${session.id}/attendance`)}
+                      onClick={() =>
+                        router.push(
+                          `/admin/sessions/${session.id}/attendance?date=${encodeURIComponent(session.session_date)}`
+                        )
+                      }
                     >
                       Manage Attendance
                     </Button>

@@ -21,9 +21,10 @@ import { calculateAge } from '@/lib/utils/date-helpers'
 import {
   defaultAttendanceWindow,
   expandScheduledSessionsInWindow,
-  fetchTrainingSessionsForAttendanceWindow,
+  fetchParentSwimmerScheduleBundle,
   sessionMatchesSwimmerSquad,
 } from '@/lib/parent/swimmerSchedule'
+import { useRefreshOnVisible } from '@/hooks/useRefreshOnVisible'
 import { userCanAccessSwimmerParent } from '@/lib/parent/effective-parent-ids'
 import AttendanceCalendarView from '@/components/AttendanceCalendarView'
 import toast from 'react-hot-toast'
@@ -69,7 +70,6 @@ export default function SwimmerPerformancePage() {
   const [attendanceForCalendar, setAttendanceForCalendar] = useState([])
   const [scheduledForCalendar, setScheduledForCalendar] = useState([])
   const [loading, setLoading] = useState(false)
-  const [dataLoaded, setDataLoaded] = useState(false)
   const [activeTab, setActiveTab] = useState('times')
 
   // Modals
@@ -93,7 +93,6 @@ export default function SwimmerPerformancePage() {
     setRubricProgressRefreshNonce(0)
     setRubricSavedMonthYear(null)
     setCoachRubricEligible(false)
-    setDataLoaded(false)
   }, [swimmerId])
 
   const cachedProfile = user ? profileCache.get(user.id) : null
@@ -103,16 +102,17 @@ export default function SwimmerPerformancePage() {
   const canSaveRubric =
     userRole === 'admin' || (userRole === 'coach' && coachRubricEligible)
 
-  const loadData = useCallback(async () => {
-    if (dataLoaded) return
-    setLoading(true)
+  const loadData = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true)
     const supabase = createClient()
 
     try {
       // Load swimmer details
       const { data: swimmerData, error: swimmerError } = await supabase
         .from('swimmers')
-        .select('id, first_name, last_name, date_of_birth, gender, squad_id, status, parent_id, coach_id, squads(name, slug, rubrics_enabled)')
+        .select(
+          'id, first_name, last_name, date_of_birth, gender, squad_id, status, parent_id, coach_id, squads(name, slug, rubrics_enabled), assigned_coach:profiles!coach_id(full_name)'
+        )
         .eq('id', swimmerId)
         .single()
 
@@ -180,15 +180,21 @@ export default function SwimmerPerformancePage() {
       setNotes(notesData || [])
 
       if (userRole === 'parent') {
-        const { windowStart, windowEnd, windowEndStr } = defaultAttendanceWindow()
-        const [attRes, sessRes] = await Promise.all([
+        const { windowStart, windowEnd, windowStartStr, windowEndStr } =
+          defaultAttendanceWindow()
+        const [attRes, scheduleBundle] = await Promise.all([
           supabase
             .from('attendance')
-            .select(`*, training_sessions (session_date)`)
+            .select(`*, occurrence_date, training_sessions (session_date)`)
             .eq('swimmer_id', swimmerId)
             .order('created_at', { ascending: false })
             .limit(500),
-          fetchTrainingSessionsForAttendanceWindow(supabase, windowEndStr),
+          fetchParentSwimmerScheduleBundle(
+            supabase,
+            [swimmerData],
+            windowStartStr,
+            windowEndStr
+          ),
         ])
         if (attRes.error) {
           console.error('Error loading attendance:', attRes.error)
@@ -196,11 +202,16 @@ export default function SwimmerPerformancePage() {
         } else {
           setAttendanceForCalendar(attRes.data || [])
         }
-        if (sessRes.error) {
-          console.error('Error loading sessions for attendance:', sessRes.error)
+        if (scheduleBundle.error) {
+          console.error('Error loading sessions for attendance:', scheduleBundle.error)
           setScheduledForCalendar([])
         } else {
-          const expanded = expandScheduledSessionsInWindow(sessRes.data, windowStart, windowEnd)
+          const expanded = expandScheduledSessionsInWindow(
+            scheduleBundle.sessions,
+            windowStart,
+            windowEnd,
+            scheduleBundle.exceptions
+          )
           setScheduledForCalendar(
             expanded.filter((s) => sessionMatchesSwimmerSquad(s, swimmerData.squad_id))
           )
@@ -210,15 +221,14 @@ export default function SwimmerPerformancePage() {
         setScheduledForCalendar([])
       }
 
-      setDataLoaded(true)
     } catch (err) {
       const msg = err?.message || err?.error_description || String(err)
       console.error('Error loading performance data:', msg, err)
       toast.error(msg || 'Failed to load performance data')
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
-  }, [swimmerId, user, userRole, dataLoaded, router])
+  }, [swimmerId, user, userRole, router])
 
   useEffect(() => {
     if (!authLoading) {
@@ -231,10 +241,15 @@ export default function SwimmerPerformancePage() {
         return
       }
     }
-    if (user && swimmerId && !dataLoaded) {
+    if (user && swimmerId) {
       loadData()
     }
-  }, [user, authLoading, swimmerId, userRole, dataLoaded, loadData, router])
+  }, [user, authLoading, swimmerId, userRole, loadData, router])
+
+  useRefreshOnVisible(
+    () => loadData({ silent: true }),
+    userRole === 'parent' && Boolean(user?.id && swimmerId)
+  )
 
   useEffect(() => {
     if (userRole !== 'parent') return
@@ -731,6 +746,15 @@ export default function SwimmerPerformancePage() {
                   </h2>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     Monthly skills, habits and attitude evaluation against the {squadRow?.name ?? 'squad'} rubric.
+                    {swimmer.coach_id && (
+                      <span className="block mt-1">
+                        Rubric is filled by the assigned coach
+                        {swimmer.assigned_coach?.full_name
+                          ? ` (${swimmer.assigned_coach.full_name})`
+                          : ''}
+                        — usually the squad head coach.
+                      </span>
+                    )}
                   </p>
                 </div>
                 {canSaveRubric && (
