@@ -2,9 +2,11 @@
 
 ## 📚 Quick Navigation
 
-### Getting Started
-- **[Parent User Journey](PARENT_USER_JOURNEY.md)** - Complete guide for parents/guardians
-- **[Admin User Journey](ADMIN_USER_JOURNEY.md)** - Complete guide for administrators
+### Getting Started (maintained)
+- **[START HERE](START_HERE.md)** - Documentation hub (start here)
+- **[Onboarding handouts](onboarding/)** - **Primary** one-page guides for parents, coaches, admins
+- **[Parent User Journey](PARENT_USER_JOURNEY.md)** - Extended parent reference (may lag handout)
+- **[Admin User Journey](ADMIN_USER_JOURNEY.md)** - Extended admin reference (may lag handout)
 - **[Quick Start Guide](QUICK_START.md)** - Technical setup instructions
 
 ### Key Features
@@ -22,6 +24,10 @@
 - **[Security Fixes](SECURITY_FIXES.md)** - Database security patches applied
 - **[Consent Storage](CONSENT_STORAGE_GUARANTEED.md)** - Zero-tolerance consent recording
 
+### Plans (future work)
+- **[Comms Phase 3 enhancements](plans/comms-phase-3-enhancements.md)** - Deferred: attachments, threaded feedback, delegate announcements, club news card (Phases 0–2 + migrations 091–096 are live)
+- **[Admin-only coach provisioning](plans/admin-only-coach-provisioning.md)** - Implemented
+
 ### Reference
 - **[Organization Summary](ORGANIZATION_SUMMARY.md)** - Project overview
 - **[Profile Editing](PROFILE_EDITING_FEATURE.md)** - User settings documentation
@@ -30,13 +36,22 @@
 
 ```
 docs/
-├── PARENT_USER_JOURNEY.md       # User guide for parents ⭐
-├── ADMIN_USER_JOURNEY.md         # User guide for admins ⭐
-├── CHECK_IN_SYSTEM.md            # Check-in documentation
+├── START_HERE.md                 # Documentation hub ⭐
+├── onboarding/                   # Maintained one-page handouts ⭐
+│   ├── README.md
+│   ├── parent-onboarding.md
+│   ├── coach-onboarding.md
+│   └── admin-onboarding.md
+├── PARENT_USER_JOURNEY.md       # Extended parent guide
+├── ADMIN_USER_JOURNEY.md         # Extended admin guide
+├── CHECK_IN_SYSTEM.md            # Legacy check-in codes (attendance via sessions)
 ├── PAYSTACK_QUICK_START.md       # Payment setup
 ├── RUN_SESSION_CODE_MIGRATION.md # Important SQL migration ⚠️
 ├── QUICK_START.md                # Technical setup
 ├── PROJECT_STRUCTURE.md          # Code organization
+├── plans/                        # Product / implementation plans
+│   ├── comms-phase-3-enhancements.md
+│   └── admin-only-coach-provisioning.md
 └── ARCHIVE/                      # Historical fixes (resolved)
     ├── README.md
     └── [Archived fix docs]
@@ -44,9 +59,13 @@ docs/
 
 ## 🚀 For New Users
 
-**Parents/Guardians:** Start with → [Parent User Journey](PARENT_USER_JOURNEY.md)
+**Everyone:** Start with → [START HERE](START_HERE.md)
 
-**Administrators:** Start with → [Admin User Journey](ADMIN_USER_JOURNEY.md)
+**Parents/Guardians:** → [Parent onboarding handout](onboarding/parent-onboarding.md) (then [Parent User Journey](PARENT_USER_JOURNEY.md) if needed)
+
+**Coaches:** → [Coach onboarding handout](onboarding/coach-onboarding.md)
+
+**Administrators:** → [Admin onboarding handout](onboarding/admin-onboarding.md) (then [Admin User Journey](ADMIN_USER_JOURNEY.md) if needed)
 
 **Developers:** Start with → [Quick Start Guide](QUICK_START.md)
 
@@ -103,6 +122,5 @@ These represent resolved issues kept for reference.
 
 ---
 
-**Last Updated**: February 2026
-**Version**: 1.0
-**Status**: Production Ready ✅
+**Last Updated**: May 2026  
+**User docs:** Prefer [onboarding handouts](onboarding/) + [START_HERE](START_HERE.md) over older journey-only guidance.

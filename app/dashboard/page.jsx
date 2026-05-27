@@ -25,6 +25,7 @@ import { fetchParentIdsForDataAccess } from '@/lib/parent/effective-parent-ids'
 import { getAttendanceOccurrenceDateKey } from '@/lib/attendance/attendance-date-key'
 import { useRefreshOnVisible } from '@/hooks/useRefreshOnVisible'
 import { useParentUnreadNotificationsCount } from '@/hooks/useParentUnreadNotificationsCount'
+import { useParentUnreadFeedbackRepliesCount } from '@/hooks/useParentUnreadFeedbackRepliesCount'
 import { UnreadNotificationIndicator } from '@/components/UnreadNotificationIndicator'
 import toast from 'react-hot-toast'
 
@@ -204,6 +205,10 @@ export default function ParentDashboard() {
     user?.id,
     profile?.role === 'parent' && Boolean(user?.id)
   )
+  const unreadFeedbackReplies = useParentUnreadFeedbackRepliesCount(
+    user?.id,
+    profile?.role === 'parent' && Boolean(user?.id)
+  )
 
   const dashboardBadgeCount = unreadFeedCount + notificationCount
 
@@ -277,6 +282,45 @@ export default function ParentDashboard() {
                     </svg>
                     <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Profile Settings</p>
                     <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Manage info</p>
+                  </div>
+                </Card>
+              </Link>
+
+              <Link
+                href="/dashboard/feedback"
+                aria-label={
+                  unreadFeedbackReplies > 0
+                    ? `Feedback, ${unreadFeedbackReplies} new ${unreadFeedbackReplies === 1 ? 'reply' : 'replies'}`
+                    : 'Feedback'
+                }
+              >
+                <Card padding="normal" className="relative hover:shadow-lg transition-shadow cursor-pointer">
+                  {unreadFeedbackReplies > 0 && (
+                    <span className="absolute right-3 top-3 z-10">
+                      <UnreadNotificationIndicator count={unreadFeedbackReplies} />
+                    </span>
+                  )}
+                  <div className="text-center py-3 min-w-0 pr-8">
+                    <svg
+                      className="mx-auto h-10 w-10 text-primary mb-2"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      aria-hidden
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+                      />
+                    </svg>
+                    <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Feedback</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      {unreadFeedbackReplies > 0
+                        ? `${unreadFeedbackReplies} new ${unreadFeedbackReplies === 1 ? 'reply' : 'replies'}`
+                        : 'Message the club'}
+                    </p>
                   </div>
                 </Card>
               </Link>

@@ -7,6 +7,8 @@ import { useAuth } from '@/hooks/useAuth'
 import { useTheme } from '@/contexts/ThemeContext'
 import { useParentUnreadNotificationsCount } from '@/hooks/useParentUnreadNotificationsCount'
 import { useStaffUnreadNotificationsCount } from '@/hooks/useStaffUnreadNotificationsCount'
+import { useAdminOpenFeedbackCount } from '@/hooks/useAdminOpenFeedbackCount'
+import { useParentUnreadFeedbackRepliesCount } from '@/hooks/useParentUnreadFeedbackRepliesCount'
 import { UnreadNotificationIndicator } from '@/components/UnreadNotificationIndicator'
 
 export default function Navigation() {
@@ -34,6 +36,8 @@ export default function Navigation() {
     profile?.role,
     isAdminUser || isCoachUser
   )
+  const adminOpenFeedbackCount = useAdminOpenFeedbackCount(user?.id, isAdminUser)
+  const parentUnreadFeedbackReplies = useParentUnreadFeedbackRepliesCount(user?.id, isParentUser)
   const notificationsHref = isAdminUser
     ? '/admin/notifications'
     : isCoachUser
@@ -99,6 +103,23 @@ export default function Navigation() {
                         Notifications <span className="text-xs font-normal">(soon)</span>
                       </span>
                     )}
+                    {isParentUser && (
+                      <Link
+                        href="/dashboard/feedback"
+                        className="inline-flex items-center gap-2 text-stone-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary-light transition-colors font-medium text-sm"
+                      >
+                        <span>Feedback</span>
+                        <UnreadNotificationIndicator count={parentUnreadFeedbackReplies} />
+                      </Link>
+                    )}
+                    {isCoachUser && (
+                      <Link
+                        href="/coach/broadcast"
+                        className="text-stone-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary-light transition-colors font-medium text-sm"
+                      >
+                        Broadcast
+                      </Link>
+                    )}
                     <span
                       className="text-sm font-medium text-stone-400 dark:text-gray-500 cursor-default"
                       title="Coming soon"
@@ -136,6 +157,19 @@ export default function Navigation() {
                           className="text-stone-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary-light transition-colors font-medium text-sm"
                         >
                           Squads
+                        </Link>
+                        <Link 
+                          href="/admin/announcements" 
+                          className="text-stone-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary-light transition-colors font-medium text-sm"
+                        >
+                          Announcements
+                        </Link>
+                        <Link 
+                          href="/admin/feedback" 
+                          className="inline-flex items-center gap-2 text-stone-600 dark:text-gray-300 hover:text-primary dark:hover:text-primary-light transition-colors font-medium text-sm"
+                        >
+                          <span>Feedback</span>
+                          <UnreadNotificationIndicator count={adminOpenFeedbackCount} />
                         </Link>
                       </>
                     )}
@@ -240,6 +274,25 @@ export default function Navigation() {
                         Notifications <span className="text-xs">(soon)</span>
                       </div>
                     )}
+                    {isParentUser && (
+                      <Link
+                        href="/dashboard/feedback"
+                        className="flex items-center justify-between px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        <span>Feedback</span>
+                        <UnreadNotificationIndicator count={parentUnreadFeedbackReplies} />
+                      </Link>
+                    )}
+                    {isCoachUser && (
+                      <Link
+                        href="/coach/broadcast"
+                        className="block px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                      >
+                        Broadcast
+                      </Link>
+                    )}
                     <div className="px-4 py-2 text-sm text-stone-400 dark:text-gray-500" title="Coming soon">
                       Merch <span className="text-xs">(soon)</span>
                     </div>
@@ -279,6 +332,21 @@ export default function Navigation() {
                           onClick={() => setIsMobileMenuOpen(false)}
                         >
                           Squads
+                        </Link>
+                        <Link 
+                          href="/admin/announcements" 
+                          className="block px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          Announcements
+                        </Link>
+                        <Link 
+                          href="/admin/feedback" 
+                          className="flex items-center justify-between px-4 py-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors"
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          <span>Feedback</span>
+                          <UnreadNotificationIndicator count={adminOpenFeedbackCount} />
                         </Link>
                       </>
                     )}

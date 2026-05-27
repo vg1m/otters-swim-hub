@@ -1,5 +1,7 @@
 # Parent/Guardian User Journey
 
+> **Maintained entry point:** [Parent onboarding handout](onboarding/parent-onboarding.md) (one page, current product). Use this document as an extended reference; some sections may be outdated.
+
 A simple guide to using the Otters Kenya Academy of Swimming Limited platform as a parent or guardian.
 
 ## 🏁 Two Ways to Get Started

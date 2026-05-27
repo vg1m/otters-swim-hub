@@ -1,153 +1,109 @@
-# 🏊 START HERE - Otters Kenya Academy of Swimming Limited Platform
+# START HERE — Otters Swim Hub
 
-## 📍 Where Are You?
+**Documentation hub** for Otters Kenya Academy of Swimming Limited.
 
-Choose your path:
+> **For onboard sessions and day-to-day use**, start with the **one-page handouts** in [`onboarding/`](onboarding/). They are kept current with the product.  
+> Long-form journey docs below are **optional deep dives** (some sections may lag behind the app).
 
-### 👨‍👩‍👧 I'm a Parent/Guardian
-**→ Read**: [Parent User Journey](docs/PARENT_USER_JOURNEY.md)
+---
 
-Quick overview:
-1. Sign up with email
-2. Register your swimmer(s)
-3. Pay KES 3,500 registration fee
-4. Check-in at training with 6-character codes
+## Choose your role
 
-### 👨‍💼 I'm an Administrator
-**→ Read**: [Admin User Journey](docs/ADMIN_USER_JOURNEY.md)
+### Parent or guardian
 
-Quick overview:
-1. Login with admin credentials
-2. Approve pending registrations
-3. Create training sessions
-4. Display check-in codes at pool
-5. Monitor attendance
+**Start here:** [Parent onboarding (1 page)](onboarding/parent-onboarding.md)
 
-### 👨‍💻 I'm a Developer
-**→ Read**: [Technical Quick Start](docs/QUICK_START.md)
+Covers: login, dashboard, swimmers, schedule & attendance calendar, invoices, notifications, feedback, settings & family access.
 
-Quick overview:
-1. Clone repo & install dependencies
-2. Configure Supabase & Paystack
-3. Run SQL migrations (001-035)
-4. Start dev server
-5. Deploy to Vercel
+**Deep dive (optional):** [Parent User Journey](PARENT_USER_JOURNEY.md)
 
-## 📚 Documentation Quick Reference
+### Coach
 
-| Document | Purpose | Audience |
-|----------|---------|----------|
-| [PARENT_USER_JOURNEY.md](docs/PARENT_USER_JOURNEY.md) | Complete parent guide | Parents |
-| [ADMIN_USER_JOURNEY.md](docs/ADMIN_USER_JOURNEY.md) | Complete admin guide | Admins |
-| [CHECK_IN_SYSTEM.md](docs/CHECK_IN_SYSTEM.md) | How check-in works | Everyone |
-| [QUICK_START.md](docs/QUICK_START.md) | Technical setup | Developers |
-| [PAYSTACK_QUICK_START.md](docs/PAYSTACK_QUICK_START.md) | Payment setup | Developers |
-| [RUN_SESSION_CODE_MIGRATION.md](docs/RUN_SESSION_CODE_MIGRATION.md) | Fix session codes | Admins/Devs |
-| [CODEBASE_CLEANUP_COMPLETE.md](CODEBASE_CLEANUP_COMPLETE.md) | What was cleaned up | Devs |
-| [docs/README.md](docs/README.md) | All documentation index | Everyone |
+**Start here:** [Coach onboarding (1 page)](onboarding/coach-onboarding.md)
 
-## 🚀 Quick Actions
+Covers: dashboard, my swimmers, family & contacts, sessions & attendance, rubrics, notifications, broadcast.
 
-### I Want To...
+Coaches are **invited by an admin** — not the public parent sign-up flow. See [Admin-only coach provisioning](plans/admin-only-coach-provisioning.md).
 
-**Register as a parent**
-→ Go to `/signup` → Follow [Parent User Journey](docs/PARENT_USER_JOURNEY.md)
+### Administrator
 
-**Check-in my swimmer**
-→ Go to `/check-in` → Enter 6-character code from poolside
+**Start here:** [Admin onboarding (1 page)](onboarding/admin-onboarding.md)
 
-**Pay my invoice**
-→ Go to `/invoices` → Click "Pay Now"
+Covers: registrations, swimmers/squads/coaches, sessions & recurring exceptions, attendance, invoices, **announcements**, **feedback**, notifications.
 
-**Approve registrations (admin)**
-→ Go to `/admin/registrations` → Click "Approve"
+**Deep dive (optional):** [Admin User Journey](ADMIN_USER_JOURNEY.md)
 
-**Create a training session (admin)**
-→ Go to `/admin/sessions` → Click "+ Create Session"
+### Developer or technical setup
 
-**View attendance (admin)**
-→ Go to `/admin/sessions` → Click "View Attendance"
+**Start here:** [Quick Start](QUICK_START.md) · [Documentation index](README.md)
 
-**Set up for development**
-→ Read [docs/QUICK_START.md](docs/QUICK_START.md)
+- Apply Supabase migrations in numeric order through **096** (communications & feedback: **091–096**).
+- Configure Supabase, Paystack, SMTP2GO (production email).
+- Deploy: [Deployment guide](DEPLOYMENT.md) or [Deployment guide (alt)](DEPLOYMENT_GUIDE.md).
 
-**Deploy to production**
-→ Read [DEPLOYMENT.md](DEPLOYMENT.md)
+**Future product work:** [Comms Phase 3 plan](plans/comms-phase-3-enhancements.md) (deferred).
 
-## ✅ System Status
+---
 
-- ✅ **Registration System** - Fully operational
-- ✅ **Payment Gateway** - Paystack integrated
-- ✅ **Check-In System** - 6-character codes working
-- ✅ **Admin Dashboard** - Complete
-- ✅ **Security** - All patches applied
-- ✅ **Mobile Responsive** - Optimized for all devices
-- ⏳ **Email Notifications** - Pending (SMTP2GO)
+## Quick actions (current app)
 
-## 🐛 Known Issues
+| I want to… | Where to go |
+|------------|-------------|
+| Sign up as a parent | `/signup` → then `/register` for swimmers |
+| Parent dashboard | `/dashboard` |
+| Pay an invoice | `/invoices` |
+| Club messages & alerts | `/dashboard/notifications` |
+| Message the club (parent) | `/dashboard/feedback` |
+| Coach dashboard | `/coach` |
+| Message parents / coaches | `/coach/broadcast` |
+| Admin home | `/admin` |
+| Approve registrations | `/admin/registrations` |
+| Training sessions & calendar | `/admin/sessions` |
+| Session attendance | `/admin/sessions/[id]/attendance` (use `?date=` for recurring) |
+| Club announcement (all parents + staff) | `/admin/announcements` |
+| Parent feedback inbox | `/admin/feedback` |
+| Manage coaches | `/admin/coaches` |
 
-**None!** 🎉
+---
 
-All previous issues have been resolved. The codebase is clean and production-ready.
+## Documentation map
 
-## 🆘 Need Help?
+| Document | Use when |
+|----------|----------|
+| [onboarding/README.md](onboarding/README.md) | Index of printable handouts |
+| [onboarding/parent-onboarding.md](onboarding/parent-onboarding.md) | **Primary** parent guide |
+| [onboarding/coach-onboarding.md](onboarding/coach-onboarding.md) | **Primary** coach guide |
+| [onboarding/admin-onboarding.md](onboarding/admin-onboarding.md) | **Primary** admin guide |
+| [PARENT_USER_JOURNEY.md](PARENT_USER_JOURNEY.md) | Extended parent reference |
+| [ADMIN_USER_JOURNEY.md](ADMIN_USER_JOURNEY.md) | Extended admin reference |
+| [README.md](README.md) | Full technical & feature index |
+| [PAYSTACK_QUICK_START.md](PAYSTACK_QUICK_START.md) | Payments |
+| [CHECK_IN_SYSTEM.md](CHECK_IN_SYSTEM.md) | **Legacy** — parent `/check-in` codes; attendance is now mainly coach/admin on session attendance |
+| [plans/comms-phase-3-enhancements.md](plans/comms-phase-3-enhancements.md) | Deferred comms features |
+| [ARCHIVE/](ARCHIVE/) | Resolved historical fixes |
 
-### Parents
-- Check [Parent User Journey](docs/PARENT_USER_JOURNEY.md)
-- Look for your issue in the troubleshooting section
-- Contact club admin if not resolved
+---
 
-### Admins
-- Check [Admin User Journey](docs/ADMIN_USER_JOURNEY.md)
-- See common support workflows section
-- Review daily/weekly task checklists
+## What’s live today (product)
 
-### Developers
-- Check [docs/README.md](docs/README.md) for all technical docs
-- Review [CODEBASE_CLEANUP_COMPLETE.md](CODEBASE_CLEANUP_COMPLETE.md) for recent changes
-- Build error? Check [docs/QUICK_START.md](docs/QUICK_START.md)
+- Registration, squads, coaches, recurring sessions & exceptions  
+- Parent schedule scoped to swimmer squads; attendance calendar on progress pages  
+- Paystack invoices & receipts  
+- In-app notifications + email (SMTP2GO) for key events  
+- **Club announcements**, **parent feedback**, **coach broadcast**, **coach family & contacts** (migrations **091–096**)  
+- Mobile-friendly dashboards for parent, coach, and admin  
 
-## 📞 Support Channels
+**Not in scope yet:** Phase 3 comms (attachments, threaded feedback, etc.) — see [plan](plans/comms-phase-3-enhancements.md).
 
-- **Technical Issues**: Check documentation first
-- **Feature Questions**: See relevant user journey doc
-- **Payment Issues**: [Paystack Quick Start](docs/PAYSTACK_QUICK_START.md)
-- **Database Issues**: [RUN_SESSION_CODE_MIGRATION.md](docs/RUN_SESSION_CODE_MIGRATION.md)
+---
 
-## 🎯 Next Steps
+## Need help?
 
-### Today
-1. ✅ Read your relevant user journey doc
-2. ✅ Run database migration (if not done)
-3. ✅ Test check-in with 6-character codes
-4. ✅ Review cleanup summary
+- **Parents / coaches / admins at the pool:** use the relevant [onboarding handout](onboarding/) first, then club office.  
+- **Payments:** [Paystack Quick Start](PAYSTACK_QUICK_START.md)  
+- **Database / migrations:** [Database setup](DATABASE_SETUP.md); apply new SQL files in `supabase/migrations/` in order.  
+- **Old troubleshooting docs:** prefer onboarding + journeys; see [ARCHIVE](ARCHIVE/) only if investigating history.
 
-### This Week
-1. Test full registration flow
-2. Verify payment processing
-3. Train admins on dashboard
-4. Inform parents about new system
-5. Deploy to production (if ready)
+---
 
-## 📊 Recent Changes (Feb 2026)
-
-✅ **Codebase Cleanup Complete**
-- 11 diagnostic SQL files archived
-- 14 temporary docs archived
-- Exposed test keys sanitized
-- User journey docs created
-- Documentation reorganized
-
-✅ **Check-In System Simplified**
-- Removed QR code scanning
-- Simple 6-character manual entry
-- Better mobile UX
-- Clear poolside instructions
-
-✅ **Security Enhancements**
-- All database warnings fixed
-- RLS policies tightened
-- Consent storage guaranteed
-- No exposed credentials
-
-**🏊‍♂️ Made with 💙 for Otters Kenya Academy of Swimming Limited**
+*Last updated: May 2026 — handouts are the maintained entry point; update those when the product changes.*

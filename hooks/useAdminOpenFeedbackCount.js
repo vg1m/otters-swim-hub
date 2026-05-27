@@ -6,15 +6,15 @@ import { createClient } from '@/lib/supabase/client'
 import { NOTIFIER_REFRESH_EVENT } from '@/lib/notifications/notifier-refresh'
 
 /**
- * Unread staff_notifications count for admin or coach nav badge.
+ * Unread open parent_feedback for admin (open + not yet opened by admin).
  */
-export function useStaffUnreadNotificationsCount(userId, role, enabled = true) {
+export function useAdminOpenFeedbackCount(userId, enabled = true) {
   const pathname = usePathname()
-  const [unreadCount, setUnreadCount] = useState(0)
+  const [openCount, setOpenCount] = useState(0)
 
   useEffect(() => {
-    if (!enabled || !userId || (role !== 'admin' && role !== 'coach')) {
-      setUnreadCount(0)
+    if (!enabled || !userId) {
+      setOpenCount(0)
       return undefined
     }
 
@@ -22,19 +22,29 @@ export function useStaffUnreadNotificationsCount(userId, role, enabled = true) {
 
     async function run() {
       const supabase = createClient()
-      const { count, error } = await supabase
-        .from('staff_notifications')
+
+      let query = supabase
+        .from('parent_feedback')
         .select('*', { count: 'exact', head: true })
-        .eq('recipient_id', userId)
-        .eq('role', role)
-        .is('read_at', null)
+        .eq('status', 'open')
+
+      const probe = await supabase.from('parent_feedback').select('admin_read_at').limit(1)
+      const hasAdminReadAt = !(
+        probe.error?.message?.includes('admin_read_at') &&
+        probe.error?.message?.includes('does not exist')
+      )
+      if (hasAdminReadAt) {
+        query = query.is('admin_read_at', null)
+      }
+
+      const { count, error } = await query
 
       if (cancelled) return
       if (error) {
-        setUnreadCount(0)
+        setOpenCount(0)
         return
       }
-      setUnreadCount(count ?? 0)
+      setOpenCount(count ?? 0)
     }
 
     run()
@@ -52,7 +62,7 @@ export function useStaffUnreadNotificationsCount(userId, role, enabled = true) {
       document.removeEventListener('visibilitychange', onVisibility)
       window.removeEventListener(NOTIFIER_REFRESH_EVENT, onRefresh)
     }
-  }, [userId, role, enabled, pathname])
+  }, [userId, enabled, pathname])
 
-  return unreadCount
+  return openCount
 }

@@ -11,6 +11,7 @@ import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import { formatKES } from '@/lib/utils/currency'
 import { fetchParentIdsForDataAccess } from '@/lib/parent/effective-parent-ids'
+import { useAutoMarkNotificationsRead } from '@/hooks/useAutoMarkNotificationsRead'
 import toast from 'react-hot-toast'
 
 const TYPE_META = {
@@ -21,6 +22,8 @@ const TYPE_META = {
   squad_assigned:    { icon: '🏊', label: 'Squad' },
   coach_assigned:    { icon: '👤', label: 'Coach' },
   session_schedule_changed: { icon: '📅', label: 'Schedule' },
+  club_announcement: { icon: '📢', label: 'Club news' },
+  coach_broadcast: { icon: '📣', label: 'Coach message' },
 }
 
 function timeAgo(dateStr) {
@@ -118,6 +121,14 @@ export default function ParentNotificationsPage() {
     () => notifications.filter((n) => !n.read_at).length,
     [notifications]
   )
+
+  useAutoMarkNotificationsRead({
+    userId: user?.id,
+    role: 'parent',
+    notifications,
+    setNotifications,
+    loading,
+  })
 
   async function handleMarkAllRead() {
     if (unreadCount === 0) return

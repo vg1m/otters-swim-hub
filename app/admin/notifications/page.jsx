@@ -11,6 +11,7 @@ import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import { formatKES } from '@/lib/utils/currency'
 import { STAFF_TYPE_META } from '@/lib/notifications/staff-notification-types'
+import { useAutoMarkNotificationsRead } from '@/hooks/useAutoMarkNotificationsRead'
 import toast from 'react-hot-toast'
 
 function timeAgo(dateStr) {
@@ -98,6 +99,14 @@ export default function AdminNotificationsPage() {
     () => notifications.filter((n) => !n.read_at).length,
     [notifications]
   )
+
+  useAutoMarkNotificationsRead({
+    userId: user?.id,
+    role: 'admin',
+    notifications,
+    setNotifications,
+    loading,
+  })
 
   async function handleMarkAllRead() {
     if (unreadCount === 0) return

@@ -1,5 +1,7 @@
 # Admin User Journey
 
+> **Maintained entry point:** [Admin onboarding handout](onboarding/admin-onboarding.md) (one page, current product). Coaches should use [coach onboarding](onboarding/coach-onboarding.md). This document is an extended reference; some sections may be outdated.
+
 A comprehensive guide for Otters Kenya Academy of Swimming Limited administrators and coaches.
 
 ## 🔐 Getting Started

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { NOTIFIER_REFRESH_EVENT } from '@/lib/notifications/notifier-refresh'
 
 /**
  * Count of persisted notifications with read_at IS NULL for this parent profile id.
@@ -41,11 +42,15 @@ export function useParentUnreadNotificationsCount(userId, enabled = true) {
     const onVisibility = () => {
       if (document.visibilityState === 'visible') run()
     }
+    const onRefresh = () => run()
+
     document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener(NOTIFIER_REFRESH_EVENT, onRefresh)
 
     return () => {
       cancelled = true
       document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener(NOTIFIER_REFRESH_EVENT, onRefresh)
     }
   }, [userId, enabled, pathname])
 

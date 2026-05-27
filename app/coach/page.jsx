@@ -28,6 +28,7 @@ import {
   KpiOutstandingIcon,
 } from '@/components/icons/DashboardKpiIcons'
 import toast from 'react-hot-toast'
+import CoachSwimmerContacts from '@/components/coach/CoachSwimmerContacts'
 
 const COACH_SCHEDULE_DAYS = 30
 
@@ -497,6 +498,7 @@ export default function CoachDashboard() {
                           >
                             Progress
                           </Button>
+                          <CoachSwimmerContacts swimmerId={row.id} />
                         </div>
                       ))}
                     </div>
@@ -523,9 +525,10 @@ export default function CoachDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {upcomingSessions.map((session) => {
                   const directionsUrl = buildDirectionsUrlFromLabel(session.pool_location)
+                  const sessionKey = `${session.id}_${session.occurrence_date || session.session_date}`
                   return (
                   <div
-                    key={session.id}
+                    key={sessionKey}
                     className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4"
                   >
                     <div className="flex justify-between items-start mb-2">
