@@ -15,7 +15,28 @@ import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import Badge from '@/components/ui/Badge'
 import { formatKES } from '@/lib/utils/currency'
+import {
+  RUBRIC_TEMPLATE_OPTIONS,
+  rubricTemplateLabel,
+  PATHWAY_RUBRIC_SLUGS,
+} from '@/lib/rubrics/rubric-data'
+import { syncLaneCapacityRules } from '@/lib/facilities/sync-lane-capacity-rules'
 import toast from 'react-hot-toast'
+
+const RUBRIC_SELECT_OPTIONS = [
+  { value: 'none', label: 'None — no progress rubric' },
+  ...RUBRIC_TEMPLATE_OPTIONS.map((o) => ({
+    value: o.value,
+    label: `${o.label} checklist`,
+  })),
+]
+
+function rubricSelectValue(row) {
+  if (!row?.rubrics_enabled) return 'none'
+  const slug = row.rubric_template_slug || row.slug
+  if (slug && PATHWAY_RUBRIC_SLUGS.has(slug)) return slug
+  return row.rubric_template_slug || 'dev2'
+}
 
 function slugify(s) {
   return String(s || '')
@@ -43,7 +64,7 @@ export default function AdminSquadsPage() {
     monthly_fee: '',
     quarterly_fee: '',
     early_bird_eligible: false,
-    rubrics_enabled: false,
+    rubric_template: 'none',
     description: '',
   })
 
@@ -87,7 +108,7 @@ export default function AdminSquadsPage() {
       monthly_fee: '',
       quarterly_fee: '',
       early_bird_eligible: false,
-      rubrics_enabled: false,
+      rubric_template: 'none',
       description: '',
     })
     setShowModal(true)
@@ -103,7 +124,7 @@ export default function AdminSquadsPage() {
       monthly_fee: String(row.monthly_fee),
       quarterly_fee: row.quarterly_fee != null ? String(row.quarterly_fee) : '',
       early_bird_eligible: !!row.early_bird_eligible,
-      rubrics_enabled: !!row.rubrics_enabled,
+      rubric_template: rubricSelectValue(row),
       description: row.description || '',
     })
     setShowModal(true)
@@ -196,6 +217,9 @@ export default function AdminSquadsPage() {
       return
     }
 
+    const rubricTemplate =
+      form.rubric_template && form.rubric_template !== 'none' ? form.rubric_template : null
+
     setSaving(true)
     const supabase = createClient()
     try {
@@ -206,13 +230,19 @@ export default function AdminSquadsPage() {
         monthly_fee: monthly,
         quarterly_fee: quarterly,
         early_bird_eligible: form.early_bird_eligible,
-        rubrics_enabled: form.rubrics_enabled,
+        rubrics_enabled: Boolean(rubricTemplate),
+        rubric_template_slug: rubricTemplate,
         description: form.description.trim() || null,
       }
       if (!selected) {
         payload.slug = slug
         const { error } = await supabase.from('squads').insert(payload)
         if (error) throw error
+        try {
+          await syncLaneCapacityRules(supabase)
+        } catch (syncErr) {
+          console.warn('Lane capacity rule sync (non-fatal):', syncErr)
+        }
         toast.success('Squad created')
       } else {
         const { error } = await supabase.from('squads').update(payload).eq('id', selected.id)
@@ -250,9 +280,12 @@ export default function AdminSquadsPage() {
         render: (r) => (r.early_bird_eligible ? 'Yes' : 'No'),
       },
       {
-        header: 'Rubric',
-        accessor: 'rubrics_enabled',
-        render: (r) => (r.rubrics_enabled ? 'Yes' : 'No'),
+        header: 'Progress rubric',
+        accessor: 'rubric_template_slug',
+        render: (r) => {
+          if (!r.rubrics_enabled) return 'None'
+          return rubricTemplateLabel(r.rubric_template_slug) || rubricTemplateLabel(r.slug) || 'Yes'
+        },
       },
       {
         header: 'Active',
@@ -451,7 +484,11 @@ export default function AdminSquadsPage() {
                             <div>
                               <p className="text-gray-500 dark:text-gray-400 text-xs">Progress rubric</p>
                               <p className="font-medium text-gray-900 dark:text-gray-100">
-                                {row.rubrics_enabled ? 'Yes' : 'No'}
+                                {!row.rubrics_enabled
+                                  ? 'None'
+                                  : rubricTemplateLabel(row.rubric_template_slug) ||
+                                    rubricTemplateLabel(row.slug) ||
+                                    'Enabled'}
                               </p>
                             </div>
                             <div>
@@ -605,21 +642,20 @@ export default function AdminSquadsPage() {
               Eligible for early-bird discount (monthly)
             </span>
           </label>
-          <label className="flex items-start gap-2 md:col-span-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={form.rubrics_enabled}
-              onChange={(e) => setForm({ ...form, rubrics_enabled: e.target.checked })}
-              className="rounded border-gray-300 mt-1"
-            />
-            <span className="text-sm text-gray-800 dark:text-gray-200">
-              <span className="font-medium">Include progress rubric</span>
-              <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                Shows monthly skills/habits rubric on Performance. New squads automatically receive the
-                Development 2 checklist. Pathway squads (Pups, Dev 1–3, etc.) keep their own rubrics.
-              </span>
-            </span>
-          </label>
+          <Select
+            className="md:col-span-2"
+            label="Progress rubric"
+            value={form.rubric_template}
+            onChange={(e) => setForm({ ...form, rubric_template: e.target.value })}
+            options={RUBRIC_SELECT_OPTIONS}
+            helperText={
+              form.rubric_template === 'none'
+                ? 'Swimmers in this squad will not see the Rubric tab on Performance.'
+                : selected?.rubrics_enabled && selected?.rubric_template_slug
+                  ? 'Checklist is created when rubrics are first enabled. Changing the template here does not replace an existing checklist.'
+                  : `Uses the ${rubricTemplateLabel(form.rubric_template) || 'selected'} skills and habits checklist on Performance.`
+            }
+          />
           <Input
             className="md:col-span-2"
             label="Description (optional)"

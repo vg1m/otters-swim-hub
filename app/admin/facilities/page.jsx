@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { profileCache } from '@/lib/cache/profile-cache'
 import { buildDirectionsUrl } from '@/lib/facilities/directions'
+import { syncLaneCapacityRules } from '@/lib/facilities/sync-lane-capacity-rules'
 import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer'
 import Card from '@/components/ui/Card'
@@ -14,7 +15,30 @@ import Table from '@/components/ui/Table'
 import Modal from '@/components/ui/Modal'
 import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
+import Badge from '@/components/ui/Badge'
 import toast from 'react-hot-toast'
+
+function formatScheduleTime(value) {
+  if (!value) return '—'
+  const s = String(value)
+  return s.length >= 5 ? s.slice(0, 5) : s
+}
+
+function ScheduleSquadChips({ row }) {
+  const links = row.facility_schedule_squads || []
+  if (!links.length) {
+    return <span className="text-sm text-gray-400 dark:text-gray-500">No squads assigned</span>
+  }
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {links.map((l) => (
+        <Badge key={l.squad_id} variant="primary" size="sm" className="max-w-full truncate">
+          {l.squads?.name || 'Squad'}
+        </Badge>
+      ))}
+    </div>
+  )
+}
 
 export default function FacilityManagementPage() {
   const router = useRouter()
@@ -76,7 +100,7 @@ export default function FacilityManagementPage() {
     const supabase = createClient()
 
     try {
-      const [facilitiesRes, schedulesRes, capacityRes, squadsRes] = await Promise.all([
+      const [facilitiesRes, schedulesRes, squadsRes] = await Promise.all([
         supabase.from('facilities').select('*').order('name'),
         supabase
           .from('facility_schedules')
@@ -91,19 +115,33 @@ export default function FacilityManagementPage() {
           `
           )
           .order('facility_id'),
-        supabase.from('lane_capacity_rules').select('*').order('sub_squad'),
-        supabase.from('squads').select('id, name').eq('is_active', true).order('sort_order').order('name'),
+        supabase.from('squads').select('id, name, slug, sort_order').eq('is_active', true).order('sort_order').order('name'),
       ])
 
       if (facilitiesRes.error) throw facilitiesRes.error
       if (schedulesRes.error) throw schedulesRes.error
-      if (capacityRes.error) throw capacityRes.error
       if (squadsRes.error) throw squadsRes.error
+
+      const squads = squadsRes.data || []
+      await syncLaneCapacityRules(supabase)
+
+      const { data: rulesAfterSync, error: rulesReloadErr } = await supabase
+        .from('lane_capacity_rules')
+        .select('*')
+      if (rulesReloadErr) throw rulesReloadErr
+
+      const slugOrder = new Map(squads.map((s, i) => [s.slug, s.sort_order ?? i]))
+      const sortedRules = (rulesAfterSync || [])
+        .filter((r) => squads.some((s) => s.slug === r.sub_squad))
+        .sort(
+          (a, b) =>
+            (slugOrder.get(a.sub_squad) ?? 999) - (slugOrder.get(b.sub_squad) ?? 999)
+        )
 
       setFacilities(facilitiesRes.data || [])
       setSchedules(schedulesRes.data || [])
-      setSquadList(squadsRes.data || [])
-      setCapacityRules(capacityRes.data || [])
+      setSquadList(squads)
+      setCapacityRules(sortedRules)
     } catch (error) {
       console.error('Error loading data:', error)
       toast.error('Failed to load facility data')
@@ -316,6 +354,14 @@ export default function FacilityManagementPage() {
 
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
+  function squadLabelForSlug(slug) {
+    return squadList.find((s) => s.slug === slug)?.name ?? slug
+  }
+
+  const squadsMissingCapacityRule = squadList.filter(
+    (sq) => !capacityRules.some((r) => r.sub_squad === sq.slug)
+  )
+
   function scheduleSquadLabel(row) {
     const links = row.facility_schedule_squads || []
     if (!links.length) return 'N/A'
@@ -454,10 +500,10 @@ export default function FacilityManagementPage() {
   ]
 
   const capacityColumns = [
-    { 
-      header: 'Level', 
+    {
+      header: 'Squad',
       accessor: 'sub_squad',
-      render: (row) => row.sub_squad.toUpperCase()
+      render: (row) => squadLabelForSlug(row.sub_squad),
     },
     { 
       header: 'Swimmers per Lane', 
@@ -707,56 +753,57 @@ export default function FacilityManagementPage() {
               >
                 + Add Schedule
               </Button>
-              {facilities.length === 0 && (
+              {facilities.length === 0 ? (
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   Add a facility first before creating schedules
+                </p>
+              ) : (
+                <p className="text-xs text-gray-500 dark:text-gray-400 md:hidden">
+                  Each card is one pool slot: day, time, and squads using that lane.
                 </p>
               )}
             </div>
             {schedulesListExpanded && (
               <>
-                <div className="md:hidden -mx-6">
+                <div className="md:hidden space-y-3">
                   {schedules.length === 0 ? (
-                    <div className="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+                    <div className="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 px-4 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
                       No schedules configured
                     </div>
                   ) : (
-                    <div className="divide-y divide-gray-200 dark:divide-gray-700 border-t border-gray-200 dark:border-gray-700">
-                      {schedules.map((row) => (
-                        <div key={row.id} className="p-4 space-y-3">
-                          <div className="min-w-0">
-                            <p className="text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                              Schedule
-                            </p>
-                            <p className="text-base font-semibold text-gray-900 dark:text-gray-100">
-                              {row.facilities?.name || 'Unknown facility'}
-                            </p>
+                    schedules.map((row) => (
+                      <article
+                        key={row.id}
+                        className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800/60"
+                      >
+                        <div className="border-b border-gray-100 bg-gray-50/90 px-4 py-3 dark:border-gray-700/80 dark:bg-gray-800">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                            Pool
+                          </p>
+                          <p className="mt-0.5 text-base font-semibold leading-snug text-gray-900 dark:text-gray-100">
+                            {row.facilities?.name || 'Unknown facility'}
+                          </p>
+                        </div>
+                        <div className="space-y-3 px-4 py-3">
+                          <div className="flex flex-wrap gap-2">
+                            <Badge variant="info" size="sm">
+                              {dayNames[row.day_of_week] ?? 'Day'}
+                            </Badge>
+                            <Badge variant="default" size="sm" className="tabular-nums">
+                              {formatScheduleTime(row.start_time)} – {formatScheduleTime(row.end_time)}
+                            </Badge>
                           </div>
-                          <div className="space-y-2 text-sm">
-                            <div className="flex flex-wrap items-baseline justify-between gap-2">
-                              <span className="text-gray-500 dark:text-gray-400">Day</span>
-                              <span className="text-gray-900 dark:text-gray-100">
-                                {dayNames[row.day_of_week] ?? 'N/A'}
-                              </span>
-                            </div>
-                            <div className="flex flex-wrap items-baseline justify-between gap-2">
-                              <span className="text-gray-500 dark:text-gray-400">Time</span>
-                              <span className="text-gray-900 dark:text-gray-100">
-                                {row.start_time} – {row.end_time}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-gray-500 dark:text-gray-400">Squads</span>
-                              <p className="mt-0.5 text-gray-800 dark:text-gray-200 break-words">
-                                {scheduleSquadLabel(row)}
-                              </p>
-                            </div>
+                          <div>
+                            <p className="mb-1.5 text-xs font-medium text-gray-500 dark:text-gray-400">
+                              Squads
+                            </p>
+                            <ScheduleSquadChips row={row} />
                           </div>
-                          <div className="flex flex-col gap-2 pt-1">
+                          <div className="grid grid-cols-2 gap-2 pt-0.5">
                             <Button
-                              fullWidth
                               variant="secondary"
                               size="sm"
+                              className="w-full min-h-[44px]"
                               onClick={() => {
                                 setSelectedSchedule(row)
                                 setScheduleForm({
@@ -764,7 +811,9 @@ export default function FacilityManagementPage() {
                                   day_of_week: row.day_of_week.toString(),
                                   start_time: row.start_time,
                                   end_time: row.end_time,
-                                  squad_ids: (row.facility_schedule_squads || []).map((l) => l.squad_id),
+                                  squad_ids: (row.facility_schedule_squads || []).map(
+                                    (l) => l.squad_id
+                                  ),
                                 })
                                 setShowScheduleModal(true)
                               }}
@@ -772,17 +821,17 @@ export default function FacilityManagementPage() {
                               Edit
                             </Button>
                             <Button
-                              fullWidth
                               variant="danger"
                               size="sm"
+                              className="w-full min-h-[44px]"
                               onClick={() => handleDeleteSchedule(row)}
                             >
                               Delete
                             </Button>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                      </article>
+                    ))
                   )}
                 </div>
                 <div className="hidden md:block">
@@ -831,62 +880,79 @@ export default function FacilityManagementPage() {
               </button>
             }
           >
-            <div className="mb-4">
-              <Button
-                fullWidth
-                className="md:w-auto md:shrink-0"
-                onClick={() => {
-                  setSelectedCapacity(null)
-                  setCapacityForm({ sub_squad: '', swimmers_per_lane: '' })
-                  setShowCapacityModal(true)
-                }}
-              >
-                + Add Rule
-              </Button>
+            <div className="mb-4 space-y-2">
+              {squadsMissingCapacityRule.length > 0 && (
+                <Button
+                  fullWidth
+                  className="md:w-auto md:shrink-0"
+                  onClick={() => {
+                    setSelectedCapacity(null)
+                    setCapacityForm({ sub_squad: '', swimmers_per_lane: '6' })
+                    setShowCapacityModal(true)
+                  }}
+                >
+                  + Add rule for squad
+                </Button>
+              )}
+              <p className="text-xs text-gray-500 dark:text-gray-400 md:hidden">
+                One rule per active squad. Tap Edit to change swimmers per lane.
+              </p>
+              <p className="hidden md:block text-sm text-gray-500 dark:text-gray-400">
+                Rules match active squads from Admin → Squads. New squads get a default rule
+                automatically; edit swimmers per lane below.
+              </p>
             </div>
             {capacityListExpanded && (
               <>
-                <div className="md:hidden -mx-6">
+                <div className="md:hidden space-y-3">
                   {capacityRules.length === 0 ? (
-                    <div className="px-4 py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+                    <div className="rounded-xl border border-dashed border-gray-200 dark:border-gray-700 px-4 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
                       No capacity rules defined
                     </div>
                   ) : (
-                    <div className="divide-y divide-gray-200 dark:divide-gray-700 border-t border-gray-200 dark:border-gray-700">
-                      {capacityRules.map((row) => (
-                        <div key={row.id} className="p-4 space-y-3">
-                          <div className="space-y-2 text-sm">
-                            <div className="flex flex-wrap items-baseline justify-between gap-2">
-                              <span className="text-gray-500 dark:text-gray-400">Level</span>
-                              <span className="font-medium text-gray-900 dark:text-gray-100">
-                                {row.sub_squad.toUpperCase()}
-                              </span>
-                            </div>
-                            <div className="flex flex-wrap items-baseline justify-between gap-2">
-                              <span className="text-gray-500 dark:text-gray-400">Swimmers per lane</span>
-                              <span className="text-gray-900 dark:text-gray-100">{row.swimmers_per_lane}</span>
-                            </div>
+                    capacityRules.map((row) => (
+                      <article
+                        key={row.id}
+                        className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-700 dark:bg-gray-800/60"
+                      >
+                        <div className="flex items-stretch gap-3 px-4 py-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                              Squad
+                            </p>
+                            <p className="mt-0.5 text-base font-semibold leading-snug text-gray-900 dark:text-gray-100">
+                              {squadLabelForSlug(row.sub_squad)}
+                            </p>
                           </div>
-                          <div className="pt-1">
-                            <Button
-                              fullWidth
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedCapacity(row)
-                                setCapacityForm({
-                                  sub_squad: row.sub_squad,
-                                  swimmers_per_lane: row.swimmers_per_lane.toString(),
-                                })
-                                setShowCapacityModal(true)
-                              }}
-                            >
-                              Edit
-                            </Button>
+                          <div className="flex shrink-0 flex-col items-end justify-center rounded-lg bg-primary/10 px-3 py-2 dark:bg-primary/20">
+                            <span className="text-[10px] font-medium uppercase tracking-wide text-primary dark:text-primary-light">
+                              Per lane
+                            </span>
+                            <span className="text-2xl font-bold tabular-nums leading-none text-primary dark:text-primary-light">
+                              {row.swimmers_per_lane}
+                            </span>
                           </div>
                         </div>
-                      ))}
-                    </div>
+                        <div className="border-t border-gray-100 px-4 py-3 dark:border-gray-700/80">
+                          <Button
+                            fullWidth
+                            variant="secondary"
+                            size="sm"
+                            className="min-h-[44px]"
+                            onClick={() => {
+                              setSelectedCapacity(row)
+                              setCapacityForm({
+                                sub_squad: row.sub_squad,
+                                swimmers_per_lane: row.swimmers_per_lane.toString(),
+                              })
+                              setShowCapacityModal(true)
+                            }}
+                          >
+                            Edit swimmers per lane
+                          </Button>
+                        </div>
+                      </article>
+                    ))
                   )}
                 </div>
                 <div className="hidden md:block">
@@ -1095,19 +1161,27 @@ export default function FacilityManagementPage() {
       >
         <div className="space-y-4">
           <Select
-            label="Sub Squad Level"
+            label="Squad"
             required
             value={capacityForm.sub_squad}
             onChange={(e) => setCapacityForm({ ...capacityForm, sub_squad: e.target.value })}
             options={[
-              { value: 'elite', label: 'Elite' },
-              { value: 'dev1', label: 'Dev 1' },
-              { value: 'dev2', label: 'Dev 2' },
-              { value: 'dev3', label: 'Dev 3' },
-              { value: 'learn_to_swim', label: 'Learn to Swim' },
+              { value: '', label: 'Select squad…' },
+              ...(selectedCapacity
+                ? squadList
+                    .filter((s) => s.slug === selectedCapacity.sub_squad)
+                    .map((s) => ({ value: s.slug, label: s.name }))
+                : squadsMissingCapacityRule.map((s) => ({
+                    value: s.slug,
+                    label: s.name,
+                  }))),
             ]}
             disabled={!!selectedCapacity}
-            helperText={selectedCapacity ? 'Cannot change level, edit swimmers per lane only' : ''}
+            helperText={
+              selectedCapacity
+                ? 'Squad is fixed; change swimmers per lane only.'
+                : 'Only squads without a rule yet are listed.'
+            }
           />
           <Input
             label="Swimmers per Lane"
