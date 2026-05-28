@@ -23,6 +23,11 @@ import {
   ADMIN_CREATABLE_FEE_TYPES,
   feeTypeLabel,
 } from '@/lib/invoices/line-item-fee-types'
+import BillingSimulatePanel from '@/components/admin/BillingSimulatePanel'
+
+const showBillingSimulate =
+  process.env.NODE_ENV === 'development' ||
+  process.env.NEXT_PUBLIC_ALLOW_BILLING_SIMULATE === '1'
 
 function invoiceErrorMessage(error) {
   if (!error) return 'Unknown error'
@@ -469,7 +474,9 @@ export default function InvoicesPage() {
                   Invoice Management
                 </h1>
                 <p className="text-gray-600 dark:text-gray-400 mt-2 text-sm sm:text-base">
-                  Generate and track invoices
+                  Generate and track invoices. Recurring monthly, quarterly, and August registration
+                  renewals are issued automatically on the 25th — use manual invoices for per-session
+                  and one-off charges only.
                 </p>
               </div>
               <Button
@@ -481,6 +488,10 @@ export default function InvoicesPage() {
               </Button>
             </div>
           </div>
+
+          {showBillingSimulate && (
+            <BillingSimulatePanel onComplete={() => loadInvoices()} />
+          )}
 
           <Card padding="normal" className="mb-4 md:mb-6">
             <label htmlFor="admin-invoice-search" className="sr-only">

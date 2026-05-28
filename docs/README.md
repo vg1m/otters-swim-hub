@@ -14,6 +14,8 @@
 - **[Paystack Integration](PAYSTACK_QUICK_START.md)** - Payment gateway setup & testing
 
 ### Technical Documentation
+- **[Billing automation](BILLING.md)** - Swim year (Sep–Jul), 25th invoices, early bird, cron
+- **[Tech stack (verified versions)](TECH_STACK.md)** - Dependencies, services, migration head (096)
 - **[Project Structure](PROJECT_STRUCTURE.md)** - Codebase organization
 - **[Database Setup](DATABASE_SETUP.md)** - Supabase configuration
 - **[RLS Security](RLS_FIX.md)** - Row-level security policies

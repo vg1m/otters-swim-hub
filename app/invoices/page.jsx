@@ -395,7 +395,7 @@ function InvoicesPageContent() {
                 </button>
                 {discount > 0 && (
                   <span className="text-xs text-green-600 dark:text-green-400">
-                    Discount valid until 3rd
+                    Early bird: pay by the 3rd
                   </span>
                 )}
               </div>
@@ -480,7 +480,7 @@ function InvoicesPageContent() {
                     !
                   </p>
                   <p className="text-xs text-green-700 dark:text-green-300 mt-0.5">
-                    Pay your outstanding invoice(s) before the 3rd of this month to receive the discount automatically.
+                    Pay between the 25th and the 3rd of the following month to receive the early bird discount on monthly training fees.
                   </p>
                 </div>
               </div>
@@ -647,7 +647,7 @@ function InvoicesPageContent() {
                               </Button>
                               {discount > 0 && (
                                 <p className="text-center text-xs text-green-600 dark:text-green-400">
-                                  Early bird discount valid until the 3rd
+                                  Early bird: pay by the 3rd of next month (after invoice date on the 25th)
                                 </p>
                               )}
                             </>

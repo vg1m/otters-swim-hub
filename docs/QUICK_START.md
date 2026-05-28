@@ -141,13 +141,14 @@ COACH (Coach Role)
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: Next.js 16 + React 18 + Tailwind CSS v3
-- **Backend**: Supabase (PostgreSQL + Auth)
-- **Payments**: Ready for Paystack integration
-- **QR Codes**: qrcode library
-- **PDF**: jsPDF for receipts
-- **State**: Zustand
-- **Notifications**: React Hot Toast
+See **[TECH_STACK.md](TECH_STACK.md)** for locked versions (verified 2026-05-21).
+
+- **Frontend**: Next.js **16.2.6** + React **18.3.1** + Tailwind CSS **3.4**
+- **Backend**: Supabase (PostgreSQL + Auth + RLS)
+- **Payments**: Paystack (live integration — see [PAYSTACK_QUICK_START.md](PAYSTACK_QUICK_START.md))
+- **Email**: SMTP2GO when `SMTP2GO_API_KEY` is set (see `.env.local.example`)
+- **Hosting**: Vercel (+ optional Cron for coach pay)
+- **PDF**: jsPDF · **Calendar**: react-big-calendar · **Toasts**: react-hot-toast · **PWA**: @ducanh2912/next-pwa
 
 ## 📊 Database Tables
 

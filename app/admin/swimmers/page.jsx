@@ -292,7 +292,7 @@ export default function SwimmersManagementPage() {
       if (editForm.status === 'approved' && prevStatus !== 'approved') {
         const inv = await createSwimmerOnboardingInvoice(supabase, {
           swimmerId: selectedSwimmer.id,
-          paymentType: 'monthly',
+          paymentType: selectedSwimmer.preferred_payment_type || 'monthly',
         })
         if (inv.error) {
           toast.error(inv.error)

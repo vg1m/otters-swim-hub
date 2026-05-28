@@ -701,7 +701,7 @@ export default function RegisterPage() {
                         <p className="mt-3 text-xs text-green-700 dark:text-green-400 flex items-start gap-1">
                           <span>✓</span>
                           <span>
-                            Early bird discount of {formatKES(EARLY_BIRD_DISCOUNT)} applies automatically if payment is initiated before the 3rd of the month.
+                            Early bird discount of {formatKES(EARLY_BIRD_DISCOUNT)} on monthly training when you pay between the 25th and the 3rd of the following month.
                           </span>
                         </p>
                       )}
@@ -807,7 +807,7 @@ export default function RegisterPage() {
               </div>
               <div className="mt-4 space-y-2">
                 <p className="text-xs text-green-700 dark:text-green-400">
-                  ✓ Early bird discount: {formatKES(EARLY_BIRD_DISCOUNT)} off monthly training if payment is initiated before the 3rd of the month (1–4 and 6-day tiers).
+                  ✓ Early bird discount: {formatKES(EARLY_BIRD_DISCOUNT)} off monthly training when paid from the 25th through the 3rd of the next month (eligible squads).
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   ✓ 4th sibling onward: training fee waived; annual registration still applies per swimmer.

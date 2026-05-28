@@ -95,6 +95,19 @@ Some SQL Editor roles cannot delete auth rows. Then:
 5. Coach — attendance; parent — Performance rubric tab
 6. Optional — issue invoice / payment story
 
+## Communications-only reset (announcements + feedback)
+
+If swimmers/invoices are already clean but **club announcements**, **parent feedback**, and **coach broadcasts** (migrations 091–094) need wiping:
+
+| Step | Script |
+|------|--------|
+| Preview | [`reset_comms_announcements_feedback_PREVIEW.sql`](../supabase/scripts/reset_comms_announcements_feedback_PREVIEW.sql) |
+| Reset | [`reset_comms_announcements_feedback_run_once.sql`](../supabase/scripts/reset_comms_announcements_feedback_run_once.sql) → then `COMMIT;` |
+| Verify | [`reset_comms_announcements_feedback_VERIFY.sql`](../supabase/scripts/reset_comms_announcements_feedback_VERIFY.sql) |
+| Status | [`reset_comms_announcements_feedback_status.sql`](../supabase/scripts/reset_comms_announcements_feedback_status.sql) |
+
+Does **not** remove swimmers, invoices, or user accounts. Clears related `notifications` / `staff_notifications` rows for comms types.
+
 ## Related docs
 
 - General cleanup patterns: [`DEMO_DATA_CLEANUP_GUIDE.md`](DEMO_DATA_CLEANUP_GUIDE.md)
