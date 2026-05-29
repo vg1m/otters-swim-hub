@@ -76,7 +76,7 @@ In Supabase:
 -- 1. Create user in Auth (via Supabase Auth UI)
 -- Then run:
 INSERT INTO profiles (id, full_name, email, phone_number, role)
-VALUES ('your-user-id', 'Admin Name', 'victor@mwago.me', '+254700000000', 'admin');
+VALUES ('your-user-id', 'Admin Name', 'Admin email', '+254700000000', 'admin');
 ```
 
 **Promote an existing parent/coach to admin:** use [`supabase/scripts/promote_profile_to_admin_PREVIEW.sql`](../supabase/scripts/promote_profile_to_admin_PREVIEW.sql) then [`promote_profile_to_admin_run_once.sql`](../supabase/scripts/promote_profile_to_admin_run_once.sql) (replace the placeholder email in both files).

@@ -197,7 +197,7 @@ function SuccessPageContent() {
               <p className="text-sm text-gray-600 dark:text-gray-400 text-center">
                 Questions about your registration?{' '}
                 <a 
-                  href="mailto:victor@mwago.me" 
+                  href="mailto:otters.support@gmail.com" 
                   className="text-primary hover:text-primary-dark font-medium"
                 >
                   Contact us

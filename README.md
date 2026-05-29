@@ -64,7 +64,7 @@ End-to-end club management:
 
 **Node:** 20+ recommended (22.x used locally). **DB migrations:** apply through **`096_*`** (latest numbered file in `supabase/migrations/`).
 
-**Auth routing:** Root [`middleware.js`](middleware.js) delegates to [`lib/supabase/middleware.js`](lib/supabase/middleware.js) for Supabase session refresh and route protection. Email/password sign-in posts to [`app/auth/login/route.js`](app/auth/login/route.js) so cookies are set via HTTP headers (better on mobile).
+**Auth routing:** Root [`proxy.js`](proxy.js) delegates to [`lib/supabase/middleware.js`](lib/supabase/middleware.js) for Supabase session refresh and route protection. Email/password sign-in posts to [`app/auth/login/route.js`](app/auth/login/route.js) so cookies are set via HTTP headers (better on mobile).
 
 ## Key features
 
@@ -168,7 +168,7 @@ otters-swim-hub/
 │   └── page.js          # Marketing / landing
 ├── components/          # UI, layout, domain components (e.g. admin session fields)
 ├── lib/                 # supabase clients, paystack, utils, facilities helpers, cache
-├── middleware.js        # Entry: session refresh + route protection → lib/supabase/middleware.js
+├── proxy.js             # Entry: session refresh + route protection → lib/supabase/middleware.js
 ├── supabase/
 │   ├── migrations/      # Numbered SQL migrations (run in order)
 │   └── scripts/       # Optional SQL utilities
@@ -207,7 +207,7 @@ Production checklist (short):
 - **Communications (Phases 0–2)** — Club announcements (`/admin/announcements`), parent feedback (`/dashboard/feedback`, `/admin/feedback`), coach broadcasts (`/coach/broadcast`), coach parent contacts on `/coach` (migrations **091–096**)  
 - **Onboarding** — Role handouts in [`docs/onboarding/`](docs/onboarding/) linked from [`docs/START_HERE.md`](docs/START_HERE.md)  
 - **Mobile UX** — Dashboards and many admin tables optimized for small screens  
-- **Auth** — Server-side email login route, [`middleware.js`](middleware.js) session refresh, Google OAuth routes under `app/auth/`; password reset via `/forgot-password` → `/reset-password` (PKCE) with recovery forwarding in [`app/layout.js`](app/layout.js).
+- **Auth** — Server-side email login route, [`proxy.js`](proxy.js) session refresh, Google OAuth routes under `app/auth/`; password reset via `/forgot-password` → `/reset-password` (PKCE) with recovery forwarding in [`app/layout.js`](app/layout.js).
 
 Deferred enhancements: [docs/plans/comms-phase-3-enhancements.md](docs/plans/comms-phase-3-enhancements.md). Stack versions: [docs/TECH_STACK.md](docs/TECH_STACK.md).
 

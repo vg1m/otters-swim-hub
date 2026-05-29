@@ -19,6 +19,7 @@ This document outlines the complete Paystack payment integration for the Otters 
 - ✅ Receipt download from parent dashboard
 - ✅ Receipt download from admin dashboard
 - ✅ "Payments secured by PayStack" branding
+- PDF logo from `public/otters-logo.png` on a white header
 
 ### 3. **Database Schema**
 - ✅ Enhanced `payments` table with Paystack fields

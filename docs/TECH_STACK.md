@@ -44,7 +44,7 @@ See [`.env.local.example`](../.env.local.example) for required and optional env 
 
 ## Auth & routing
 
-- **[`middleware.js`](../middleware.js)** → [`lib/supabase/middleware.js`](../lib/supabase/middleware.js): session refresh and route protection.
+- **[`proxy.js`](../proxy.js)** → [`lib/supabase/middleware.js`](../lib/supabase/middleware.js): session refresh and route protection.
 - **Email/password login:** [`app/auth/login/route.js`](../app/auth/login/route.js) sets cookies via HTTP headers (mobile-friendly).
 - **OAuth / recovery:** `app/auth/google`, PKCE callback, [`RecoverySessionRedirect`](../components/RecoverySessionRedirect.jsx) in root layout.
 

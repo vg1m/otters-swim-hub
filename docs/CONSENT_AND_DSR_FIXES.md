@@ -16,7 +16,7 @@
 - Integrated with club's Supabase proxy for secure API communication
 
 ### 2. Consent History Not Displaying ✅
-**Problem**: Users like victor@mwago.me seeing blank consent history despite having consents
+**Problem**: Users like Email seeing blank consent history despite having consents
 
 **Root Causes**:
 1. Query only fetching by `parent_id`, missing consents linked via `swimmer_id`
@@ -96,7 +96,7 @@ supabase/migrations/039_fix_consent_parent_linking.sql
 ### 2. Test the Fixes
 
 #### Test Consent History:
-1. Login as victor@mwago.me (or any user with registered swimmers)
+1. Login as a parent with registered swimmers
 2. Go to Settings page
 3. Scroll to "Consent History" section
 4. Should see all consent records for registered swimmers

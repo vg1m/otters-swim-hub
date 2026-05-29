@@ -777,8 +777,8 @@ function InvoicesPageContent() {
             {selectedInvoice.status !== 'paid' && (
               <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
                 <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                  <strong>Note:</strong> Payment with Paystack will be available soon. 
-                  Please contact the club administrator for alternative payment methods.
+                  <strong>Note:</strong> Ready to pay? 
+                  Use the Pay button on your invoices page for a secure checkout.
                 </p>
               </div>
             )}

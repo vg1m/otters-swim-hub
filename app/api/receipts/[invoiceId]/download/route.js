@@ -83,7 +83,7 @@ export async function GET(request, { params }) {
     // Get swimmers for this invoice
     const { data: swimmers } = await supabase
       .from('swimmers')
-      .select('id, first_name, last_name, squad')
+      .select('id, first_name, last_name, squads ( name )')
       .eq('parent_id', invoice.parent_id)
 
     // Prepare receipt data
@@ -97,15 +97,18 @@ export async function GET(request, { params }) {
       parent_name: invoice.profiles?.full_name || 'N/A',
       parent_email: invoice.profiles?.email || 'N/A',
       parent_phone: invoice.profiles?.phone_number || 'N/A',
-      swimmers: swimmers?.map(s => ({
-        name: `${s.first_name} ${s.last_name}`,
-        squad: s.squad,
-      })) || [],
+      swimmers: swimmers?.map((s) => {
+        const squadRow = Array.isArray(s.squads) ? s.squads[0] : s.squads
+        return {
+          name: `${s.first_name} ${s.last_name}`,
+          squad: squadRow?.name ?? null,
+        }
+      }) || [],
       line_items: invoice.invoice_line_items || [],
     }
 
     // Generate PDF
-    const pdfBuffer = generateReceiptBuffer(receiptData)
+    const pdfBuffer = await generateReceiptBuffer(receiptData)
 
     // Return PDF as downloadable file
     return new NextResponse(pdfBuffer, {

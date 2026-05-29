@@ -23,6 +23,7 @@ import {
 import { createSwimmerOnboardingInvoice } from '@/lib/invoices/create-swimmer-onboarding-invoice'
 import { requestInvoiceIssuedEmailNotification } from '@/lib/invoices/request-invoice-issued-email'
 import { insertNotification } from '@/lib/notifications/insert-notification'
+import { requestCoachAssignedNotification } from '@/lib/notifications/request-coach-assigned-notification'
 import toast from 'react-hot-toast'
 import { buildGroupedSquadSelectOptions, squadSupportsRubric } from '@/lib/rubrics/rubric-data'
 import {
@@ -134,7 +135,7 @@ export default function SwimmersManagementPage() {
 
       const { data: coachesData } = await supabase
         .from('profiles')
-        .select('id, full_name, coach_squad_id, squads(name)')
+        .select('id, full_name, email, phone_number, coach_squad_id, squads(name)')
         .eq('role', 'coach')
         .order('full_name')
 
@@ -319,13 +320,10 @@ export default function SwimmersManagementPage() {
           })
         }
         if (coachChanged && cleanedData.coach_id) {
-          await insertNotification(supabase, {
-            parent_id: selectedSwimmer.parent_id,
-            type: 'coach_assigned',
-            title: `Coach assigned to ${selectedSwimmer.first_name}`,
-            body: `${selectedSwimmer.first_name} now has a coach assigned.`,
-            swimmer_id: selectedSwimmer.id,
-          })
+          await requestCoachAssignedNotification(
+            selectedSwimmer.id,
+            cleanedData.coach_id
+          )
         }
       }
 

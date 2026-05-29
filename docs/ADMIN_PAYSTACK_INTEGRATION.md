@@ -201,7 +201,7 @@ invoices
 
 1. **Login as Admin**:
    ```
-   Email: victor@mwago.me
+   Email: Admin email
    Password: (your admin password)
    ```
 

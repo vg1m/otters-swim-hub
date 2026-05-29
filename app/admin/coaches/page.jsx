@@ -16,6 +16,7 @@ import Badge from '@/components/ui/Badge'
 import Input from '@/components/ui/Input'
 import CoachDeliveryReviewPanel from '@/components/admin/CoachDeliveryReviewPanel'
 import { insertNotification } from '@/lib/notifications/insert-notification'
+import { requestCoachAssignedNotification } from '@/lib/notifications/request-coach-assigned-notification'
 import { findSquadHeadConflict } from '@/lib/coaches/squad-primary-coach'
 import toast from 'react-hot-toast'
 
@@ -194,15 +195,23 @@ export default function CoachManagementPage() {
       )
 
       if (assignmentType === 'swimmer' && assignForm.swimmer_id) {
-        const sw = swimmers.find(s => s.id === assignForm.swimmer_id)
-        if (sw?.parent_id) {
-          await insertNotification(supabase, {
-            parent_id: sw.parent_id,
-            type: 'coach_assigned',
-            title: `Coach assigned to ${sw.first_name}`,
-            body: `${sw.first_name} has been assigned a coach.`,
-            swimmer_id: sw.id,
-          })
+        await supabase
+          .from('swimmers')
+          .update({ coach_id: assignForm.coach_id })
+          .eq('id', assignForm.swimmer_id)
+
+        await requestCoachAssignedNotification(
+          assignForm.swimmer_id,
+          assignForm.coach_id
+        )
+      }
+
+      if (assignmentType === 'squad' && assignForm.squad_id) {
+        const squadMembers = swimmers.filter(
+          (s) => s.squad_id === assignForm.squad_id && s.parent_id
+        )
+        for (const sw of squadMembers) {
+          await requestCoachAssignedNotification(sw.id, assignForm.coach_id)
         }
       }
 
