@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/supabase/route-handler'
+import { assertHcaptcha } from '@/lib/hcaptcha/verify-token'
 
 /**
  * Server-side email/password sign-in.
@@ -43,6 +44,11 @@ export async function POST(request) {
       { error: 'Email and password are required' },
       { status: 400 }
     )
+  }
+
+  const captchaError = await assertHcaptcha(request, body)
+  if (captchaError) {
+    return NextResponse.json({ error: captchaError.error }, { status: captchaError.status })
   }
 
   // Placeholder response so Supabase can attach auth cookies during signIn.

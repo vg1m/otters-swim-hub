@@ -3,9 +3,10 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 import { validatePassword, getPasswordStrength } from '@/lib/utils/password-validation'
 import toast from 'react-hot-toast'
+import HCaptchaWidget from '@/components/auth/HCaptchaWidget'
+import { isHcaptchaRequiredOnClient } from '@/lib/hcaptcha/client-config'
 
 export default function SignupPage() {
   const [fullName, setFullName] = useState('')
@@ -17,7 +18,9 @@ export default function SignupPage() {
   const [oauthLoading, setOauthLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
+  const [hcaptchaToken, setHcaptchaToken] = useState(null)
+  const [captchaResetKey, setCaptchaResetKey] = useState(0)
+  const captchaRequired = isHcaptchaRequiredOnClient()
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -60,30 +63,43 @@ export default function SignupPage() {
       return
     }
 
+    if (captchaRequired && !hcaptchaToken) {
+      toast.error('Please complete the security check')
+      return
+    }
+
     setLoading(true)
 
     try {
-      // Sign up user (profile will be created automatically by database trigger)
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName,
-            phone_number: phone,
-          },
-        },
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          password,
+          fullName,
+          phone,
+          ...(hcaptchaToken ? { hcaptchaToken } : {}),
+        }),
       })
 
-      if (authError) throw authError
+      let payload = null
+      try {
+        payload = await res.json()
+      } catch {
+        // ignore
+      }
 
-      // Profile is now created automatically by the Supabase trigger!
+      if (!res.ok || !payload?.ok) {
+        throw new Error(payload?.error || 'Signup failed')
+      }
+
       toast.success('Account created successfully! Please check your email to verify your account.')
-      
-      // Redirect immediately - don't wait
       router.push('/login')
     } catch (error) {
       toast.error(error.message || 'Signup failed')
+      setHcaptchaToken(null)
+      setCaptchaResetKey((k) => k + 1)
       setLoading(false)
     }
     // Note: Don't set loading to false on success - let redirect happen
@@ -261,10 +277,16 @@ export default function SignupPage() {
             </div>
           </div>
 
+          <HCaptchaWidget
+            resetKey={captchaResetKey}
+            onVerify={(token) => setHcaptchaToken(token)}
+            onExpire={() => setHcaptchaToken(null)}
+          />
+
           <div>
             <button
               type="submit"
-              disabled={loading || oauthLoading}
+              disabled={loading || oauthLoading || (captchaRequired && !hcaptchaToken)}
               className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-semibold rounded-lg text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Creating account...' : 'Sign up'}

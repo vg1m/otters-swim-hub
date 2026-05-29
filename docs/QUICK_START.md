@@ -79,6 +79,8 @@ INSERT INTO profiles (id, full_name, email, phone_number, role)
 VALUES ('your-user-id', 'Admin Name', 'victor@mwago.me', '+254700000000', 'admin');
 ```
 
+**Promote an existing parent/coach to admin:** use [`supabase/scripts/promote_profile_to_admin_PREVIEW.sql`](../supabase/scripts/promote_profile_to_admin_PREVIEW.sql) then [`promote_profile_to_admin_run_once.sql`](../supabase/scripts/promote_profile_to_admin_run_once.sql) (replace the placeholder email in both files).
+
 ### Step 5: Replace M-Pesa with Paystack
 Files to update:
 1. `lib/paystack/` - Payment gateway integration
@@ -212,6 +214,10 @@ See **[TECH_STACK.md](TECH_STACK.md)** for locked versions (verified 2026-05-21)
 - Invoice payment: "Pay Now" button on invoices page
 - Webhook: `/api/paystack/callback`
 - Receipt: Auto-generate after payment success
+
+## hCaptcha (bot protection)
+
+Email login, signup, forgot password, and public registration apply use hCaptcha when `HCAPTCHA_ENABLED=1` and `NEXT_PUBLIC_HCAPTCHA_ENABLED=1`. Google OAuth is unchanged. See [HCAPTCHA.md](./HCAPTCHA.md).
 
 ## 📞 Support
 

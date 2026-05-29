@@ -21,6 +21,8 @@ import {
 } from '@/lib/utils/currency'
 import { calculateAge } from '@/lib/utils/date-helpers'
 import toast from 'react-hot-toast'
+import HCaptchaWidget from '@/components/auth/HCaptchaWidget'
+import { isHcaptchaRequiredOnClient } from '@/lib/hcaptcha/client-config'
 
 const REGISTER_PARENT_STORAGE_KEY = 'otters_register_parent_prefill'
 
@@ -75,6 +77,9 @@ export default function RegisterPage() {
   const router = useRouter()
   const { user, profile, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(false)
+  const [hcaptchaToken, setHcaptchaToken] = useState(null)
+  const [captchaResetKey, setCaptchaResetKey] = useState(0)
+  const captchaRequired = isHcaptchaRequiredOnClient()
   const prefillAppliedRef = useRef(false)
   const [prefillSource, setPrefillSource] = useState(null)
   const [contactsExpanded, setContactsExpanded] = useState(true)
@@ -286,13 +291,22 @@ export default function RegisterPage() {
     e.preventDefault()
     if (loading) return
     if (!validateForm()) return
+    if (captchaRequired && !hcaptchaToken) {
+      toast.error('Please complete the security check')
+      return
+    }
 
     setLoading(true)
     try {
       const response = await fetch('/api/registration/apply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ swimmers, parentInfo, consents }),
+        body: JSON.stringify({
+          swimmers,
+          parentInfo,
+          consents,
+          ...(hcaptchaToken ? { hcaptchaToken } : {}),
+        }),
       })
       const data = await response.json()
       if (!response.ok) {
@@ -309,6 +323,8 @@ export default function RegisterPage() {
     } catch (error) {
       console.error('Registration error:', error)
       toast.error(error.message || 'Registration failed. Please try again.')
+      setHcaptchaToken(null)
+      setCaptchaResetKey((k) => k + 1)
     } finally {
       setLoading(false)
     }
@@ -816,11 +832,16 @@ export default function RegisterPage() {
             </Card>
 
             <div className="flex flex-col items-center space-y-4">
+              <HCaptchaWidget
+                resetKey={captchaResetKey}
+                onVerify={(token) => setHcaptchaToken(token)}
+                onExpire={() => setHcaptchaToken(null)}
+              />
               <Button
                 type="submit"
                 size="lg"
                 loading={loading}
-                disabled={loading}
+                disabled={loading || (captchaRequired && !hcaptchaToken)}
                 fullWidth
                 className="max-w-md rounded-2xl shadow-soft hover:shadow-md hover:scale-105 transition-all"
               >

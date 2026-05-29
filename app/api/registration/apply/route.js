@@ -3,6 +3,7 @@ import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { CONSENT_POLICY_TEXT } from '@/lib/constants/consent-policy'
 import { calculateAge } from '@/lib/utils/date-helpers'
 import { notifyAllAdmins } from '@/lib/notifications/notify-all-admins'
+import { assertHcaptcha } from '@/lib/hcaptcha/verify-token'
 
 /**
  * Public registration: creates pending swimmers (no squad, no payment).
@@ -11,6 +12,12 @@ import { notifyAllAdmins } from '@/lib/notifications/notify-all-admins'
 export async function POST(request) {
   try {
     const body = await request.json()
+
+    const captchaError = await assertHcaptcha(request, body)
+    if (captchaError) {
+      return NextResponse.json({ error: captchaError.error }, { status: captchaError.status })
+    }
+
     const { swimmers, parentInfo, consents } = body
 
     if (!swimmers || swimmers.length === 0) {

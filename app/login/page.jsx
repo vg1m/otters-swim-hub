@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import toast from 'react-hot-toast'
+import HCaptchaWidget from '@/components/auth/HCaptchaWidget'
+import { isHcaptchaRequiredOnClient } from '@/lib/hcaptcha/client-config'
 
 const SIGN_OUT_REASONS = {
   idle: 'You were signed out after 30 minutes of inactivity. Please sign in again.',
@@ -15,6 +17,9 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [oauthLoading, setOauthLoading] = useState(false)
   const [signOutReason, setSignOutReason] = useState(null)
+  const [hcaptchaToken, setHcaptchaToken] = useState(null)
+  const [captchaResetKey, setCaptchaResetKey] = useState(0)
+  const captchaRequired = isHcaptchaRequiredOnClient()
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     // OAuth must hit /auth/callback so the server can exchange ?code= for a session.
@@ -57,6 +62,10 @@ export default function LoginPage() {
 
   const handleLogin = async (e) => {
     e.preventDefault()
+    if (captchaRequired && !hcaptchaToken) {
+      toast.error('Please complete the security check')
+      return
+    }
     setLoading(true)
 
     try {
@@ -75,7 +84,12 @@ export default function LoginPage() {
       const res = await fetch('/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, ...(next ? { next } : {}) }),
+        body: JSON.stringify({
+          email,
+          password,
+          ...(next ? { next } : {}),
+          ...(hcaptchaToken ? { hcaptchaToken } : {}),
+        }),
         credentials: 'include',
       })
 
@@ -103,6 +117,8 @@ export default function LoginPage() {
         return
       }
       toast.error(msg || 'Login failed')
+      setHcaptchaToken(null)
+      setCaptchaResetKey((k) => k + 1)
       setLoading(false)
     }
     // Note: Don't set loading to false on success - let redirect happen
@@ -202,10 +218,16 @@ export default function LoginPage() {
             </div>
           </div>
 
+          <HCaptchaWidget
+            resetKey={captchaResetKey}
+            onVerify={(token) => setHcaptchaToken(token)}
+            onExpire={() => setHcaptchaToken(null)}
+          />
+
           <div>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (captchaRequired && !hcaptchaToken)}
               className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-semibold rounded-lg text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Signing in...' : 'Sign in'}

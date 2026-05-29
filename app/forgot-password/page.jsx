@@ -2,30 +2,53 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 import toast from 'react-hot-toast'
+import HCaptchaWidget from '@/components/auth/HCaptchaWidget'
+import { isHcaptchaRequiredOnClient } from '@/lib/hcaptcha/client-config'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
+  const [hcaptchaToken, setHcaptchaToken] = useState(null)
+  const [captchaResetKey, setCaptchaResetKey] = useState(0)
+  const captchaRequired = isHcaptchaRequiredOnClient()
 
   const handleResetRequest = async (e) => {
     e.preventDefault()
+    if (captchaRequired && !hcaptchaToken) {
+      toast.error('Please complete the security check')
+      return
+    }
     setLoading(true)
 
     try {
-      const supabase = createClient()
-      const { error } = await supabase.auth.resetPasswordForEmail(
-        email.trim().toLowerCase(),
-        { redirectTo: `${window.location.origin}/reset-password` }
-      )
-      if (error) throw error
+      const res = await fetch('/api/auth/forgot-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email.trim().toLowerCase(),
+          ...(hcaptchaToken ? { hcaptchaToken } : {}),
+        }),
+      })
+
+      let payload = null
+      try {
+        payload = await res.json()
+      } catch {
+        // ignore
+      }
+
+      if (!res.ok || !payload?.ok) {
+        throw new Error(payload?.error || 'Failed to send reset email')
+      }
 
       setEmailSent(true)
       toast.success('Password reset link sent to your email!')
     } catch (error) {
       toast.error(error.message || 'Failed to send reset email')
+      setHcaptchaToken(null)
+      setCaptchaResetKey((k) => k + 1)
     } finally {
       setLoading(false)
     }
@@ -70,10 +93,16 @@ export default function ForgotPasswordPage() {
               />
             </div>
 
+            <HCaptchaWidget
+              resetKey={captchaResetKey}
+              onVerify={(token) => setHcaptchaToken(token)}
+              onExpire={() => setHcaptchaToken(null)}
+            />
+
             <div>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || (captchaRequired && !hcaptchaToken)}
                 className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-semibold rounded-lg text-white bg-primary hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-stone-50 dark:focus:ring-offset-gray-800 focus:ring-primary transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Sending...' : 'Send Reset Link'}
@@ -113,6 +142,8 @@ export default function ForgotPasswordPage() {
                 onClick={() => {
                   setEmailSent(false)
                   setEmail('')
+                  setHcaptchaToken(null)
+                  setCaptchaResetKey((k) => k + 1)
                 }}
                 className="text-sm font-medium text-primary hover:text-primary-dark text-center"
               >

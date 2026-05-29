@@ -190,14 +190,19 @@ If the coach lands on **`https://otters.ke/`** instead of set-password:
 
 ## Manual role update (emergency / support only)
 
-Prefer **Add coach** in the UI. For database maintenance (e.g. superuser session), you can still run SQL:
+Prefer **Add coach** in the UI for new coaches. For **admin** promotion or other role fixes, use the stored scripts:
+
+| Step | Script |
+|------|--------|
+| Preview | [`supabase/scripts/promote_profile_to_admin_PREVIEW.sql`](../supabase/scripts/promote_profile_to_admin_PREVIEW.sql) |
+| Promote | [`supabase/scripts/promote_profile_to_admin_run_once.sql`](../supabase/scripts/promote_profile_to_admin_run_once.sql) → `COMMIT;` |
+
+Replace the placeholder email in **both** files. For coach-only changes:
 
 ```sql
 SELECT id, email, full_name, role FROM profiles WHERE email = 'coach@example.com';
 
-UPDATE profiles 
-SET role = 'coach' 
-WHERE email = 'coach@example.com';
+UPDATE profiles SET role = 'coach' WHERE email = 'coach@example.com';
 ```
 
 Migration **`066_profiles_role_change_guard.sql`** blocks non-admins from changing `role` via the Supabase client; service role and privileged DB sessions can still update roles.
