@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { CONSENT_POLICY_TEXT } from '@/lib/constants/consent-policy'
 import { calculateAge } from '@/lib/utils/date-helpers'
@@ -37,16 +38,39 @@ export async function POST(request) {
     }
 
     const supabase = createServiceRoleClient()
+    const parentInfoResolved = { ...parentInfo }
 
     let parentId = null
-    const { data: existingProfile } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('email', parentInfo.email)
-      .single()
+    const authClient = await createClient()
+    const {
+      data: { user: authUser },
+    } = await authClient.auth.getUser()
 
-    if (existingProfile) {
-      parentId = existingProfile.id
+    if (authUser) {
+      const { data: authProfile } = await authClient
+        .from('profiles')
+        .select('id, role, email')
+        .eq('id', authUser.id)
+        .maybeSingle()
+
+      if (authProfile?.role === 'parent') {
+        parentId = authProfile.id
+        if (authProfile.email) {
+          parentInfoResolved.email = String(authProfile.email).trim().toLowerCase()
+        }
+      }
+    }
+
+    if (!parentId) {
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', parentInfoResolved.email)
+        .single()
+
+      if (existingProfile) {
+        parentId = existingProfile.id
+      }
     }
 
     // Fetch Pups squad ID once for under-6 auto-assignment
@@ -128,12 +152,12 @@ export async function POST(request) {
       const { error: profileUpdateError } = await supabase
         .from('profiles')
         .update({
-          full_name: parentInfo.fullName,
-          phone_number: parentInfo.phone,
-          relationship: parentInfo.relationship,
-          emergency_contact_name: parentInfo.emergencyContactName,
-          emergency_contact_relationship: parentInfo.emergencyContactRelationship,
-          emergency_contact_phone: parentInfo.emergencyContactPhone,
+          full_name: parentInfoResolved.fullName,
+          phone_number: parentInfoResolved.phone,
+          relationship: parentInfoResolved.relationship,
+          emergency_contact_name: parentInfoResolved.emergencyContactName,
+          emergency_contact_relationship: parentInfoResolved.emergencyContactRelationship,
+          emergency_contact_phone: parentInfoResolved.emergencyContactPhone,
         })
         .eq('id', parentId)
 
@@ -141,14 +165,14 @@ export async function POST(request) {
         console.error('Registration: profile contact fields update failed:', profileUpdateError)
       }
 
-      if (parentInfo.shareHubAccess && parentInfo.coParentEmail?.trim()) {
-        const invited = parentInfo.coParentEmail.trim().toLowerCase()
-        const primaryEmail = parentInfo.email.trim().toLowerCase()
+      if (parentInfoResolved.shareHubAccess && parentInfoResolved.coParentEmail?.trim()) {
+        const invited = parentInfoResolved.coParentEmail.trim().toLowerCase()
+        const primaryEmail = parentInfoResolved.email.trim().toLowerCase()
         if (invited && invited !== primaryEmail) {
           const { error: inviteError } = await supabase.from('family_account_members').insert({
             primary_parent_id: parentId,
             invited_email: invited,
-            invited_name: parentInfo.coParentName?.trim() || null,
+            invited_name: parentInfoResolved.coParentName?.trim() || null,
             status: 'pending',
             invited_by: parentId,
           })
@@ -161,8 +185,8 @@ export async function POST(request) {
               const { sendFamilySharedAccessInviteEmail } = await import('@/lib/utils/send-email')
               const emailOut = await sendFamilySharedAccessInviteEmail({
                 inviteeEmail: invited,
-                inviteeName: parentInfo.coParentName?.trim() || null,
-                primaryName: parentInfo.fullName,
+                inviteeName: parentInfoResolved.coParentName?.trim() || null,
+                primaryName: parentInfoResolved.fullName,
                 primaryEmail,
               })
               if (!emailOut.success) {
@@ -174,7 +198,7 @@ export async function POST(request) {
           }
         }
       }
-    } else if (parentInfo.shareHubAccess && parentInfo.coParentEmail?.trim()) {
+    } else if (parentInfoResolved.shareHubAccess && parentInfoResolved.coParentEmail?.trim()) {
       console.info(
         'Registration: shareHubAccess requested but no existing profile for email; invite skipped until parent account exists'
       )

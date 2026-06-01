@@ -2,7 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
+import { useAuth } from '@/hooks/useAuth'
 import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer'
 import Card from '@/components/ui/Card'
@@ -12,12 +12,27 @@ import { formatKES } from '@/lib/utils/currency'
 function SuccessPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const { user, profile, loading: authLoading } = useAuth()
   const invoiceId = searchParams.get('invoiceId')
   const payLater = searchParams.get('payLater') === 'true'
   const applicationOnly = searchParams.get('application') === 'true'
-  
+
+  useEffect(() => {
+    if (authLoading || !applicationOnly || !user) return
+    if (profile?.role !== 'parent') return
+    router.replace('/dashboard?swimmerApplication=submitted')
+  }, [applicationOnly, user, profile?.role, authLoading, router])
+
   // For unauthenticated users (pay later), don't query database (RLS will block)
   // Just display success message with invoice ID
+
+  if (applicationOnly && user && !authLoading && profile?.role === 'parent') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-stone-50 dark:bg-gray-900">
+        <div className="animate-spin h-10 w-10 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-stone-50 via-white to-stone-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">

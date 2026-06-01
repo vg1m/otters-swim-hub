@@ -319,7 +319,11 @@ export default function RegisterPage() {
       } catch (_) {}
 
       toast.success('Application submitted!')
-      router.push('/register/success?application=true')
+      if (user) {
+        router.replace('/dashboard?swimmerApplication=submitted')
+      } else {
+        router.push('/register/success?application=true')
+      }
     } catch (error) {
       console.error('Registration error:', error)
       toast.error(error.message || 'Registration failed. Please try again.')
@@ -355,6 +359,11 @@ export default function RegisterPage() {
             <p className="text-lg text-stone-600 dark:text-gray-400 leading-relaxed">
               Submit your application. The club will assign a squad and coach; you pay from your dashboard once approved.
             </p>
+            {user && (
+              <p className="text-sm text-primary mt-3 font-medium">
+                You&apos;re signed in. After submitting, you&apos;ll return to your dashboard.
+              </p>
+            )}
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">

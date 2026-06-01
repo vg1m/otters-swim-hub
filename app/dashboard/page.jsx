@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState, memo, useMemo, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState, memo, useMemo, useCallback, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
@@ -34,8 +34,9 @@ function sessionSquadNames(session) {
   return links.map((l) => l.squads?.name).filter(Boolean)
 }
 
-export default function ParentDashboard() {
+function ParentDashboard() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, profile, loading: authLoading } = useAuth()
   const [swimmers, setSwimmers] = useState([])
   const [upcomingSessions, setUpcomingSessions] = useState([])
@@ -161,6 +162,15 @@ export default function ParentDashboard() {
   }, [user])
 
   const isParent = profile?.role === 'parent'
+
+  useEffect(() => {
+    if (searchParams.get('swimmerApplication') === 'submitted') {
+      toast.success(
+        'Application submitted - we\'ll notify you when your swimmer is approved.'
+      )
+      router.replace('/dashboard')
+    }
+  }, [searchParams, router])
 
   useEffect(() => {
     if (!authLoading) {
@@ -609,3 +619,17 @@ const SwimmerCard = memo(function SwimmerCard({ swimmer, sessions, scheduledSess
     </Card>
   )
 })
+
+export default function ParentDashboardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors">
+          <div className="animate-spin h-12 w-12 border-4 border-primary border-t-transparent rounded-full" />
+        </div>
+      }
+    >
+      <ParentDashboard />
+    </Suspense>
+  )
+}
