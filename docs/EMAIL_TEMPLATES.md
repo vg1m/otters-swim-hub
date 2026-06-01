@@ -9,6 +9,10 @@ All SMTP2GO mail is sent from [`lib/utils/send-email.js`](../lib/utils/send-emai
 - Table-based 600px layout, inline styles only (Gmail / Outlook safe)
 - Hidden preheader line for inbox snippets
 
+## Support line in footers
+
+The support address is defined in `lib/email/tokens.js` and rendered via `lib/email/footer.js`. It is **hidden** by default (`EMAIL_SUPPORT_VISIBLE_IN_EMAIL = false` in `footer.js`). Set that flag to `true` to show it again in HTML and plain-text footers.
+
 ## Logo
 
 Emails reference:

@@ -1,8 +1,12 @@
+import { after } from 'next/server'
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { publishClubAnnouncementFanOut } from '@/lib/announcements/publish-club-announcement'
 import { assertHcaptcha } from '@/lib/hcaptcha/verify-token'
+
+/** Background fan-out (notifications + email) may run after the HTTP response. */
+export const maxDuration = 60
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -99,11 +103,20 @@ export async function POST(request) {
     return NextResponse.json({ error: insertErr.message }, { status: 500 })
   }
 
-  const fanOut = await publishClubAnnouncementFanOut(admin, row)
+  const announcement = row
+  after(async () => {
+    try {
+      const svc = createServiceRoleClient()
+      const result = await publishClubAnnouncementFanOut(svc, announcement)
+      console.log('[announcements] fan-out complete', announcement.id, result)
+    } catch (e) {
+      console.error('[announcements] fan-out failed', announcement.id, e)
+    }
+  })
 
   return NextResponse.json({
     ok: true,
     announcement: row,
-    ...fanOut,
+    fanOutQueued: true,
   })
 }

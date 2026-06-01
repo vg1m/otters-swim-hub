@@ -92,7 +92,9 @@ export default function AdminAnnouncementsPage() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Publish failed')
       toast.success(
-        `Published — ${json.parentsNotified ?? 0} parents, ${json.staffNotified ?? 0} staff notified`
+        json.fanOutQueued
+          ? 'Published☺️ Notifications and emails are being sent in the background'
+          : `Published☺️ ${json.parentsNotified ?? 0} parents, ${json.staffNotified ?? 0} staff notified`
       )
       setShowModal(false)
       setForm({ title: '', body: '', link_url: '' })
@@ -116,7 +118,8 @@ export default function AdminAnnouncementsPage() {
           <div>
             <h1 className="text-2xl font-bold text-stone-900 dark:text-white">Club announcements</h1>
             <p className="text-sm text-stone-600 dark:text-gray-400 mt-1">
-              Send to all parents and coaches (in-app + email). One publish per minute.
+              Send to all parents and coaches (in-app + email). Publish saves immediately; notifications
+              continue in the background. One publish per minute.
             </p>
           </div>
           <Button onClick={openPublishModal}>New announcement</Button>

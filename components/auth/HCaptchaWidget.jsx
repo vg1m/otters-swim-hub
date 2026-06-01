@@ -32,7 +32,7 @@ export default function HCaptchaWidget({ onVerify, onExpire, resetKey = 0 }) {
         sitekey={sitekey}
         onVerify={(token) => onVerify?.(token)}
         onExpire={() => onExpire?.()}
-        theme="auto"
+        theme="light"
       />
     </div>
   )
