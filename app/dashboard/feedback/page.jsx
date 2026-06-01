@@ -12,6 +12,8 @@ import Badge from '@/components/ui/Badge'
 import { UnreadNotificationIndicator } from '@/components/UnreadNotificationIndicator'
 import { emitNotifierRefresh } from '@/lib/notifications/notifier-refresh'
 import toast from 'react-hot-toast'
+import HCaptchaWidget from '@/components/auth/HCaptchaWidget'
+import { isHcaptchaRequiredOnClient } from '@/lib/hcaptcha/client-config'
 
 const STATUS_LABEL = {
   open: 'Open',
@@ -27,6 +29,9 @@ export default function ParentFeedbackPage() {
   const [submitting, setSubmitting] = useState(false)
   const [form, setForm] = useState({ subject: '', message: '' })
   const [unreadRepliesEnabled, setUnreadRepliesEnabled] = useState(true)
+  const [hcaptchaToken, setHcaptchaToken] = useState(null)
+  const [captchaResetKey, setCaptchaResetKey] = useState(0)
+  const captchaRequired = isHcaptchaRequiredOnClient()
 
   const unreadRepliesCount = useMemo(
     () =>
@@ -88,20 +93,31 @@ export default function ParentFeedbackPage() {
 
   async function handleSubmit(e) {
     e.preventDefault()
+    if (captchaRequired && !hcaptchaToken) {
+      toast.error('Please complete the security check')
+      return
+    }
     setSubmitting(true)
     try {
       const res = await fetch('/api/parent/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          ...(hcaptchaToken ? { hcaptchaToken } : {}),
+        }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Submit failed')
       toast.success('Feedback sent — the club will respond soon')
       setForm({ subject: '', message: '' })
+      setHcaptchaToken(null)
+      setCaptchaResetKey((k) => k + 1)
       await load()
     } catch (err) {
       toast.error(err.message || 'Submit failed')
+      setHcaptchaToken(null)
+      setCaptchaResetKey((k) => k + 1)
     } finally {
       setSubmitting(false)
     }
@@ -144,6 +160,11 @@ export default function ParentFeedbackPage() {
                 required
               />
             </div>
+            <HCaptchaWidget
+              resetKey={captchaResetKey}
+              onVerify={(token) => setHcaptchaToken(token)}
+              onExpire={() => setHcaptchaToken(null)}
+            />
             <Button type="submit" disabled={submitting}>
               {submitting ? 'Sending…' : 'Send feedback'}
             </Button>

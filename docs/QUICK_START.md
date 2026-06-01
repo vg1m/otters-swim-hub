@@ -217,7 +217,7 @@ See **[TECH_STACK.md](TECH_STACK.md)** for locked versions (verified 2026-05-21)
 
 ## hCaptcha (bot protection)
 
-Email login, signup, forgot password, and public registration apply use hCaptcha when `HCAPTCHA_ENABLED=1` and `NEXT_PUBLIC_HCAPTCHA_ENABLED=1`. Google OAuth is unchanged. See [HCAPTCHA.md](./HCAPTCHA.md).
+Email login, signup, forgot password, public registration apply, parent feedback, and admin club announcement publish use hCaptcha when `HCAPTCHA_ENABLED=1` and `NEXT_PUBLIC_HCAPTCHA_ENABLED=1`. Google OAuth is unchanged. See [HCAPTCHA.md](./HCAPTCHA.md). To pause transactional email on Vercel during testing, remove `SMTP2GO_API_KEY` and redeploy (see `.env.local.example`).
 
 ## 📞 Support
 

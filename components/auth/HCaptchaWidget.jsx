@@ -8,7 +8,7 @@ import {
 } from '@/lib/hcaptcha/client-config'
 
 /**
- * Email-form captcha only. OAuth buttons stay outside this component.
+ * hCaptcha for sensitive form submits (auth, feedback, admin publish). OAuth stays outside.
  */
 export default function HCaptchaWidget({ onVerify, onExpire, resetKey = 0 }) {
   const ref = useRef(null)

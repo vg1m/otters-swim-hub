@@ -8,7 +8,8 @@
     "build": "npm run clean && next build",
     "build:no-clean": "next build",
     "start": "next start",
-    "test:billing": "node scripts/test-billing.mjs"
+    "test:billing": "node scripts/test-billing.mjs",
+    "preview:email": "node scripts/preview-email-html.mjs"
   },
   "dependencies": {
     "@ducanh2912/next-pwa": "^10.2.9",

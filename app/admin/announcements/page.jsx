@@ -11,6 +11,8 @@ import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
 import Input from '@/components/ui/Input'
 import toast from 'react-hot-toast'
+import HCaptchaWidget from '@/components/auth/HCaptchaWidget'
+import { isHcaptchaRequiredOnClient } from '@/lib/hcaptcha/client-config'
 
 export default function AdminAnnouncementsPage() {
   const router = useRouter()
@@ -20,6 +22,22 @@ export default function AdminAnnouncementsPage() {
   const [showModal, setShowModal] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [form, setForm] = useState({ title: '', body: '', link_url: '' })
+  const [hcaptchaToken, setHcaptchaToken] = useState(null)
+  const [captchaResetKey, setCaptchaResetKey] = useState(0)
+  const captchaRequired = isHcaptchaRequiredOnClient()
+
+  function openPublishModal() {
+    setHcaptchaToken(null)
+    setCaptchaResetKey((k) => k + 1)
+    setShowModal(true)
+  }
+
+  function closePublishModal() {
+    if (publishing) return
+    setShowModal(false)
+    setHcaptchaToken(null)
+    setCaptchaResetKey((k) => k + 1)
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -55,6 +73,10 @@ export default function AdminAnnouncementsPage() {
       toast.error('Title and message are required')
       return
     }
+    if (captchaRequired && !hcaptchaToken) {
+      toast.error('Please complete the security check')
+      return
+    }
     setPublishing(true)
     try {
       const res = await fetch('/api/admin/announcements', {
@@ -64,6 +86,7 @@ export default function AdminAnnouncementsPage() {
           title,
           body,
           link_url: form.link_url.trim() || null,
+          ...(hcaptchaToken ? { hcaptchaToken } : {}),
         }),
       })
       const json = await res.json()
@@ -73,9 +96,13 @@ export default function AdminAnnouncementsPage() {
       )
       setShowModal(false)
       setForm({ title: '', body: '', link_url: '' })
+      setHcaptchaToken(null)
+      setCaptchaResetKey((k) => k + 1)
       await load()
     } catch (err) {
       toast.error(err.message || 'Publish failed')
+      setHcaptchaToken(null)
+      setCaptchaResetKey((k) => k + 1)
     } finally {
       setPublishing(false)
     }
@@ -92,7 +119,7 @@ export default function AdminAnnouncementsPage() {
               Send to all parents and coaches (in-app + email). One publish per minute.
             </p>
           </div>
-          <Button onClick={() => setShowModal(true)}>New announcement</Button>
+          <Button onClick={openPublishModal}>New announcement</Button>
         </div>
 
         <Card>
@@ -133,7 +160,7 @@ export default function AdminAnnouncementsPage() {
 
       <Modal
         isOpen={showModal}
-        onClose={() => !publishing && setShowModal(false)}
+        onClose={closePublishModal}
         title="Publish club announcement"
       >
         <form onSubmit={handlePublish} className="space-y-4">
@@ -164,8 +191,13 @@ export default function AdminAnnouncementsPage() {
           <p className="text-xs text-stone-500">
             This notifies every parent and every coach/admin immediately. Cannot be edited after publish.
           </p>
+          <HCaptchaWidget
+            resetKey={captchaResetKey}
+            onVerify={(token) => setHcaptchaToken(token)}
+            onExpire={() => setHcaptchaToken(null)}
+          />
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={() => setShowModal(false)} disabled={publishing}>
+            <Button type="button" variant="secondary" onClick={closePublishModal} disabled={publishing}>
               Cancel
             </Button>
             <Button type="submit" disabled={publishing}>

@@ -15,6 +15,9 @@
 # production
 /build
 
+# local email previews
+/tmp/
+
 # misc
 .DS_Store
 *.pem

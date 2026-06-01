@@ -37,7 +37,7 @@ Use this doc when you need **exact versions** and **what each piece does**. The 
 |---------|------------------|
 | **Supabase** | PostgreSQL, Auth, RLS, Storage (swimmer photos, etc.) |
 | **Paystack** | KES payments — registration, invoices, webhooks (`/api/paystack/*`) |
-| **SMTP2GO** | Transactional email when `SMTP2GO_API_KEY` is set — receipts, coach pay, club announcements, feedback replies, staff notifications |
+| **SMTP2GO** | Transactional email when `SMTP2GO_API_KEY` is set — shared layout in `lib/email/` ([EMAIL_TEMPLATES.md](./EMAIL_TEMPLATES.md)) |
 | **Vercel** | Hosting, preview deploys; Cron: `CRON_SECRET` → `/api/cron/coach-session-pay`, `/api/cron/recurring-billing` (25th), `/api/cron/data-retention` |
 
 See [`.env.local.example`](../.env.local.example) for required and optional env vars (including email kill switches like `CLUB_ANNOUNCEMENT_EMAIL=0`, `STAFF_NOTIFICATIONS_EMAIL=0`).

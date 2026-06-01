@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import { publishClubAnnouncementFanOut } from '@/lib/announcements/publish-club-announcement'
+import { assertHcaptcha } from '@/lib/hcaptcha/verify-token'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -49,6 +50,11 @@ export async function POST(request) {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+
+  const captchaError = await assertHcaptcha(request, body)
+  if (captchaError) {
+    return NextResponse.json({ error: captchaError.error }, { status: captchaError.status })
   }
 
   const title = typeof body?.title === 'string' ? body.title.trim() : ''

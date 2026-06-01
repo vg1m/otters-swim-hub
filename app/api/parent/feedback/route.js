@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
+import { assertHcaptcha } from '@/lib/hcaptcha/verify-token'
 import { resolvePrimaryParentId } from '@/lib/parent/resolve-primary-parent-id'
 import { parentFeedbackHasReadAtColumn } from '@/lib/parent/parent-feedback-read-at'
 import { notifyAllAdmins } from '@/lib/notifications/notify-all-admins'
@@ -65,6 +66,11 @@ export async function POST(request) {
     body = await request.json()
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+
+  const captchaError = await assertHcaptcha(request, body)
+  if (captchaError) {
+    return NextResponse.json({ error: captchaError.error }, { status: captchaError.status })
   }
 
   const subject = typeof body?.subject === 'string' ? body.subject.trim() : ''
