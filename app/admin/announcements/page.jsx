@@ -114,15 +114,22 @@ export default function AdminAnnouncementsPage() {
     <div className="min-h-screen flex flex-col bg-stone-50 dark:bg-gray-900">
       <Navigation />
       <main className="flex-1 container mx-auto px-4 py-8 max-w-3xl">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-stone-900 dark:text-white">Club announcements</h1>
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-bold text-stone-900 dark:text-white">
+              Club announcements
+            </h1>
             <p className="text-sm text-stone-600 dark:text-gray-400 mt-1">
               Send to all parents and coaches (in-app + email). Publish saves immediately; notifications
               continue in the background. One publish per minute.
             </p>
           </div>
-          <Button onClick={openPublishModal}>New announcement</Button>
+          <Button
+            className="w-full shrink-0 justify-center sm:w-auto"
+            onClick={openPublishModal}
+          >
+            New announcement
+          </Button>
         </div>
 
         <Card>
@@ -134,9 +141,11 @@ export default function AdminAnnouncementsPage() {
             <ul className="divide-y divide-stone-200 dark:divide-gray-700">
               {announcements.map((a) => (
                 <li key={a.id} className="p-4">
-                  <div className="flex justify-between gap-4">
-                    <h2 className="font-semibold text-stone-900 dark:text-white">{a.title}</h2>
-                    <time className="text-xs text-stone-500 shrink-0">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                    <h2 className="font-semibold text-stone-900 dark:text-white min-w-0">
+                      {a.title}
+                    </h2>
+                    <time className="text-xs text-stone-500 sm:shrink-0">
                       {new Date(a.published_at).toLocaleString('en-GB')}
                     </time>
                   </div>
@@ -148,7 +157,7 @@ export default function AdminAnnouncementsPage() {
                       href={a.link_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm text-primary mt-2 inline-block"
+                      className="text-sm text-primary mt-2 inline-block break-all"
                     >
                       {a.link_url}
                     </a>
@@ -199,11 +208,17 @@ export default function AdminAnnouncementsPage() {
             onVerify={(token) => setHcaptchaToken(token)}
             onExpire={() => setHcaptchaToken(null)}
           />
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="secondary" onClick={closePublishModal} disabled={publishing}>
+          <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button
+              type="button"
+              variant="secondary"
+              className="w-full sm:w-auto"
+              onClick={closePublishModal}
+              disabled={publishing}
+            >
               Cancel
             </Button>
-            <Button type="submit" disabled={publishing}>
+            <Button type="submit" className="w-full sm:w-auto" disabled={publishing}>
               {publishing ? 'Publishing…' : 'Publish'}
             </Button>
           </div>

@@ -86,14 +86,24 @@ export async function GET(request, { params }) {
       .select('id, first_name, last_name, squads ( name )')
       .eq('parent_id', invoice.parent_id)
 
+    const payment = Array.isArray(receipt.payments)
+      ? receipt.payments[0]
+      : receipt.payments
+    const receiptDataJson = receipt.receipt_data ?? {}
+
     // Prepare receipt data
     const receiptData = {
       receipt_number: receipt.receipt_number,
       invoice_id: invoiceId,
-      payment_reference: receipt.payments?.paystack_reference || 'N/A',
+      payment_reference:
+        payment?.paystack_reference
+        ?? receiptDataJson.payment_reference
+        ?? invoice.transaction_reference
+        ?? null,
       amount: invoice.total_amount,
-      paid_at: receipt.payments?.paid_at || receipt.issued_at,
-      payment_channel: receipt.payments?.payment_channel || 'paystack',
+      paid_at: payment?.paid_at || receiptDataJson.paid_at || receipt.issued_at,
+      payment_channel:
+        payment?.payment_channel ?? receiptDataJson.payment_channel ?? null,
       parent_name: invoice.profiles?.full_name || 'N/A',
       parent_email: invoice.profiles?.email || 'N/A',
       parent_phone: invoice.profiles?.phone_number || 'N/A',

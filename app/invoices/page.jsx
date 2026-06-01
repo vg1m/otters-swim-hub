@@ -440,7 +440,7 @@ function InvoicesPageContent() {
               My Invoices
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mt-1 sm:mt-2 text-sm sm:text-base">
-              Billing and receipts — Otters Kenya Academy of Swimming Ltd
+              Billing and receipts - Otters Kenya Academy of Swimming Ltd
             </p>
             
             {/* Payment Verification Alert */}
