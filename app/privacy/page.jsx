@@ -128,7 +128,7 @@ export default function PrivacyPolicyPage() {
 
           {/* Header */}
           <p className="text-xs font-semibold uppercase tracking-widest text-primary dark:text-primary-light mb-2">
-            Otters Kenya Academy of Swimming Limited
+            Otters Kenya Academy of Swimming
           </p>
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-gray-100 tracking-tight mb-1">
             Our Privacy Promise

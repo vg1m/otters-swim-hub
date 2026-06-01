@@ -1,6 +1,6 @@
 # Scripts
 
-Utility scripts for Otters Kenya Academy of Swimming Limited management platform.
+Utility scripts for Otters Kenya Academy of Swimming management platform.
 
 ## Available Scripts
 

@@ -1,6 +1,6 @@
 # START HERE — Otters Swim Hub
 
-**Documentation hub** for Otters Kenya Academy of Swimming Limited.
+**Documentation hub** for Otters Kenya Academy of Swimming.
 
 > **For onboard sessions and day-to-day use**, start with the **one-page handouts** in [`onboarding/`](onboarding/). They are kept current with the product.  
 > Long-form journey docs below are **optional deep dives** (some sections may lag behind the app).

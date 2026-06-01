@@ -70,7 +70,7 @@ function SuccessPageContent() {
                   ? 'We have received your application. No payment is due yet. The club will assign a squad and coach, then you can sign in and pay from your dashboard when an invoice appears.'
                   : payLater
                     ? 'Your registration has been received. An invoice has been sent to your email.'
-                    : 'Thank you for completing your registration with Otters Kenya Academy of Swimming Limited.'}
+                    : 'Thank you for completing your registration with Otters Kenya Academy of Swimming.'}
               </p>
             </div>
 

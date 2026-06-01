@@ -1,4 +1,4 @@
-# Otters Kenya Academy of Swimming Limited - Documentation
+# Otters Kenya Academy of Swimming - Documentation
 
 ## 📚 Quick Navigation
 

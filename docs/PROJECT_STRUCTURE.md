@@ -1,4 +1,4 @@
-# Project Structure - Otters Kenya Academy of Swimming Limited
+# Project Structure - Otters Kenya Academy of Swimming
 
 ## 📁 Organized Directory Structure
 

@@ -1,4 +1,4 @@
-# Otters Kenya Academy of Swimming Limited Management Platform
+# Otters Kenya Academy of Swimming Management Platform
 
 A modern, mobile-first web app for swim club operations: registration, billing, training sessions, attendance, and reporting.
 
@@ -217,11 +217,11 @@ No single “master” issue list in-repo; treat **GitHub/issues** or your inter
 
 ## Contributing
 
-Private project for **Otters Kenya Academy of Swimming Limited**. Contact the development team for access or changes.
+Private project for **Otters Kenya Academy of Swimming**. Contact the development team for access or changes.
 
 ## License
 
-Proprietary — Otters Kenya Academy of Swimming Limited
+Proprietary — Otters Kenya Academy of Swimming
 
 ---
 

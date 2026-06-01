@@ -139,11 +139,8 @@ export default function LoginPage() {
           <h2 className="text-center text-3xl font-bold text-stone-900 dark:text-gray-100 tracking-tightest mb-2">
             Welcome Back
           </h2>
-          <p className="text-center text-stone-600 dark:text-gray-400">
-            Sign in to your Otters account
-          </p>
           <p className="mt-2 text-center text-sm text-gray-600 dark:text-gray-400">
-            Otters Academy of Swimming Limited
+            Otters Kenya Academy of Swimming
           </p>
         </div>
 

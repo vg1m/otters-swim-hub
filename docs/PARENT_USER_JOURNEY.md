@@ -2,7 +2,7 @@
 
 > **Maintained entry point:** [Parent onboarding handout](onboarding/parent-onboarding.md) (one page, current product). Use this document as an extended reference; some sections may be outdated.
 
-A simple guide to using the Otters Kenya Academy of Swimming Limited platform as a parent or guardian.
+A simple guide to using the Otters Kenya Academy of Swimming platform as a parent or guardian.
 
 ## 🏁 Two Ways to Get Started
 
@@ -347,7 +347,7 @@ Your data is protected under Kenya's Data Protection Act:
 
 **Have an account?** → Login → Check for pending payments → Check-in at next session
 
-Welcome to Otters Kenya Academy of Swimming Limited! 🏊‍♂️💙
+Welcome to Otters Kenya Academy of Swimming! 🏊‍♂️💙
 
 ---
 

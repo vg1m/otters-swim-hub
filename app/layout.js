@@ -8,7 +8,7 @@ import RecoverySessionRedirect from '@/components/RecoverySessionRedirect'
 import AuthEmailLinkBridge from '@/components/AuthEmailLinkBridge'
 
 export const metadata = {
-  title: 'Otters Kenya Academy of Swimming Limited',
+  title: 'Otters Kenya Academy of Swimming',
   description: 'Swim club management platform for Otters Kenya',
   manifest: '/manifest.json',
 }
