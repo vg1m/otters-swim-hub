@@ -46,10 +46,6 @@ next-env.d.ts
 /public/workbox-*.js.map
 /public/worker-*.js.map
 
-# database
-/prisma/dev.db
-/prisma/dev.db-journal
-
 # local documentation (not published in git)
 /docs/
 

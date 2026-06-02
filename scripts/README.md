@@ -4,26 +4,8 @@ Utility scripts for Otters Kenya Academy of Swimming management platform.
 
 ## Available Scripts
 
-### Data Migration
-- **`migrate-from-prisma.js`** - Migrate existing data from Prisma SQLite to Supabase
-  - Migrates swimmers and meets
-  - Creates parent profiles from unique phone numbers
-  - Links swimmers to parents
-  
-  **Usage:**
-  ```bash
-  node scripts/migrate-from-prisma.js
-  ```
-  
-  **Requirements:**
-  - Existing Prisma database at `prisma/dev.db`
-  - Supabase credentials in `.env.local`
-  - Service role key (for bypassing RLS)
+- **`test-billing.mjs`** — billing logic checks (`npm run test:billing`)
+- **`preview-email-html.mjs`** — preview transactional email HTML (`npm run preview:email`)
+- **`clean-next.js`** — clears `.next` before production builds
 
-## Future Scripts
-
-Additional scripts can be added here for:
-- Bulk invoice generation
-- Data exports/imports
-- Backup utilities
-- Test data seeding
+Additional scripts can be added here for bulk operations, exports, backups, or test seeding.
