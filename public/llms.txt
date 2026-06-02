@@ -1,0 +1,26 @@
+# Otters Kenya Academy of Swimming — otters.ke
+
+> Otters is a swim club management platform in Kenya. Parents register swimmers, pay invoices, and receive announcements. Staff use admin and coach dashboards for sessions, attendance, and billing.
+
+## Canonical site
+- https://otters.ke
+- https://www.otters.ke
+
+## Public pages
+- Home: https://otters.ke/
+- Register a swimmer: https://otters.ke/register
+- Parent login: https://otters.ke/login
+- Family signup (invite): https://otters.ke/signup
+- Privacy policy: https://otters.ke/privacy
+
+## Discovery
+- Robots: https://otters.ke/robots.txt
+- Sitemap: https://otters.ke/sitemap.xml
+
+## Contact & security
+- Support: Otters.support@gmail.com
+- Security: https://otters.ke/.well-known/security.txt
+
+## What this site is not
+- Not a public directory of swimmers or payment data
+- Admin, dashboard, coach, and API routes require authentication

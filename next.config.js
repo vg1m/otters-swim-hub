@@ -1,3 +1,5 @@
+const { getSecurityHeaders } = require('./lib/security/headers')
+
 const withPWA = require('@ducanh2912/next-pwa').default({
   dest: 'public',
   disable: process.env.NODE_ENV === 'development',
@@ -8,6 +10,15 @@ const withPWA = require('@ducanh2912/next-pwa').default({
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  poweredByHeader: false,
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: getSecurityHeaders(),
+      },
+    ]
+  },
   turbopack: {
     root: process.cwd(),
   },
