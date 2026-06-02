@@ -50,5 +50,8 @@ next-env.d.ts
 /prisma/dev.db
 /prisma/dev.db-journal
 
+# local documentation (not published in git)
+/docs/
+
 .vercel
 .env*.local
