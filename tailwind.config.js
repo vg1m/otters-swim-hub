@@ -38,8 +38,15 @@ module.exports = {
         },
       },
       fontFamily: {
-        sans: ['Outfit', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
-        cursive: ['Reenie Beanie', 'cursive'],
+        sans: [
+          'var(--font-outfit)',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          'Segoe UI',
+          'Roboto',
+          'sans-serif',
+        ],
+        cursive: ['var(--font-reenie-beanie)', 'cursive'],
       },
       boxShadow: {
         'soft': '0 4px 20px -2px rgba(0, 0, 0, 0.05)',

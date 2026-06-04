@@ -1,4 +1,5 @@
 import './globals.css'
+import { fontOutfit, fontReenieBeanie } from '@/lib/fonts'
 import { Analytics } from '@vercel/analytics/next'
 import { Toaster } from 'react-hot-toast'
 import { ThemeProvider } from '@/contexts/ThemeContext'
@@ -22,7 +23,12 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" suppressHydrationWarning data-scroll-behavior="smooth">
+    <html
+      lang="en"
+      suppressHydrationWarning
+      data-scroll-behavior="smooth"
+      className={`${fontOutfit.variable} ${fontReenieBeanie.variable}`}
+    >
       <head>
         <script
           dangerouslySetInnerHTML={{
@@ -43,7 +49,9 @@ export default function RootLayout({ children }) {
           }}
         />
       </head>
-      <body className="bg-stone-50 dark:bg-gray-900 text-stone-900 dark:text-gray-100 transition-colors duration-200">
+      <body
+        className={`${fontOutfit.className} bg-stone-50 dark:bg-gray-900 text-stone-900 dark:text-gray-100 transition-colors duration-200`}
+      >
         <ThemeProvider>
           <div className="grain-overlay"></div>
           <SessionTimeoutWatcher />
