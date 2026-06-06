@@ -5,7 +5,7 @@ import PrivacyDSRWidget from '@/components/PrivacyDSRWidget'
 /** Update when the policy text is substantively reviewed. */
 const LAST_UPDATED = '2 May 2026'
 
-const PRIVACY_EMAIL = 'otters.kenya@gmail.com'
+const PRIVACY_EMAIL = 'otters.support@gmail.com'
 
 export const metadata = {
   title: 'Privacy Policy | Otters Kenya Academy of Swimming',

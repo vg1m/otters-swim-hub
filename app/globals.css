@@ -53,6 +53,53 @@ html.dark .grain-overlay {
   animation: float 8s ease-in-out infinite;
 }
 
+/* Rising pool bubbles (landing page) */
+@keyframes bubble-rise-wobble {
+  0% {
+    transform: translate(-50%, 0) translateX(0);
+    opacity: 0;
+  }
+  5% {
+    opacity: 1;
+  }
+  20% {
+    transform: translate(calc(-50% + 6px), -40%) translateX(0);
+  }
+  45% {
+    transform: translate(calc(-50% - 5px), -85%) translateX(0);
+  }
+  70% {
+    transform: translate(calc(-50% + 4px), -120%) translateX(0);
+    opacity: 0.85;
+  }
+  100% {
+    transform: translate(-50%, -165%) translateX(0);
+    opacity: 0;
+  }
+}
+
+.bubble-rise-active {
+  animation: bubble-rise-wobble var(--bubble-rise-duration, 10s) ease-in-out infinite;
+  animation-delay: var(--bubble-rise-delay, 0s);
+  will-change: transform, opacity;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bubble-rise-active {
+    animation: none;
+    opacity: 0.55;
+    transform: translate(-50%, 0);
+  }
+
+  .bubble-rise-active:nth-child(odd) {
+    bottom: 10% !important;
+  }
+
+  .bubble-rise-active:nth-child(even) {
+    bottom: 18% !important;
+  }
+}
+
 /* Reveal on scroll animations */
 @keyframes reveal {
   from {

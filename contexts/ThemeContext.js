@@ -5,7 +5,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 const ThemeContext = createContext()
 
 export function ThemeProvider({ children }) {
-  const [isDark, setIsDark] = useState(false)
+  const [isDark, setIsDark] = useState(true)
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -13,17 +13,15 @@ export function ThemeProvider({ children }) {
     // Check localStorage for saved theme preference
     const savedTheme = localStorage.getItem('theme')
     
-    // Only enable dark mode if explicitly saved as 'dark'
-    // Default to light mode instead of following system preference
-    if (savedTheme === 'dark') {
-      setIsDark(true)
-      document.documentElement.classList.add('dark')
-    } else {
-      // Ensure light mode is set by default
+    // Light mode only when explicitly saved; default is dark
+    if (savedTheme === 'light') {
       setIsDark(false)
       document.documentElement.classList.remove('dark')
+    } else {
+      setIsDark(true)
+      document.documentElement.classList.add('dark')
       if (!savedTheme) {
-        localStorage.setItem('theme', 'light')
+        localStorage.setItem('theme', 'dark')
       }
     }
   }, [])
@@ -55,7 +53,7 @@ export function useTheme() {
   const context = useContext(ThemeContext)
   if (context === undefined) {
     // Return default values if not in ThemeProvider (SSR or before mount)
-    return { isDark: false, toggleTheme: () => {} }
+    return { isDark: true, toggleTheme: () => {} }
   }
   return context
 }

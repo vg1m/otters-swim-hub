@@ -34,14 +34,13 @@ export default function RootLayout({ children }) {
           dangerouslySetInnerHTML={{
             __html: `
               try {
-                // Only apply dark mode if explicitly saved in localStorage
-                // Default to light mode instead of following system preference
-                if (localStorage.theme === 'dark') {
-                  document.documentElement.classList.add('dark')
-                } else {
+                // Default to dark; light only when explicitly saved
+                if (localStorage.theme === 'light') {
                   document.documentElement.classList.remove('dark')
+                } else {
+                  document.documentElement.classList.add('dark')
                   if (!('theme' in localStorage)) {
-                    localStorage.setItem('theme', 'light')
+                    localStorage.setItem('theme', 'dark')
                   }
                 }
               } catch (_) {}
