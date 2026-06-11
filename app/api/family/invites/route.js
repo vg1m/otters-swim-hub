@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { validateInviteEmails } from '@/lib/family/validate-invite-emails'
 import { canManageFamilyInvites } from '@/lib/family/can-manage-family-invites'
+import { assertHcaptcha } from '@/lib/hcaptcha/verify-token'
 import { sendFamilySharedAccessInviteEmail } from '@/lib/utils/send-email'
 
 /**
@@ -44,6 +45,11 @@ export async function POST(request) {
       body = await request.json()
     } catch {
       return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    }
+
+    const captchaError = await assertHcaptcha(request, body)
+    if (captchaError) {
+      return NextResponse.json({ error: captchaError.error }, { status: captchaError.status })
     }
 
     const invites = Array.isArray(body?.invites) ? body.invites : []

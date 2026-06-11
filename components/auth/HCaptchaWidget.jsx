@@ -8,7 +8,7 @@ import {
 } from '@/lib/hcaptcha/client-config'
 
 /**
- * hCaptcha for sensitive form submits (auth, feedback, admin publish). OAuth stays outside.
+ * hCaptcha for sensitive form submits (auth, feedback, shared access invites, admin publish). OAuth stays outside.
  */
 export default function HCaptchaWidget({ onVerify, onExpire, resetKey = 0 }) {
   const ref = useRef(null)

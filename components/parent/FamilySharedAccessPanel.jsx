@@ -5,6 +5,8 @@ import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { MAX_FAMILY_INVITES_PER_BATCH } from '@/lib/family/family-invite-constants'
+import HCaptchaWidget from '@/components/auth/HCaptchaWidget'
+import { isHcaptchaRequiredOnClient } from '@/lib/hcaptcha/client-config'
 import toast from 'react-hot-toast'
 
 function emptyInviteRow() {
@@ -18,6 +20,14 @@ export default function FamilySharedAccessPanel({
   const [rows, setRows] = useState([emptyInviteRow()])
   const [fieldErrors, setFieldErrors] = useState({})
   const [busy, setBusy] = useState(false)
+  const [hcaptchaToken, setHcaptchaToken] = useState(null)
+  const [captchaResetKey, setCaptchaResetKey] = useState(0)
+  const captchaRequired = isHcaptchaRequiredOnClient()
+
+  const resetCaptcha = () => {
+    setHcaptchaToken(null)
+    setCaptchaResetKey((k) => k + 1)
+  }
 
   const updateRow = (index, field, value) => {
     setRows((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)))
@@ -64,6 +74,11 @@ export default function FamilySharedAccessPanel({
       return
     }
 
+    if (captchaRequired && !hcaptchaToken) {
+      toast.error('Please complete the security check')
+      return
+    }
+
     setBusy(true)
     setFieldErrors({})
 
@@ -72,7 +87,10 @@ export default function FamilySharedAccessPanel({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ invites }),
+        body: JSON.stringify({
+          invites,
+          ...(hcaptchaToken ? { hcaptchaToken } : {}),
+        }),
       })
       const data = await res.json().catch(() => ({}))
 
@@ -89,9 +107,12 @@ export default function FamilySharedAccessPanel({
           })
           setFieldErrors(nextFieldErrors)
           toast.error(data.errors[0]?.message || 'Could not send invitations')
+          resetCaptcha()
+          return
         } else {
           toast.error(data.error || 'Could not send invitations')
         }
+        resetCaptcha()
         return
       }
 
@@ -110,10 +131,12 @@ export default function FamilySharedAccessPanel({
       }
 
       setRows([emptyInviteRow()])
+      resetCaptcha()
       await onRefresh?.()
     } catch (e) {
       console.error(e)
       toast.error(e.message || 'Could not send invitations')
+      resetCaptcha()
     } finally {
       setBusy(false)
     }
@@ -229,6 +252,12 @@ export default function FamilySharedAccessPanel({
           ))}
         </div>
 
+        <HCaptchaWidget
+          resetKey={captchaResetKey}
+          onVerify={(token) => setHcaptchaToken(token)}
+          onExpire={() => setHcaptchaToken(null)}
+        />
+
         <div className="flex flex-wrap gap-2">
           {rows.length < MAX_FAMILY_INVITES_PER_BATCH && (
             <Button type="button" variant="secondary" size="sm" onClick={addRow} disabled={busy}>
@@ -241,7 +270,7 @@ export default function FamilySharedAccessPanel({
             size="sm"
             onClick={handleBatchInvite}
             loading={busy}
-            disabled={busy}
+            disabled={busy || (captchaRequired && !hcaptchaToken)}
           >
             Send invitations
           </Button>
