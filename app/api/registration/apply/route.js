@@ -164,44 +164,6 @@ export async function POST(request) {
       if (profileUpdateError) {
         console.error('Registration: profile contact fields update failed:', profileUpdateError)
       }
-
-      if (parentInfoResolved.shareHubAccess && parentInfoResolved.coParentEmail?.trim()) {
-        const invited = parentInfoResolved.coParentEmail.trim().toLowerCase()
-        const primaryEmail = parentInfoResolved.email.trim().toLowerCase()
-        if (invited && invited !== primaryEmail) {
-          const { error: inviteError } = await supabase.from('family_account_members').insert({
-            primary_parent_id: parentId,
-            invited_email: invited,
-            invited_name: parentInfoResolved.coParentName?.trim() || null,
-            status: 'pending',
-            invited_by: parentId,
-          })
-          if (inviteError) {
-            if (inviteError.code !== '23505') {
-              console.error('Registration: family invite insert failed:', inviteError)
-            }
-          } else {
-            try {
-              const { sendFamilySharedAccessInviteEmail } = await import('@/lib/utils/send-email')
-              const emailOut = await sendFamilySharedAccessInviteEmail({
-                inviteeEmail: invited,
-                inviteeName: parentInfoResolved.coParentName?.trim() || null,
-                primaryName: parentInfoResolved.fullName,
-                primaryEmail,
-              })
-              if (!emailOut.success) {
-                console.warn('Registration: family invite email:', emailOut.error)
-              }
-            } catch (mailErr) {
-              console.warn('Registration: family invite email exception:', mailErr)
-            }
-          }
-        }
-      }
-    } else if (parentInfoResolved.shareHubAccess && parentInfoResolved.coParentEmail?.trim()) {
-      console.info(
-        'Registration: shareHubAccess requested but no existing profile for email; invite skipped until parent account exists'
-      )
     }
 
     for (const swimmer of createdSwimmers) {
