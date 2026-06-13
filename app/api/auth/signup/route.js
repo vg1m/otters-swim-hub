@@ -54,5 +54,9 @@ export async function POST(request) {
     )
   }
 
-  return NextResponse.json({ ok: true })
+  // Return the response Supabase wrote cookies onto during signUp. Under the
+  // PKCE flow this carries the code-verifier cookie the browser needs so the
+  // confirmation-email ?code= can later be exchanged at /auth/callback. Returning
+  // a fresh NextResponse here would drop that cookie and break confirmation.
+  return authResponse
 }
