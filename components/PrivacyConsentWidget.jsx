@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react'
 
 // privacy.ke redirects to www.privacy.ke; use canonical URL to avoid CSP/script load failures
-const PRIVACY_SCRIPT_SRC = 'https://www.privacy.ke/widget/consent-widget.iife.js?v=11'
+const PRIVACY_SCRIPT_SRC = 'https://www.privacy.ke/widget/consent-widget.iife.js?v=13'
 
 let privacyScriptInjected = false
 
