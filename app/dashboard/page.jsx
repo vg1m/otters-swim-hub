@@ -26,7 +26,14 @@ import { getAttendanceOccurrenceDateKey } from '@/lib/attendance/attendance-date
 import { useRefreshOnVisible } from '@/hooks/useRefreshOnVisible'
 import { useParentUnreadNotificationsCount } from '@/hooks/useParentUnreadNotificationsCount'
 import { useParentUnreadFeedbackRepliesCount } from '@/hooks/useParentUnreadFeedbackRepliesCount'
-import { UnreadNotificationIndicator } from '@/components/UnreadNotificationIndicator'
+import QuickActionTile from '@/components/dashboard/QuickActionTile'
+import {
+  InvoicesQuickActionIcon,
+  SwimmersQuickActionIcon,
+  SettingsQuickActionIcon,
+  FeedbackQuickActionIcon,
+  NotificationsQuickActionIcon,
+} from '@/components/dashboard/ParentQuickActionIcons'
 import toast from 'react-hot-toast'
 
 function sessionSquadNames(session) {
@@ -222,6 +229,82 @@ function ParentDashboard() {
 
   const dashboardBadgeCount = unreadFeedCount + notificationCount
 
+  const primaryQuickActions = useMemo(
+    () => [
+      {
+        id: 'invoices',
+        href: '/invoices',
+        title: 'Invoices & Payments',
+        subtitle:
+          outstandingInvoices.length > 0
+            ? `${outstandingInvoices.length} pending`
+            : 'View history',
+        theme: 'amber',
+        icon: <InvoicesQuickActionIcon />,
+      },
+      {
+        id: 'swimmers',
+        href: '/swimmers',
+        title: 'Swimmer Profiles',
+        subtitle: 'View details',
+        theme: 'green',
+        icon: <SwimmersQuickActionIcon />,
+      },
+      {
+        id: 'settings',
+        href: '/settings',
+        title: 'Profile Settings',
+        subtitle: 'Manage info',
+        theme: 'slate',
+        icon: <SettingsQuickActionIcon />,
+      },
+      {
+        id: 'feedback',
+        href: '/dashboard/feedback',
+        title: 'Feedback',
+        subtitle:
+          unreadFeedbackReplies > 0
+            ? `${unreadFeedbackReplies} new ${unreadFeedbackReplies === 1 ? 'reply' : 'replies'}`
+            : 'Message the club',
+        theme: 'blue',
+        icon: <FeedbackQuickActionIcon />,
+        badgeCount: unreadFeedbackReplies,
+        ariaLabel:
+          unreadFeedbackReplies > 0
+            ? `Feedback, ${unreadFeedbackReplies} new ${unreadFeedbackReplies === 1 ? 'reply' : 'replies'}`
+            : 'Feedback',
+      },
+    ],
+    [outstandingInvoices.length, unreadFeedbackReplies]
+  )
+
+  const notificationsAction = useMemo(
+    () => ({
+      href: '/dashboard/notifications',
+      title: 'Notifications',
+      subtitle: (
+        <>
+          {notificationCount > 0
+            ? `${notificationCount} alert${notificationCount === 1 ? '' : 's'}`
+            : 'All caught up'}
+          {unreadFeedCount > 0 && (
+            <span className="block opacity-90">
+              · {unreadFeedCount} new update{unreadFeedCount === 1 ? '' : 's'}
+            </span>
+          )}
+        </>
+      ),
+      theme: 'purple',
+      icon: <NotificationsQuickActionIcon />,
+      badgeCount: dashboardBadgeCount,
+      ariaLabel:
+        dashboardBadgeCount > 0
+          ? `Notifications, ${dashboardBadgeCount} unread or needing attention`
+          : 'Notifications',
+    }),
+    [notificationCount, unreadFeedCount, dashboardBadgeCount]
+  )
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -250,134 +333,34 @@ function ParentDashboard() {
             </Card>
           )}
 
-          {/* Quick Actions — 2x2 on mobile (fourth card removes empty cell) */}
+          {/* Quick Actions — 2×2 on mobile, 5th tile centered; 5 across on lg+ */}
           <div className="mb-6">
             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Quick Actions</h2>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <Link href="/invoices">
-                <Card padding="normal" className="hover:shadow-lg transition-shadow cursor-pointer border-2 border-primary/20 hover:border-primary/50">
-                  <div className="text-center py-3">
-                    <svg className="mx-auto h-10 w-10 text-primary mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Invoices & Payments</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                      {outstandingInvoices.length > 0 
-                        ? `${outstandingInvoices.length} pending`
-                        : 'View history'
-                      }
-                    </p>
-                  </div>
-                </Card>
-              </Link>
-
-              <Link href="/swimmers">
-                <Card padding="normal" className="hover:shadow-lg transition-shadow cursor-pointer">
-                  <div className="text-center py-3">
-                    <svg className="mx-auto h-10 w-10 text-primary mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Swimmer Profiles</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">View details</p>
-                  </div>
-                </Card>
-              </Link>
-
-              <Link href="/settings">
-                <Card padding="normal" className="hover:shadow-lg transition-shadow cursor-pointer">
-                  <div className="text-center py-3">
-                    <svg className="mx-auto h-10 w-10 text-primary mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Profile Settings</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Manage info</p>
-                  </div>
-                </Card>
-              </Link>
-
-              <Link
-                href="/dashboard/feedback"
-                aria-label={
-                  unreadFeedbackReplies > 0
-                    ? `Feedback, ${unreadFeedbackReplies} new ${unreadFeedbackReplies === 1 ? 'reply' : 'replies'}`
-                    : 'Feedback'
-                }
-              >
-                <Card padding="normal" className="relative hover:shadow-lg transition-shadow cursor-pointer">
-                  {unreadFeedbackReplies > 0 && (
-                    <span className="absolute right-3 top-3 z-10">
-                      <UnreadNotificationIndicator count={unreadFeedbackReplies} />
-                    </span>
-                  )}
-                  <div className="text-center py-3 min-w-0 pr-8">
-                    <svg
-                      className="mx-auto h-10 w-10 text-primary mb-2"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      aria-hidden
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                      />
-                    </svg>
-                    <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Feedback</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                      {unreadFeedbackReplies > 0
-                        ? `${unreadFeedbackReplies} new ${unreadFeedbackReplies === 1 ? 'reply' : 'replies'}`
-                        : 'Message the club'}
-                    </p>
-                  </div>
-                </Card>
-              </Link>
-
-              <Link
-                href="/dashboard/notifications"
-                aria-label={
-                  dashboardBadgeCount > 0
-                    ? `Notifications, ${dashboardBadgeCount} unread or needing attention`
-                    : 'Notifications'
-                }
-              >
-                <Card padding="normal" className="relative hover:shadow-lg transition-shadow cursor-pointer border-2 border-primary/10 dark:border-primary/20">
-                  {dashboardBadgeCount > 0 && (
-                    <span className="absolute right-3 top-3 z-10">
-                      <UnreadNotificationIndicator count={dashboardBadgeCount} />
-                    </span>
-                  )}
-                  <div className="text-center py-3 min-w-0 pr-8">
-                    <svg
-                      className="mx-auto h-10 w-10 text-primary mb-2"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      aria-hidden
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                      />
-                    </svg>
-                    <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">Notifications</p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 break-words">
-                      {notificationCount > 0
-                        ? `${notificationCount} alert${notificationCount === 1 ? '' : 's'}`
-                        : 'All caught up'}
-                      {unreadFeedCount > 0 && (
-                        <span className="block text-gray-700 dark:text-gray-300">
-                          · {unreadFeedCount} new update{unreadFeedCount === 1 ? '' : 's'}
-                        </span>
-                      )}
-                    </p>
-                  </div>
-                </Card>
-              </Link>
+            <div className="grid grid-cols-2 items-start gap-2.5 sm:gap-3 lg:grid-cols-5">
+              {primaryQuickActions.map((action) => (
+                <QuickActionTile
+                  key={action.id}
+                  href={action.href}
+                  title={action.title}
+                  subtitle={action.subtitle}
+                  theme={action.theme}
+                  icon={action.icon}
+                  badgeCount={action.badgeCount}
+                  ariaLabel={action.ariaLabel}
+                />
+              ))}
+              <div className="col-span-2 flex justify-center lg:col-span-1 lg:block">
+                <QuickActionTile
+                  href={notificationsAction.href}
+                  title={notificationsAction.title}
+                  subtitle={notificationsAction.subtitle}
+                  theme={notificationsAction.theme}
+                  icon={notificationsAction.icon}
+                  badgeCount={notificationsAction.badgeCount}
+                  ariaLabel={notificationsAction.ariaLabel}
+                  className="w-full max-w-[calc(50%-5px)] lg:max-w-none"
+                />
+              </div>
             </div>
           </div>
 
