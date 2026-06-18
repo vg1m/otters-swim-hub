@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, memo, useMemo, useCallback, Suspense } from 'react'
+import { useEffect, useState, useMemo, useCallback, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -9,20 +9,16 @@ import Navigation from '@/components/Navigation'
 import Footer from '@/components/Footer'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
-import Badge from '@/components/ui/Badge'
-import SessionDetailsModal from '@/components/SessionDetailsModal'
-import { calculateAge, formatDate } from '@/lib/utils/date-helpers'
+import SwimmerCard from '@/components/parent/SwimmerCard'
+import UpcomingSessionsList from '@/components/parent/UpcomingSessionsList'
+import DashboardNextSessionStrip from '@/components/parent/DashboardNextSessionStrip'
 import { formatKES } from '@/lib/utils/currency'
 import {
-  defaultAttendanceWindow,
-  expandScheduledSessionsInWindow,
-  fetchParentSwimmerScheduleBundle,
   collectSwimmerSquadIds,
-  sessionMatchesSwimmerSquad,
   sessionMatchesAnySwimmerSquad,
 } from '@/lib/parent/swimmerSchedule'
 import { fetchParentIdsForDataAccess } from '@/lib/parent/effective-parent-ids'
-import { getAttendanceOccurrenceDateKey } from '@/lib/attendance/attendance-date-key'
+import { loadParentSwimmerOverview } from '@/lib/parent/load-parent-swimmer-overview'
 import { useRefreshOnVisible } from '@/hooks/useRefreshOnVisible'
 import { useParentUnreadNotificationsCount } from '@/hooks/useParentUnreadNotificationsCount'
 import { useParentUnreadFeedbackRepliesCount } from '@/hooks/useParentUnreadFeedbackRepliesCount'
@@ -33,13 +29,9 @@ import {
   SettingsQuickActionIcon,
   FeedbackQuickActionIcon,
   NotificationsQuickActionIcon,
+  SessionsQuickActionIcon,
 } from '@/components/dashboard/ParentQuickActionIcons'
 import toast from 'react-hot-toast'
-
-function sessionSquadNames(session) {
-  const links = session.training_session_squads || []
-  return links.map((l) => l.squads?.name).filter(Boolean)
-}
 
 function ParentDashboard() {
   const router = useRouter()
@@ -51,49 +43,17 @@ function ParentDashboard() {
   const [outstandingInvoices, setOutstandingInvoices] = useState([])
   const [attendanceBySwimmer, setAttendanceBySwimmer] = useState({})
   const [loading, setLoading] = useState(true)
-  const [selectedSession, setSelectedSession] = useState(null)
+  const [sessionsPanelOpen, setSessionsPanelOpen] = useState(false)
 
   const loadDashboardData = useCallback(async ({ silent = false } = {}) => {
     const supabase = createClient()
     if (!silent) setLoading(true)
 
     try {
-      const { now, windowStart, windowEnd, windowStartStr, windowEndStr } =
-        defaultAttendanceWindow()
-      const todayStr = now.toISOString().split('T')[0]
       const parentIds = await fetchParentIdsForDataAccess(supabase, user.id)
 
-      // First load swimmers to get their IDs (primary + linked family accounts)
-      const swimmersResult = await supabase
-        .from('swimmers')
-        .select('*, squads(id, name)')
-        .in('parent_id', parentIds)
-        .order('first_name', { ascending: true })
-
-      if (swimmersResult.error) {
-        console.error('Error loading swimmers:', swimmersResult.error)
-        setSwimmers([])
-        setLoading(false)
-        return
-      }
-
-      const swimmersList = swimmersResult.data || []
-      setSwimmers(swimmersList)
-      
-      const swimmerIds = swimmersList.map(s => s.id)
-
-      // Load rest of data in parallel. Sessions query pulls origins up to the
-      // window end so expandRecurringSessions can materialise every occurrence
-      // that lands in our ±6-month window, including recurring bases whose
-      // origin date predates the window.
-      const [scheduleBundle, invoicesResult, attendanceResult] = await Promise.all([
-        fetchParentSwimmerScheduleBundle(
-          supabase,
-          swimmersList,
-          windowStartStr,
-          windowEndStr
-        ),
-        
+      const [overview, invoicesResult] = await Promise.all([
+        loadParentSwimmerOverview(supabase, user.id),
         supabase
           .from('invoices')
           .select(`
@@ -103,38 +63,12 @@ function ParentDashboard() {
           .in('parent_id', parentIds)
           .in('status', ['issued', 'due'])
           .order('due_date', { ascending: true }),
-        
-        swimmerIds.length > 0
-          ? supabase
-              .from('attendance')
-              .select(`
-                *,
-                occurrence_date,
-                training_sessions (session_date)
-              `)
-              .in('swimmer_id', swimmerIds)
-              .order('created_at', { ascending: false })
-              .limit(500)
-          : Promise.resolve({ data: [], error: null })
       ])
 
-      // Expand recurring sessions across the ±6-month window once. This is
-      // the canonical schedule used by the attendance calendar, the next-session
-      // line on swimmer cards, and the Upcoming Training Sessions list.
-      if (scheduleBundle.error) {
-        console.error('Error loading sessions:', scheduleBundle.error)
-        setScheduledSessions([])
-        setUpcomingSessions([])
-      } else {
-        const expanded = expandScheduledSessionsInWindow(
-          scheduleBundle.sessions || [],
-          windowStart,
-          windowEnd,
-          scheduleBundle.exceptions
-        )
-        setScheduledSessions(expanded)
-        setUpcomingSessions(expanded.filter((s) => s.session_date >= todayStr))
-      }
+      setSwimmers(overview.swimmers)
+      setScheduledSessions(overview.scheduledSessions)
+      setUpcomingSessions(overview.upcomingSessions)
+      setAttendanceBySwimmer(overview.attendanceBySwimmer)
 
       if (invoicesResult.error) {
         console.error('Error loading invoices:', invoicesResult.error)
@@ -142,24 +76,6 @@ function ParentDashboard() {
       } else {
         setOutstandingInvoices(invoicesResult.data || [])
       }
-
-      // Group all attendance rows by swimmer. The attendance calendar needs
-      // every historical check-in to render a full monthly picture, so we no
-      // longer cap to 5 records per swimmer.
-      if (attendanceResult.error) {
-        console.error('Error loading attendance:', attendanceResult.error)
-        setAttendanceBySwimmer({})
-      } else {
-        const grouped = (attendanceResult.data || []).reduce((acc, att) => {
-          if (!acc[att.swimmer_id]) {
-            acc[att.swimmer_id] = []
-          }
-          acc[att.swimmer_id].push(att)
-          return acc
-        }, {})
-        setAttendanceBySwimmer(grouped)
-      }
-
     } catch (error) {
       console.error('Error loading dashboard:', error)
       toast.error('Failed to load dashboard data')
@@ -204,12 +120,25 @@ function ParentDashboard() {
     isParent && Boolean(user?.id)
   )
 
-  // Memoize filtered upcoming sessions to avoid re-computation (desktop: session cards + modal)
   const displaySessions = useMemo(() => {
     const squadIds = collectSwimmerSquadIds(swimmers)
     return upcomingSessions
       .filter((s) => sessionMatchesAnySwimmerSquad(s, squadIds))
       .slice(0, 4)
+  }, [upcomingSessions, swimmers])
+
+  const sessionsThisWeek = useMemo(() => {
+    const squadIds = collectSwimmerSquadIds(swimmers)
+    const todayStr = new Date().toISOString().split('T')[0]
+    const weekEnd = new Date()
+    weekEnd.setDate(weekEnd.getDate() + 7)
+    const weekEndStr = weekEnd.toISOString().split('T')[0]
+    return upcomingSessions.filter(
+      (s) =>
+        s.session_date >= todayStr &&
+        s.session_date <= weekEndStr &&
+        sessionMatchesAnySwimmerSquad(s, squadIds)
+    ).length
   }, [upcomingSessions, swimmers])
 
   const notificationCount = useMemo(() => {
@@ -229,16 +158,16 @@ function ParentDashboard() {
 
   const dashboardBadgeCount = unreadFeedCount + notificationCount
 
-  const primaryQuickActions = useMemo(
+  const quickActions = useMemo(
     () => [
       {
         id: 'invoices',
         href: '/invoices',
-        title: 'Invoices & Payments',
+        title: 'Invoices',
         subtitle:
           outstandingInvoices.length > 0
-            ? `${outstandingInvoices.length} pending`
-            : 'View history',
+            ? `${outstandingInvoices.length} pending · payments`
+            : 'Payments & history',
         theme: 'amber',
         icon: <InvoicesQuickActionIcon />,
       },
@@ -246,7 +175,12 @@ function ParentDashboard() {
         id: 'swimmers',
         href: '/swimmers',
         title: 'Swimmer Profiles',
-        subtitle: 'View details',
+        subtitle:
+          swimmers.length === 1
+            ? '1 swimmer'
+            : swimmers.length > 0
+              ? `${swimmers.length} swimmers`
+              : 'View details',
         theme: 'green',
         icon: <SwimmersQuickActionIcon />,
       },
@@ -274,35 +208,54 @@ function ParentDashboard() {
             ? `Feedback, ${unreadFeedbackReplies} new ${unreadFeedbackReplies === 1 ? 'reply' : 'replies'}`
             : 'Feedback',
       },
+      {
+        id: 'notifications',
+        href: '/dashboard/notifications',
+        title: 'Notifications',
+        subtitle: (
+          <>
+            {notificationCount > 0
+              ? `${notificationCount} alert${notificationCount === 1 ? '' : 's'}`
+              : 'All caught up'}
+            {unreadFeedCount > 0 && (
+              <span className="block opacity-90">
+                · {unreadFeedCount} new update{unreadFeedCount === 1 ? '' : 's'}
+              </span>
+            )}
+          </>
+        ),
+        theme: 'purple',
+        icon: <NotificationsQuickActionIcon />,
+        badgeCount: dashboardBadgeCount,
+        ariaLabel:
+          dashboardBadgeCount > 0
+            ? `Notifications, ${dashboardBadgeCount} unread or needing attention`
+            : 'Notifications',
+      },
+      {
+        id: 'schedule',
+        title: 'Training Schedule',
+        subtitle:
+          sessionsThisWeek > 0
+            ? `${sessionsThisWeek} this week`
+            : 'View schedule',
+        theme: 'cyan',
+        icon: <SessionsQuickActionIcon />,
+        ariaLabel: sessionsPanelOpen
+          ? 'Hide training schedule'
+          : 'Show training schedule',
+      },
     ],
-    [outstandingInvoices.length, unreadFeedbackReplies]
-  )
-
-  const notificationsAction = useMemo(
-    () => ({
-      href: '/dashboard/notifications',
-      title: 'Notifications',
-      subtitle: (
-        <>
-          {notificationCount > 0
-            ? `${notificationCount} alert${notificationCount === 1 ? '' : 's'}`
-            : 'All caught up'}
-          {unreadFeedCount > 0 && (
-            <span className="block opacity-90">
-              · {unreadFeedCount} new update{unreadFeedCount === 1 ? '' : 's'}
-            </span>
-          )}
-        </>
-      ),
-      theme: 'purple',
-      icon: <NotificationsQuickActionIcon />,
-      badgeCount: dashboardBadgeCount,
-      ariaLabel:
-        dashboardBadgeCount > 0
-          ? `Notifications, ${dashboardBadgeCount} unread or needing attention`
-          : 'Notifications',
-    }),
-    [notificationCount, unreadFeedCount, dashboardBadgeCount]
+    [
+      outstandingInvoices.length,
+      swimmers.length,
+      unreadFeedbackReplies,
+      notificationCount,
+      unreadFeedCount,
+      dashboardBadgeCount,
+      sessionsThisWeek,
+      sessionsPanelOpen,
+    ]
   )
 
   if (authLoading || loading) {
@@ -316,8 +269,8 @@ function ParentDashboard() {
   return (
     <>
       <Navigation />
-      
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8 transition-colors duration-200">
+
+      <div className="bg-gray-50 dark:bg-gray-900 py-6 sm:py-8 pb-8 transition-colors duration-200">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="mb-6">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">My Dashboard</h1>
@@ -333,38 +286,55 @@ function ParentDashboard() {
             </Card>
           )}
 
-          {/* Quick Actions — 2×2 on mobile, 5th tile centered; 5 across on lg+ */}
+          {/* Quick Actions — 2×3 on mobile; 6 across on lg+ */}
           <div className="mb-6">
             <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Quick Actions</h2>
-            <div className="grid grid-cols-2 items-start gap-2.5 sm:gap-3 lg:grid-cols-5">
-              {primaryQuickActions.map((action) => (
+            <div className="grid grid-cols-2 items-stretch gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-6">
+              {quickActions.map((action) => (
                 <QuickActionTile
                   key={action.id}
-                  href={action.href}
+                  href={action.id === 'schedule' ? undefined : action.href}
+                  onClick={
+                    action.id === 'schedule'
+                      ? () => {
+                          if (typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches) {
+                            document.getElementById('upcoming-sessions')?.scrollIntoView({ behavior: 'smooth' })
+                            return
+                          }
+                          setSessionsPanelOpen((open) => !open)
+                        }
+                      : undefined
+                  }
                   title={action.title}
                   subtitle={action.subtitle}
                   theme={action.theme}
                   icon={action.icon}
                   badgeCount={action.badgeCount}
                   ariaLabel={action.ariaLabel}
+                  isActive={action.id === 'schedule' && sessionsPanelOpen}
                 />
               ))}
-              <div className="col-span-2 flex justify-center lg:col-span-1 lg:block">
-                <QuickActionTile
-                  href={notificationsAction.href}
-                  title={notificationsAction.title}
-                  subtitle={notificationsAction.subtitle}
-                  theme={notificationsAction.theme}
-                  icon={notificationsAction.icon}
-                  badgeCount={notificationsAction.badgeCount}
-                  ariaLabel={notificationsAction.ariaLabel}
-                  className="w-full max-w-[calc(50%-5px)] lg:max-w-none"
+            </div>
+
+            {displaySessions[0] && !sessionsPanelOpen && (
+              <div className="mt-4 md:hidden">
+                <DashboardNextSessionStrip
+                  session={displaySessions[0]}
+                  onOpenSchedule={() => setSessionsPanelOpen(true)}
                 />
               </div>
-            </div>
+            )}
+
+            {sessionsPanelOpen && (
+              <div className="mt-4 md:hidden">
+                <UpcomingSessionsList
+                  sessions={displaySessions}
+                  showTitle={false}
+                />
+              </div>
+            )}
           </div>
 
-          {/* Outstanding Invoices Alert - AFTER Quick Actions */}
           {outstandingInvoices.length > 0 && (
             <div className="mb-6">
               <Card padding="normal" className="bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border-2 border-amber-400 dark:border-amber-600">
@@ -378,7 +348,7 @@ function ParentDashboard() {
                     <div className="ml-3">
                       <h3 className="text-base font-bold text-amber-900 dark:text-amber-100">Payment Required</h3>
                       <p className="text-sm text-amber-800 dark:text-amber-200 mt-1">
-                        {outstandingInvoices.length} outstanding invoice{outstandingInvoices.length > 1 ? 's' : ''}: {' '}
+                        {outstandingInvoices.length} outstanding invoice{outstandingInvoices.length > 1 ? 's' : ''}:{' '}
                         <span className="font-bold text-lg">
                           {formatKES(outstandingInvoices.reduce((sum, inv) => sum + parseFloat(inv.total_amount), 0))}
                         </span>
@@ -386,8 +356,8 @@ function ParentDashboard() {
                     </div>
                   </div>
                   <Link href="/invoices">
-                    <Button 
-                      variant="primary" 
+                    <Button
+                      variant="primary"
                       size="md"
                       className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-6 py-2 rounded-lg shadow-lg hover:shadow-xl transition-all"
                     >
@@ -399,8 +369,8 @@ function ParentDashboard() {
             </div>
           )}
 
-          {/* Swimmers Section */}
-          <div className="mb-6">
+          {/* My Swimmers — desktop only; mobile uses Swimmer Profiles quick action → /swimmers */}
+          <div className="mb-6 hidden md:block">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-4">
               <div>
                 <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
@@ -419,7 +389,7 @@ function ParentDashboard() {
             {swimmers.length === 0 ? (
               <Card>
                 <div className="text-center py-6">
-                  <p className="text-gray-600 dark:text-gray-400">You don't have any registered swimmers yet.</p>
+                  <p className="text-gray-600 dark:text-gray-400">You don&apos;t have any registered swimmers yet.</p>
                   <Link href="/register">
                     <Button className="mt-4" size="sm">Register a Swimmer</Button>
                   </Link>
@@ -428,9 +398,9 @@ function ParentDashboard() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                 {swimmers.map((swimmer) => (
-                  <SwimmerCard 
-                    key={swimmer.id} 
-                    swimmer={swimmer} 
+                  <SwimmerCard
+                    key={swimmer.id}
+                    swimmer={swimmer}
                     sessions={upcomingSessions}
                     scheduledSessions={scheduledSessions}
                     attendance={attendanceBySwimmer[swimmer.id] || []}
@@ -440,168 +410,16 @@ function ParentDashboard() {
             )}
           </div>
 
-          {/* Session cards (Mon–Sun week list above covers mobile; tap cards for modal on md+) */}
-          <div className="mb-6 hidden md:block">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">Upcoming Training Sessions</h2>
-            {upcomingSessions.length === 0 ? (
-              <Card>
-                <p className="text-gray-600 dark:text-gray-400 text-center py-4">No upcoming sessions scheduled</p>
-              </Card>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {displaySessions.map((session) => {
-                  const squadNames = sessionSquadNames(session)
-                  return (
-                  <button
-                    key={`${session.id}_${session.session_date}`}
-                    type="button"
-                    onClick={() => setSelectedSession(session)}
-                    className="text-left focus:outline-none focus:ring-2 focus:ring-primary rounded-lg"
-                  >
-                    <Card padding="normal" className="hover:shadow-md transition-shadow cursor-pointer h-full">
-                      <div className="flex w-full min-w-0 flex-col gap-2">
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                          <p className="font-semibold text-gray-900 dark:text-gray-100">
-                            {formatDate(session.session_date)}
-                          </p>
-                          {session.is_recurring && (
-                            <Badge variant="success" size="sm">
-                              Recurring
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-400">
-                          {session.start_time} – {session.end_time}
-                        </p>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 break-words">
-                          {session.pool_location}
-                        </p>
-                        <div className="flex min-w-0 flex-wrap gap-1.5">
-                          {squadNames.length > 0 ? (
-                            squadNames.map((name, i) => (
-                              <Badge
-                                key={`${name}-${i}`}
-                                variant="info"
-                                size="sm"
-                                className="max-w-full !rounded-md whitespace-normal break-words text-left leading-snug"
-                              >
-                                {name}
-                              </Badge>
-                            ))
-                          ) : (
-                            <Badge variant="info" size="sm" className="!rounded-md">
-                              No squad
-                            </Badge>
-                          )}
-                        </div>
-                        <span className="text-xs text-primary">View details →</span>
-                      </div>
-                    </Card>
-                  </button>
-                  )
-                })}
-              </div>
-            )}
+          <div id="upcoming-sessions" className="mb-6 hidden md:block">
+            <UpcomingSessionsList sessions={displaySessions} />
           </div>
         </div>
       </div>
-
-      {selectedSession && (
-        <SessionDetailsModal
-          isOpen={!!selectedSession}
-          onClose={() => setSelectedSession(null)}
-          session={selectedSession}
-          attendanceStatus="upcoming"
-        />
-      )}
 
       <Footer />
     </>
   )
 }
-
-const SwimmerCard = memo(function SwimmerCard({ swimmer, sessions, scheduledSessions = [], attendance }) {
-  const age = calculateAge(swimmer.date_of_birth)
-  const nextSession = sessions.find((s) => sessionMatchesSwimmerSquad(s, swimmer.squad_id))
-  const checkInCount = attendance.length
-
-  const swimmerScheduled = useMemo(
-    () => scheduledSessions.filter((s) => sessionMatchesSwimmerSquad(s, swimmer.squad_id)),
-    [scheduledSessions, swimmer.squad_id]
-  )
-
-  const attendanceHint = useMemo(() => {
-    function attendanceDateKey(a) {
-      const raw = a?.training_sessions?.session_date
-      if (!raw) return null
-      return typeof raw === 'string' ? raw.slice(0, 10) : new Date(raw).toISOString().slice(0, 10)
-    }
-    if (!swimmer.squad_id || swimmerScheduled.length === 0) {
-      return checkInCount > 0
-        ? `${checkInCount} training check-in${checkInCount === 1 ? '' : 's'} on record`
-        : null
-    }
-    const todayStr = new Date().toISOString().split('T')[0]
-    const pastDates = new Set()
-    for (const s of swimmerScheduled) {
-      if (s.session_date && s.session_date <= todayStr) pastDates.add(s.session_date)
-    }
-    if (pastDates.size === 0) {
-      return checkInCount > 0
-        ? `${checkInCount} training check-in${checkInCount === 1 ? '' : 's'} on record`
-        : 'No past sessions in this schedule window yet'
-    }
-    let pastAttended = 0
-    for (const d of pastDates) {
-      if (attendance.some((a) => getAttendanceOccurrenceDateKey(a) === d)) pastAttended += 1
-    }
-    return `${pastAttended} of ${pastDates.size} scheduled day${pastDates.size === 1 ? '' : 's'} with attendance (to date)`
-  }, [attendance, swimmerScheduled, swimmer.squad_id, checkInCount])
-
-  return (
-    <Card
-      padding="normal"
-      className="h-full hover:shadow-md transition-shadow border border-gray-200 dark:border-gray-700"
-    >
-      <div className="flex flex-col gap-4">
-        <div className="min-w-0">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 leading-snug">
-            {swimmer.first_name} {swimmer.last_name}
-          </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-            Age {age} · {swimmer.squads?.name || 'Squad pending'}
-          </p>
-          <div className="flex flex-wrap gap-2 mt-3">
-            <Badge variant={swimmer.status === 'approved' ? 'success' : 'warning'} size="sm">
-              {swimmer.status}
-            </Badge>
-            <Badge variant={swimmer.gala_events_opt_in ? 'success' : 'default'} size="sm">
-              {swimmer.gala_events_opt_in ? 'Events: Opted in' : 'Events: Not opted in'}
-            </Badge>
-          </div>
-        </div>
-
-        {attendanceHint && (
-          <p className="text-xs text-gray-600 dark:text-gray-400 leading-relaxed">{attendanceHint}</p>
-        )}
-
-        {nextSession && (
-          <div className="text-xs text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/40 rounded-lg px-3 py-2 border border-gray-100 dark:border-gray-600/50">
-            <span className="font-medium text-gray-900 dark:text-gray-100">Next session</span>
-            <span className="text-gray-600 dark:text-gray-400"> · </span>
-            {formatDate(nextSession.session_date)} at {nextSession.start_time}
-          </div>
-        )}
-
-        <Link href={`/swimmers/${swimmer.id}/performance`} className="block">
-          <Button size="sm" variant="primary" fullWidth className="justify-center">
-            Progress and attendance
-          </Button>
-        </Link>
-      </div>
-    </Card>
-  )
-})
 
 export default function ParentDashboardPage() {
   return (

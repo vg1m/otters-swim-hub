@@ -13,11 +13,21 @@ import Input from '@/components/ui/Input'
 import Select from '@/components/ui/Select'
 import Modal from '@/components/ui/Modal'
 import ConsentPolicy from '@/components/ConsentPolicy'
-import PrivacyDSRWidget from '@/components/PrivacyDSRWidget'
 import FamilySharedAccessPanel from '@/components/parent/FamilySharedAccessPanel'
+import Link from 'next/link'
 import { format } from 'date-fns'
 import { fetchParentIdsForDataAccess } from '@/lib/parent/effective-parent-ids'
 import toast from 'react-hot-toast'
+
+function ProfileField({ label, value, hint, className = '' }) {
+  return (
+    <div className={className}>
+      <label className="text-xs font-medium text-gray-500 dark:text-gray-400">{label}</label>
+      <p className="mt-0.5 text-sm text-gray-900 dark:text-gray-100 break-words">{value}</p>
+      {hint ? <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">{hint}</p> : null}
+    </div>
+  )
+}
 
 export default function ProfileSettings() {
   const router = useRouter()
@@ -353,181 +363,166 @@ export default function ProfileSettings() {
     <div className="min-h-screen bg-gradient-to-br from-stone-50 via-white to-stone-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
       <Navigation />
       
-      <main className="container mx-auto px-4 py-8 mt-20">
-        <div className="max-w-5xl mx-auto space-y-6">
+      <main className="container mx-auto px-4 py-6 sm:py-8">
+        <div className="max-w-5xl mx-auto space-y-4 sm:space-y-5">
           {/* Page Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+          <div className="mb-4 sm:mb-6">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">
               Profile Settings
             </h1>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
               View and manage your account information and consents
             </p>
           </div>
 
-          {/* Parent/Guardian Information */}
-          <Card 
-            title="Parent / Guardian Information" 
+          {/* Account details — parent + emergency side by side on large screens */}
+          <Card
+            title="Account details"
             padding="normal"
             action={
               !isEditing ? (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={handleEditProfile}
-                >
+                <Button variant="secondary" size="sm" onClick={handleEditProfile}>
                   Edit Profile
                 </Button>
               ) : null
             }
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid md:grid-cols-2 gap-5 md:gap-6">
               <div>
-                {isEditing ? (
-                  <Input
-                    label="Full Name"
-                    required
-                    value={editedProfile.full_name}
-                    onChange={(e) => updateEditedField('full_name', e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="John Doe"
-                  />
-                ) : (
-                  <>
-                    <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Full Name</label>
-                    <p className="mt-1 text-gray-900 dark:text-gray-100">{profile?.full_name || 'Not provided'}</p>
-                  </>
-                )}
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                  Parent / Guardian
+                </h3>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-4 sm:gap-x-4">
+                  <div>
+                    {isEditing ? (
+                      <Input
+                        label="Full Name"
+                        required
+                        value={editedProfile.full_name}
+                        onChange={(e) => updateEditedField('full_name', e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="John Doe"
+                      />
+                    ) : (
+                      <ProfileField label="Full Name" value={profile?.full_name || 'Not provided'} />
+                    )}
+                  </div>
+
+                  <div>
+                    {isEditing ? (
+                      <Select
+                        label="Relationship"
+                        required
+                        value={editedProfile.relationship}
+                        onChange={(e) => updateEditedField('relationship', e.target.value)}
+                        options={relationshipOptions}
+                      />
+                    ) : (
+                      <ProfileField
+                        label="Relationship"
+                        value={profile?.relationship || 'Not specified'}
+                        className="capitalize"
+                      />
+                    )}
+                  </div>
+
+                  <div>
+                    <ProfileField
+                      label="Email"
+                      value={profile?.email || user?.email}
+                      hint="Contact admin to change"
+                    />
+                  </div>
+
+                  <div>
+                    {isEditing ? (
+                      <Input
+                        label="Phone Number"
+                        type="tel"
+                        required
+                        value={editedProfile.phone_number}
+                        onChange={(e) => updateEditedField('phone_number', e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="0712345678"
+                        helperText="Kenyan format: 0712345678"
+                      />
+                    ) : (
+                      <ProfileField label="Phone" value={profile?.phone_number || 'Not provided'} />
+                    )}
+                  </div>
+                </div>
               </div>
-              
-              <div>
-                {isEditing ? (
-                  <Select
-                    label="Relationship"
-                    required
-                    value={editedProfile.relationship}
-                    onChange={(e) => updateEditedField('relationship', e.target.value)}
-                    options={relationshipOptions}
-                  />
-                ) : (
-                  <>
-                    <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Relationship</label>
-                    <p className="mt-1 text-gray-900 dark:text-gray-100 capitalize">
-                      {profile?.relationship || 'Not specified'}
-                    </p>
-                  </>
-                )}
-              </div>
-              
-              <div>
-                <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Email</label>
-                <p className="mt-1 text-gray-900 dark:text-gray-100">{profile?.email || user?.email}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Contact admin to change</p>
-              </div>
-              
-              <div>
-                {isEditing ? (
-                  <Input
-                    label="Phone Number"
-                    type="tel"
-                    required
-                    value={editedProfile.phone_number}
-                    onChange={(e) => updateEditedField('phone_number', e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="0712345678"
-                    helperText="Kenyan format: 0712345678"
-                  />
-                ) : (
-                  <>
-                    <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Phone Number</label>
-                    <p className="mt-1 text-gray-900 dark:text-gray-100">{profile?.phone_number || 'Not provided'}</p>
-                  </>
-                )}
+
+              <div className="pt-5 md:pt-0 border-t md:border-t-0 border-gray-200 dark:border-gray-700 md:border-l md:pl-6">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                  Emergency contact
+                </h3>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-4 sm:gap-x-4">
+                  <div>
+                    {isEditing ? (
+                      <Input
+                        label="Full Name"
+                        required
+                        value={editedProfile.emergency_contact_name}
+                        onChange={(e) => updateEditedField('emergency_contact_name', e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="Jane Doe"
+                      />
+                    ) : (
+                      <ProfileField
+                        label="Full Name"
+                        value={profile?.emergency_contact_name || 'Not provided'}
+                      />
+                    )}
+                  </div>
+
+                  <div>
+                    {isEditing ? (
+                      <Select
+                        label="Relationship"
+                        required
+                        value={editedProfile.emergency_contact_relationship}
+                        onChange={(e) => updateEditedField('emergency_contact_relationship', e.target.value)}
+                        options={relationshipOptions}
+                      />
+                    ) : (
+                      <ProfileField
+                        label="Relationship"
+                        value={profile?.emergency_contact_relationship || 'Not specified'}
+                        className="capitalize"
+                      />
+                    )}
+                  </div>
+
+                  <div>
+                    {isEditing ? (
+                      <Input
+                        label="Phone Number"
+                        type="tel"
+                        required
+                        value={editedProfile.emergency_contact_phone}
+                        onChange={(e) => updateEditedField('emergency_contact_phone', e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        placeholder="0712345678"
+                        helperText="Kenyan format: 0712345678"
+                      />
+                    ) : (
+                      <ProfileField
+                        label="Phone"
+                        value={profile?.emergency_contact_phone || 'Not provided'}
+                      />
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
-          </Card>
 
-          {/* Emergency Contact Information */}
-          <Card title="Emergency Contact" padding="normal">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                {isEditing ? (
-                  <Input
-                    label="Full Name"
-                    required
-                    value={editedProfile.emergency_contact_name}
-                    onChange={(e) => updateEditedField('emergency_contact_name', e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Jane Doe"
-                  />
-                ) : (
-                  <>
-                    <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Full Name</label>
-                    <p className="mt-1 text-gray-900 dark:text-gray-100">
-                      {profile?.emergency_contact_name || 'Not provided'}
-                    </p>
-                  </>
-                )}
-              </div>
-              
-              <div>
-                {isEditing ? (
-                  <Select
-                    label="Relationship"
-                    required
-                    value={editedProfile.emergency_contact_relationship}
-                    onChange={(e) => updateEditedField('emergency_contact_relationship', e.target.value)}
-                    options={relationshipOptions}
-                  />
-                ) : (
-                  <>
-                    <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Relationship</label>
-                    <p className="mt-1 text-gray-900 dark:text-gray-100 capitalize">
-                      {profile?.emergency_contact_relationship || 'Not specified'}
-                    </p>
-                  </>
-                )}
-              </div>
-              
-              <div>
-                {isEditing ? (
-                  <Input
-                    label="Phone Number"
-                    type="tel"
-                    required
-                    value={editedProfile.emergency_contact_phone}
-                    onChange={(e) => updateEditedField('emergency_contact_phone', e.target.value)}
-                    onKeyDown={handleKeyDown}
-                    placeholder="0712345678"
-                    helperText="Kenyan format: 0712345678"
-                  />
-                ) : (
-                  <>
-                    <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Phone Number</label>
-                    <p className="mt-1 text-gray-900 dark:text-gray-100">
-                      {profile?.emergency_contact_phone || 'Not provided'}
-                    </p>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* Save/Cancel Buttons */}
             {isEditing && (
-              <div className="flex gap-3 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
-                <Button
-                  variant="primary"
-                  onClick={handleSaveProfile}
-                  loading={saving}
-                  disabled={saving}
-                >
+              <div className="flex flex-wrap gap-3 mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
+                <Button variant="primary" onClick={handleSaveProfile} loading={saving} disabled={saving}>
                   Save Changes
                 </Button>
-                <Button
-                  variant="secondary"
-                  onClick={handleCancelEdit}
-                  disabled={saving}
-                >
+                <Button variant="secondary" onClick={handleCancelEdit} disabled={saving}>
                   Cancel
                 </Button>
               </div>
@@ -621,6 +616,7 @@ export default function ProfileSettings() {
                       }}
                       showCheckboxes={false}
                       readOnly={true}
+                      showPolicyText={false}
                     />
 
                     {/* Update Media Consent Button */}
@@ -642,26 +638,28 @@ export default function ProfileSettings() {
             )}
           </Card>
 
-          {/* Data Subject Rights - Kenya Data Protection Act */}
           <Card padding="normal">
-            <div className="space-y-4">
-              <div className="flex gap-4">
-                <svg className="w-6 h-6 text-blue-600 dark:text-blue-400 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+            <Link
+              href="/privacy"
+              className="group flex items-start sm:items-center gap-3 sm:gap-4 rounded-xl border border-primary/20 bg-gradient-to-r from-primary/5 via-white to-cyan-50/80 p-4 sm:p-5 transition-all hover:border-primary/40 hover:shadow-md dark:from-primary/10 dark:via-gray-900 dark:to-cyan-950/30 dark:border-primary/30"
+            >
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary dark:bg-primary/20">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
                 </svg>
-                <div>
-                  <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">
-                    Need help with other changes?
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-                    Exercise your data protection rights under the Kenya Data Protection Act. Submit requests for data access, correction, deletion, or portability below:
-                  </p>
-                </div>
+              </span>
+              <div className="flex-1 min-w-0 pr-1">
+                <p className="font-semibold text-gray-900 dark:text-gray-100">Privacy & your data</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400 leading-snug">
+                  Learn how we protect your data.
+                </p>
               </div>
-              
-              {/* Privacy.ke DSR Widget */}
-              <PrivacyDSRWidget />
-            </div>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-white transition-transform group-hover:translate-x-0.5 self-center">
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                </svg>
+              </span>
+            </Link>
           </Card>
         </div>
       </main>

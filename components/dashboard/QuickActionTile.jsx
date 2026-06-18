@@ -33,50 +33,91 @@ const THEME_CLASSES = {
     subtitle: 'text-purple-700/80 dark:text-purple-300/90',
     icon: 'text-violet-600/78 dark:text-violet-400/85',
   },
+  cyan: {
+    card: 'bg-cyan-50 dark:bg-cyan-900/20 border-cyan-200/80 dark:border-cyan-800',
+    title: 'text-cyan-950 dark:text-cyan-100',
+    subtitle: 'text-cyan-800/80 dark:text-cyan-300/90',
+    icon: 'text-cyan-600/80 dark:text-cyan-400/85',
+  },
+}
+
+function TileInner({ colors, badgeCount, title, subtitle, icon, isActive }) {
+  return (
+    <Card
+      padding="none"
+      className={`relative h-full shadow-sm hover:shadow-md transition-shadow cursor-pointer ${colors.card} ${
+        isActive ? 'ring-2 ring-primary/60 ring-offset-1 dark:ring-offset-gray-900' : ''
+      }`}
+    >
+      {badgeCount > 0 && (
+        <span className="absolute right-2 top-2 z-10">
+          <UnreadNotificationIndicator count={badgeCount} />
+        </span>
+      )}
+      <div
+        className={`flex h-full min-h-[5.25rem] items-start justify-between gap-3 p-4 sm:p-5 sm:min-h-[5.5rem] ${
+          badgeCount > 0 ? 'pr-9' : 'pr-4'
+        }`}
+      >
+        <div className="min-w-0 flex-1">
+          <p className={`text-sm font-semibold leading-snug min-h-[2.5rem] ${colors.title}`}>{title}</p>
+          {subtitle != null && subtitle !== '' ? (
+            <div className={`text-xs mt-1 leading-snug ${colors.subtitle}`}>{subtitle}</div>
+          ) : null}
+        </div>
+        <div className={`shrink-0 w-5 h-5 flex items-center justify-center ${colors.icon}`}>
+          {icon}
+        </div>
+      </div>
+    </Card>
+  )
 }
 
 /**
  * Compact, color-coded dashboard action tile (admin KPI styling).
+ * Renders a link when href is set, otherwise a button (e.g. toggle panels).
  */
 export default function QuickActionTile({
   href,
+  onClick,
   title,
   subtitle,
   icon,
   theme = 'blue',
   badgeCount = 0,
   ariaLabel,
+  isActive = false,
   className = '',
 }) {
   const colors = THEME_CLASSES[theme] || THEME_CLASSES.blue
+  const inner = (
+    <TileInner
+      colors={colors}
+      badgeCount={badgeCount}
+      title={title}
+      subtitle={subtitle}
+      icon={icon}
+      isActive={isActive}
+    />
+  )
+
+  if (href) {
+    return (
+      <Link href={href} aria-label={ariaLabel} className={`block h-full min-w-0 ${className}`}>
+        {inner}
+      </Link>
+    )
+  }
 
   return (
-    <Link
-      href={href}
+    <button
+      type="button"
+      onClick={onClick}
       aria-label={ariaLabel}
-      className={`block min-w-0 ${className}`}
+      aria-expanded={isActive}
+      className={`block h-full min-w-0 w-full text-left ${className}`}
     >
-      <Card
-        padding="none"
-        className={`relative shadow-sm hover:shadow-md transition-shadow cursor-pointer ${colors.card}`}
-      >
-        {badgeCount > 0 && (
-          <span className="absolute right-2 top-2 z-10">
-            <UnreadNotificationIndicator count={badgeCount} />
-          </span>
-        )}
-        <div className={`flex items-start justify-between gap-2 p-3 ${badgeCount > 0 ? 'pr-8' : 'pr-3'}`}>
-          <div className="min-w-0 flex-1">
-            <p className={`text-xs font-semibold leading-snug ${colors.title}`}>{title}</p>
-            {subtitle != null && subtitle !== '' ? (
-              <div className={`text-[11px] mt-0.5 leading-snug ${colors.subtitle}`}>{subtitle}</div>
-            ) : null}
-          </div>
-          <div className={`shrink-0 w-3.5 h-3.5 flex items-center justify-center ${colors.icon}`}>
-            {icon}
-          </div>
-        </div>
-      </Card>
-    </Link>
+      {inner}
+    </button>
   )
 }

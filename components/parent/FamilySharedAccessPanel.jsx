@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
 import { MAX_FAMILY_INVITES_PER_BATCH } from '@/lib/family/family-invite-constants'
@@ -203,13 +202,35 @@ export default function FamilySharedAccessPanel({
   }
 
   return (
-    <Card
+    <details
       id="shared-access"
-      title="Shared hub access"
-      padding="normal"
-      subtitle="Invite a co-parent or partner with their own login to see the same swimmers and invoices. Existing accounts link on next login."
+      className="group bg-white dark:bg-gray-800 rounded-lg shadow-custom border border-gray-200 dark:border-gray-700 transition-colors duration-200"
     >
-      <div className="space-y-4">
+      <summary className="flex cursor-pointer list-none items-start justify-between gap-4 p-6 text-left outline-none [&::-webkit-details-marker]:hidden focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Shared hub access</h3>
+            {familyInvites.length > 0 && (
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary dark:bg-primary/20">
+                {familyInvites.length} invited
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-sm text-gray-600 dark:text-gray-400 leading-snug">
+            Invite a co-parent or partner with their own login to see the same swimmers and invoices.
+          </p>
+        </div>
+        <span
+          className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-500 ring-1 ring-black/5 transition-transform duration-200 group-open:rotate-180 dark:bg-gray-700 dark:text-gray-400 dark:ring-white/10"
+          aria-hidden
+        >
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </span>
+      </summary>
+
+      <div className="space-y-4 border-t border-gray-200 px-6 pb-6 pt-4 dark:border-gray-700">
         <p className="text-sm text-gray-600 dark:text-gray-400">
           Up to {MAX_FAMILY_INVITES_PER_BATCH} invites at a time.
         </p>
@@ -218,7 +239,7 @@ export default function FamilySharedAccessPanel({
           {rows.map((row, index) => (
             <div
               key={index}
-              className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3 items-start p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-stone-50/50 dark:bg-gray-800/40"
+              className="grid grid-cols-2 md:grid-cols-[1fr_1fr_auto] gap-3 items-start p-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-stone-50/50 dark:bg-gray-800/40"
             >
               <Input
                 label={index === 0 ? 'Their name (optional)' : undefined}
@@ -241,7 +262,7 @@ export default function FamilySharedAccessPanel({
                   type="button"
                   variant="secondary"
                   size="sm"
-                  className="md:mt-6"
+                  className="col-span-2 md:col-span-1 md:col-start-3 md:row-start-1 md:mt-6"
                   onClick={() => removeRow(index)}
                   disabled={busy}
                 >
@@ -281,20 +302,20 @@ export default function FamilySharedAccessPanel({
             They must sign up or log in with the exact email you enter.
           </p>
         ) : (
-          <ul className="space-y-3">
+          <ul className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {familyInvites.map((inv) => (
               <li
                 key={inv.id}
-                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 bg-stone-50 dark:bg-gray-800 rounded-lg"
+                className="grid grid-cols-2 gap-x-3 gap-y-2 p-3 sm:p-4 bg-stone-50 dark:bg-gray-800 rounded-lg"
               >
-                <div>
-                  <p className="font-medium text-gray-900 dark:text-gray-100">
-                    {inv.invited_name || inv.invited_email}
-                  </p>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{inv.invited_email}</p>
-                  <p className="text-xs text-gray-500 mt-1 capitalize">Status: {inv.status}</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
+                <p className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate col-span-2">
+                  {inv.invited_name || inv.invited_email}
+                </p>
+                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate col-span-2">
+                  {inv.invited_email}
+                </p>
+                <p className="text-xs text-gray-500 capitalize self-center">Status: {inv.status}</p>
+                <div className="flex flex-wrap gap-1.5 justify-end">
                   {inv.status === 'pending' && (
                     <>
                       <Button
@@ -304,14 +325,14 @@ export default function FamilySharedAccessPanel({
                         loading={busy}
                         disabled={busy}
                       >
-                        Email them again
+                        Resend
                       </Button>
                       <Button
                         variant="secondary"
                         size="sm"
                         onClick={() => copyFamilyInviteInstructions(inv.invited_email)}
                       >
-                        Copy message to share
+                        Copy
                       </Button>
                     </>
                   )}
@@ -332,6 +353,6 @@ export default function FamilySharedAccessPanel({
           </ul>
         )}
       </div>
-    </Card>
+    </details>
   )
 }
