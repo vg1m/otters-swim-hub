@@ -20,7 +20,7 @@ import {
   fetchSessionExceptionsForSessionIds,
 } from '@/lib/sessions/calendar-window'
 import { useRefreshOnVisible } from '@/hooks/useRefreshOnVisible'
-import { buildDirectionsUrlFromLabel } from '@/lib/facilities/directions'
+import { buildSessionDirectionsUrl } from '@/lib/facilities/directions'
 import {
   KpiSwimmersIcon,
   KpiSquadIcon,
@@ -524,7 +524,7 @@ export default function CoachDashboard() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {upcomingSessions.map((session) => {
-                  const directionsUrl = buildDirectionsUrlFromLabel(session.pool_location)
+                  const directionsUrl = buildSessionDirectionsUrl(session)
                   const sessionKey = `${session.id}_${session.occurrence_date || session.session_date}`
                   return (
                   <div

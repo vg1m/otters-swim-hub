@@ -17,6 +17,7 @@ import {
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
 import SessionDetailsModal from '@/components/SessionDetailsModal'
+import SessionDirectionsLink from '@/components/sessions/SessionDirectionsLink'
 import { formatRecurrencePattern } from '@/lib/utils/recurrence'
 import { getAttendanceOccurrenceDateKey } from '@/lib/attendance/attendance-date-key'
 
@@ -260,18 +261,21 @@ export default function AttendanceCalendarView({
                   const sessionStatus = selectedStatus
                   const cfg = STATUS_CONFIG[sessionStatus]
                   return (
-                    <li key={`${session.id}_${session.session_date}_${session.start_time}`}>
+                    <li
+                      key={`${session.id}_${session.session_date}_${session.start_time}`}
+                      className="rounded-lg border border-gray-200 dark:border-gray-700"
+                    >
                       <button
                         type="button"
                         onClick={() => setDetailsSession({ session, status: sessionStatus })}
-                        className="w-full text-left p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="w-full text-left p-3 hover:border-primary/60 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary rounded-t-lg"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0 space-y-1">
                             <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
                               {session.start_time} – {session.end_time}
                             </p>
-                            <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
+                            <p className="text-xs text-gray-600 dark:text-gray-400 break-words">
                               {session.pool_location || 'N/A'} · {sessionSquadsLabel(session)}
                             </p>
                             {session.is_recurring && (
@@ -288,6 +292,9 @@ export default function AttendanceCalendarView({
                           </div>
                         </div>
                       </button>
+                      <div className="px-3 pb-2">
+                        <SessionDirectionsLink session={session} />
+                      </div>
                     </li>
                   )
                 })}

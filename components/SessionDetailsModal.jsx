@@ -2,6 +2,7 @@
 
 import Modal from '@/components/ui/Modal'
 import Badge from '@/components/ui/Badge'
+import SessionDirectionsLink from '@/components/sessions/SessionDirectionsLink'
 import { formatDate } from '@/lib/utils/date-helpers'
 import { formatRecurrencePattern } from '@/lib/utils/recurrence'
 
@@ -62,6 +63,7 @@ export default function SessionDetailsModal({ isOpen, onClose, session, attendan
             <dd className="text-gray-900 dark:text-gray-100 font-medium">
               {session.pool_location || 'N/A'}
             </dd>
+            <SessionDirectionsLink session={session} className="mt-1 text-sm font-medium text-primary hover:underline inline-block" />
           </div>
           <div className="sm:col-span-2">
             <dt className="text-gray-500 dark:text-gray-400">Squads</dt>

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Badge from '@/components/ui/Badge'
+import SessionDirectionsLink from '@/components/sessions/SessionDirectionsLink'
 import { calculateAge, formatDate } from '@/lib/utils/date-helpers'
 import { sessionMatchesSwimmerSquad } from '@/lib/parent/swimmerSchedule'
 import { getAttendanceOccurrenceDateKey } from '@/lib/attendance/attendance-date-key'
@@ -75,10 +76,16 @@ const SwimmerCard = memo(function SwimmerCard({
         )}
 
         {nextSession && (
-          <div className="text-xs text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/40 rounded-lg px-3 py-2 border border-gray-100 dark:border-gray-600/50">
-            <span className="font-medium text-gray-900 dark:text-gray-100">Next session</span>
-            <span className="text-gray-600 dark:text-gray-400"> · </span>
-            {formatDate(nextSession.session_date)} at {nextSession.start_time}
+          <div className="text-xs text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/40 rounded-lg px-3 py-2 border border-gray-100 dark:border-gray-600/50 space-y-1">
+            <p>
+              <span className="font-medium text-gray-900 dark:text-gray-100">Next session</span>
+              <span className="text-gray-600 dark:text-gray-400"> · </span>
+              {formatDate(nextSession.session_date)} at {nextSession.start_time}
+            </p>
+            {nextSession.pool_location && (
+              <p className="text-gray-600 dark:text-gray-400 break-words">{nextSession.pool_location}</p>
+            )}
+            <SessionDirectionsLink session={nextSession} />
           </div>
         )}
 

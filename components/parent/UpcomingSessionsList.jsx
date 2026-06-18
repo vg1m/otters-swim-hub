@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Card from '@/components/ui/Card'
 import Badge from '@/components/ui/Badge'
 import SessionDetailsModal from '@/components/SessionDetailsModal'
+import SessionDirectionsLink from '@/components/sessions/SessionDirectionsLink'
 import { formatDate } from '@/lib/utils/date-helpers'
 
 function sessionSquadNames(session) {
@@ -34,13 +35,16 @@ export default function UpcomingSessionsList({
           {sessions.map((session) => {
             const squadNames = sessionSquadNames(session)
             return (
-              <button
+              <Card
                 key={`${session.id}_${session.session_date}`}
-                type="button"
-                onClick={() => setSelectedSession(session)}
-                className="text-left focus:outline-none focus:ring-2 focus:ring-primary rounded-lg"
+                padding="normal"
+                className="hover:shadow-md transition-shadow h-full flex flex-col"
               >
-                <Card padding="normal" className="hover:shadow-md transition-shadow cursor-pointer h-full">
+                <button
+                  type="button"
+                  onClick={() => setSelectedSession(session)}
+                  className="flex-1 w-full text-left focus:outline-none focus:ring-2 focus:ring-primary rounded-lg"
+                >
                   <div className="flex w-full min-w-0 flex-col gap-2">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                       <p className="font-semibold text-gray-900 dark:text-gray-100">
@@ -78,8 +82,9 @@ export default function UpcomingSessionsList({
                     </div>
                     <span className="text-xs text-primary">View details →</span>
                   </div>
-                </Card>
-              </button>
+                </button>
+                <SessionDirectionsLink session={session} className="mt-3 text-xs text-primary font-medium hover:underline inline-block" />
+              </Card>
             )
           })}
         </div>
