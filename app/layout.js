@@ -1,6 +1,7 @@
 import './globals.css'
 import { fontOutfit, fontReenieBeanie } from '@/lib/fonts'
 import { Analytics } from '@vercel/analytics/next'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 import { Toaster } from 'react-hot-toast'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import SessionTimeoutWatcher from '@/components/SessionTimeoutWatcher'
@@ -72,6 +73,7 @@ export default function RootLayout({ children }) {
             }}
           />
           <Analytics />
+          <SpeedInsights />
         </ThemeProvider>
       </body>
     </html>
