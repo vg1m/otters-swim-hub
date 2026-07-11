@@ -1139,7 +1139,7 @@ export default function CoachManagementPage() {
               setEditCoachForm({ ...editCoachForm, per_session_rate_kes: e.target.value })
             }
             placeholder="e.g. 2500"
-            helperText="Used for automated session pay notifications. Leave empty to disable."
+            helperText="Default amount when admin records a session pay line. Leave empty to disable."
           />
         </div>
       </Modal>

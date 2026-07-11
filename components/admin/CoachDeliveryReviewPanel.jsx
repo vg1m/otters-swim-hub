@@ -13,7 +13,6 @@ import Input from '@/components/ui/Input'
 import { format, subDays } from 'date-fns'
 import { formatDate, formatSessionTime } from '@/lib/utils/date-helpers'
 import toast from 'react-hot-toast'
-import { notifyCoachSessionPayRecorded } from '@/lib/notifications/notify-coach-session-pay'
 
 /** Preset button labels (full text, compact typography on buttons). */
 const RANGE = {
@@ -518,29 +517,25 @@ export default function CoachDeliveryReviewPanel({ coaches = [] }) {
       return
     }
     setPayLineSaving(true)
-    const supabase = createClient()
     try {
-      const { error } = await supabase.from('coach_session_pay_events').insert({
-        session_id: payLineSession.id,
-        coach_id: leadCoachId,
-        amount_kes: n,
-        rate_snapshot_kes: n,
+      const res = await fetch('/api/admin/coach-session-pay', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          sessionId: payLineSession.id,
+          coachId: leadCoachId,
+          amountKes: n,
+        }),
       })
-      if (error) {
-        if (error.code === '23505' || /duplicate key|unique constraint/i.test(String(error.message || ''))) {
-          throw new Error('A pay line for this session already exists. Refresh the page.')
-        }
-        throw error
+      const data = await res.json().catch(() => ({}))
+      if (res.status === 409 || data.duplicate) {
+        throw new Error('A pay line for this session already exists. Refresh the page.')
       }
-      await notifyCoachSessionPayRecorded(supabase, {
-        coachId: leadCoachId,
-        sessionId: payLineSession.id,
-        amountKes: n,
-        sessionDateLabel: payLineSession.session_date
-          ? String(payLineSession.session_date).slice(0, 10)
-          : undefined,
-      })
-      toast.success('Pay line recorded')
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to record pay line')
+      }
+      toast.success('Pay line recorded — coach notified.')
       payLineFetchTokenRef.current += 1
       setPayLineSession(null)
       setPayLineResolvedKes(null)

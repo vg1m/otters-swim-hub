@@ -1,12 +1,18 @@
 import { NextResponse } from 'next/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
-import { sendCoachSessionPayEmail } from '@/lib/utils/send-email'
+import { sendCoachSessionPayAdminReminderEmail } from '@/lib/utils/send-email'
 import { getSessionEndUtc } from '@/lib/utils/session-timezone'
-import { formatInTimeZone } from 'date-fns-tz'
-import { notifyCoachSessionPayRecorded } from '@/lib/notifications/notify-coach-session-pay'
 
 function unauthorized() {
   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+}
+
+function adminNotifyEmail() {
+  return (
+    process.env.COACH_PAY_NOTIFY_EMAIL?.trim() ||
+    process.env.SMTP2GO_FROM_EMAIL?.trim() ||
+    null
+  )
 }
 
 async function runCoachSessionPayJob() {
@@ -26,12 +32,12 @@ async function runCoachSessionPayJob() {
 
   if (sessErr) {
     console.error('coach-session-pay: sessions query', sessErr)
-    return { ok: false, error: sessErr.message, processed: 0 }
+    return { ok: false, error: sessErr.message, pendingCount: 0 }
   }
 
   const list = sessions || []
   if (list.length === 0) {
-    return { ok: true, processed: 0, message: 'No sessions in range' }
+    return { ok: true, pendingCount: 0, reminded: false, message: 'No sessions in range' }
   }
 
   const coachIds = [...new Set(list.map((s) => s.coach_id))]
@@ -42,7 +48,7 @@ async function runCoachSessionPayJob() {
 
   if (coachErr) {
     console.error('coach-session-pay: profiles query', coachErr)
-    return { ok: false, error: coachErr.message, processed: 0 }
+    return { ok: false, error: coachErr.message, pendingCount: 0 }
   }
 
   const coachById = new Map((coaches || []).map((c) => [c.id, c]))
@@ -60,7 +66,7 @@ async function runCoachSessionPayJob() {
   }
 
   if (eligible.length === 0) {
-    return { ok: true, processed: 0, message: 'No eligible sessions past end time' }
+    return { ok: true, pendingCount: 0, reminded: false, message: 'No eligible sessions past end time' }
   }
 
   const sessionIds = eligible.map((e) => e.session.id)
@@ -72,52 +78,47 @@ async function runCoachSessionPayJob() {
   const existing = new Set((existingRows || []).map((r) => r.session_id))
   const pending = eligible.filter((e) => !existing.has(e.session.id))
 
-  let processed = 0
-  const notifyCc = process.env.COACH_PAY_NOTIFY_EMAIL || null
-
-  for (const row of pending) {
-    const { session, coach, rate } = row
-    const endUtc = getSessionEndUtc(session.session_date, session.end_time, tz)
-    const sessionDateStr =
-      typeof session.session_date === 'string'
-        ? session.session_date.slice(0, 10)
-        : String(session.session_date)
-    const sessionEndLocal = formatInTimeZone(endUtc, tz, 'yyyy-MM-dd HH:mm')
-
-    const { error: insErr } = await supabase.from('coach_session_pay_events').insert({
-      session_id: session.id,
-      coach_id: coach.id,
-      amount_kes: rate,
-      rate_snapshot_kes: rate,
-    })
-
-    if (insErr) {
-      console.error('coach-session-pay: insert', insErr)
-      continue
-    }
-
-    await notifyCoachSessionPayRecorded(supabase, {
-      coachId: coach.id,
-      sessionId: session.id,
-      amountKes: rate,
-      sessionDateLabel: sessionDateStr,
-    })
-
-    processed += 1
-    const coachEmail = coach.email
-    if (coachEmail) {
-      await sendCoachSessionPayEmail({
-        coachEmail,
-        coachName: coach.full_name || 'Coach',
-        amountKes: rate,
-        sessionDate: sessionDateStr,
-        sessionEndLocal,
-        notifyCc,
-      })
-    }
+  if (pending.length === 0) {
+    return { ok: true, pendingCount: 0, reminded: false, message: 'All eligible sessions already have pay lines' }
   }
 
-  return { ok: true, processed, pendingCount: pending.length }
+  const to = adminNotifyEmail()
+  let reminded = false
+
+  if (to) {
+    const pendingRows = pending
+      .map(({ session, coach, rate }) => ({
+        sessionDate:
+          typeof session.session_date === 'string'
+            ? session.session_date.slice(0, 10)
+            : String(session.session_date),
+        coachName: coach.full_name || coach.email || 'Coach',
+        amountKes: rate,
+      }))
+      .sort((a, b) => b.sessionDate.localeCompare(a.sessionDate))
+
+    const emailResult = await sendCoachSessionPayAdminReminderEmail({
+      to,
+      pending: pendingRows,
+    })
+    reminded = !!emailResult.success
+    if (!emailResult.success && !emailResult.skipped) {
+      console.error('coach-session-pay: admin reminder email failed', emailResult.error)
+    }
+  } else {
+    console.warn(
+      'coach-session-pay: no admin email configured (set COACH_PAY_NOTIFY_EMAIL or SMTP2GO_FROM_EMAIL)'
+    )
+  }
+
+  return {
+    ok: true,
+    pendingCount: pending.length,
+    reminded,
+    message: reminded
+      ? `Admin reminder sent for ${pending.length} session(s)`
+      : `${pending.length} session(s) pending pay lines (no admin email sent)`,
+  }
 }
 
 export async function GET(request) {

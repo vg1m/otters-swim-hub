@@ -8,18 +8,24 @@ import SessionTimeoutWatcher from '@/components/SessionTimeoutWatcher'
 import PrivacyConsentWidget from '@/components/PrivacyConsentWidget'
 import RecoverySessionRedirect from '@/components/RecoverySessionRedirect'
 import AuthEmailLinkBridge from '@/components/AuthEmailLinkBridge'
+import PwaLaunchSplash from '@/components/PwaLaunchSplash'
 
 export const metadata = {
   title: 'Otters Kenya Academy of Swimming',
   description: 'Swim club management platform for Otters Kenya',
   manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'Otters Kenya',
+  },
 }
 
 export const viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
-  themeColor: '#0066CC',
+  themeColor: '#ffffff',
 }
 
 export default function RootLayout({ children }) {
@@ -31,10 +37,14 @@ export default function RootLayout({ children }) {
       className={`${fontOutfit.variable} ${fontReenieBeanie.variable}`}
     >
       <head>
+        <link rel="apple-touch-icon" href="/icons/icon.svg" />
         <script
           dangerouslySetInnerHTML={{
             __html: `
               try {
+                if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+                  document.documentElement.style.backgroundColor = '#ffffff';
+                }
                 // Default to dark; light only when explicitly saved
                 if (localStorage.theme === 'light') {
                   document.documentElement.classList.remove('dark')
@@ -53,6 +63,7 @@ export default function RootLayout({ children }) {
         className={`${fontOutfit.className} bg-stone-50 dark:bg-gray-900 text-stone-900 dark:text-gray-100 transition-colors duration-200`}
       >
         <ThemeProvider>
+          <PwaLaunchSplash />
           <div className="grain-overlay"></div>
           <SessionTimeoutWatcher />
           <RecoverySessionRedirect />
